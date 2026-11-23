@@ -28,8 +28,6 @@ Read [RELEASE_NOTES_v191.md](RELEASE_NOTES_v191.md) first for scientific limitat
 
 ---
 
-![Application-preview](./static/lab-1.png)
-
 **Installation (Windows 11, Python 3.14, Quadro P1000):**
 
 ```powershell

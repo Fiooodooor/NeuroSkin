@@ -1,0 +1,32 @@
+# NeuroSkin Evolution Lab 1.9.1 — SINGLE installation manifest.
+# Supported target: Windows 11 x64, CPython 3.14, NVIDIA Quadro P1000/Pascal.
+# Install ALL packages using: python -m pip install -r requirements.txt
+# CuPy [ctk] includes its CUDA 12 runtime, without installing CUDA Toolkit globally.
+# Do not install `cupy` or `cupy-cuda13x` alongside cupy-cuda12x.
+
+# API, geometry, numerics, process resources
+fastapi>=0.110,<1
+uvicorn>=0.27,<1
+numpy>=1.26,<2.6
+trimesh>=4,<6
+pydantic>=2,<3
+scipy>=1.12,<2
+psutil>=6,<8
+
+# Numba JIT for 4x/8x matrix-free continuum HEX8; falls back to CPU without JIT.
+numba>=0.61,<1
+
+# CUDA 12 for the Pascal CC 6.1 Quadro P1000 and Python 3.14.
+# The GPU backend remains explicit opt-in, never automatically preferred.
+cupy-cuda12x[ctk]>=14.0.1,<15
+
+# Future tetrahedral/volumetric mesh and results workflows.
+# Note: these packages are installed as requested, but the current main solver
+# does NOT silently switch to Gmsh/scikit-fem/VTK.
+gmsh>=4.14,<5
+scikit-fem>=11,<13
+meshio>=5,<6
+pyvista>=0.44,<1
+
+# Reproducible research, spatial SNR maps, and laminate-shell preview plots.
+matplotlib>=3.9,<4

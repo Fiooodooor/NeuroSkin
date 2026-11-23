@@ -1,0 +1,62 @@
+[
+  {
+    "previous": null,
+    "selected": "0-87",
+    "replaced": false,
+    "rule": "feasible first \u2192 audit score; incumbent retained on ties",
+    "generation": 1,
+    "top3": [
+      {
+        "id": "0-87",
+        "family": "crown",
+        "topology": "spiral",
+        "score": 34.84044,
+        "feasible": false
+      },
+      {
+        "id": "0-230",
+        "family": "quadrant",
+        "topology": "r_rigid_island",
+        "score": 28.26017,
+        "feasible": false
+      },
+      {
+        "id": "0-219",
+        "family": "crown",
+        "topology": "arched",
+        "score": 25.57978,
+        "feasible": false
+      }
+    ]
+  },
+  {
+    "previous": "0-87",
+    "selected": "0-87",
+    "replaced": false,
+    "rule": "feasible first \u2192 audit score; incumbent retained on ties",
+    "generation": 2,
+    "top3": [
+      {
+        "id": "1-214",
+        "family": "quadrant",
+        "topology": "procedural",
+        "score": 29.45616,
+        "feasible": false
+      },
+      {
+        "id": "1-0",
+        "family": "crown",
+        "topology": "spiral",
+        "score": 34.84044,
+        "feasible": false
+      },
+      {
+        "id": "1-246",
+        "family": "quadrant",
+        "topology": "auxetic",
+        "score": 32.44984,
+        "feasible": false
+      }
+    ]
+  }
+]

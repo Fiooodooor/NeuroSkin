@@ -1,0 +1,21 @@
+id,name,origin,family,normal,shear,location,dynamic,recovery,stretch,fabrication,fatigue,electronics,numerical,total,selected_top10,source_url
+r_rigid_island,Rigid-island flexure,literature,quadrant,8,8,9,7,9,9,8,8,8,8,82,True,https://doi.org/10.1038/s41528-025-00503-7
+s_mirror_flex,Mirror flexure pairs,hypothesis,quadrant,8,9,9,8,8,8,8,8,8,8,82,True,
+r_kirigami_hinge,Kirigami soft hinges,literature,quadrant,8,8,8,8,8,10,8,7,7,8,80,True,https://doi.org/10.1002/adsr.202400012
+s_wave_pairs,Opposed S-bends,hypothesis,quadrant,8,9,8,8,8,8,8,7,7,8,79,True,
+r_auxetic_kirigami,Auxetic kirigami cell,literature,quadrant,8,9,8,9,7,9,7,7,7,7,78,True,https://www.sciencedirect.com/science/article/pii/S2211285524008747
+s_catenary,Tension-compression catenary,hypothesis,crown,9,6,7,7,8,7,9,8,9,8,78,True,
+s_gradient_arch,Graded response arch,hypothesis,crown,9,6,7,8,8,7,8,8,9,8,78,True,
+s_tripod_triage,Tri-directional tripod,hypothesis,quadrant,8,9,9,8,8,7,8,7,7,7,78,True,
+s_radial_ladder,Radial ladder,hypothesis,crown,9,7,7,7,8,7,8,8,8,8,77,False,
+r_microporous,Microporous dielectric cage,literature,crown,10,6,7,6,8,7,7,8,9,7,75,False,https://doi.org/10.1038/s41528-026-00538-4
+r_orthogonal_piezo,Orthogonal PVDF grid,literature,quadrant,8,10,9,10,7,7,5,6,6,7,75,False,https://www.sciencedirect.com/science/article/pii/S1385894726027865
+s_opposed_helix,Counter-helical cuff,hypothesis,chiral,7,9,8,9,7,8,7,7,6,7,75,True,
+r_gyroid_web,Gyroid-like web,literature,crown,9,7,7,7,9,7,6,8,8,6,74,False,https://www.sciencedirect.com/science/article/pii/S0264127524009109
+r_tpms_diamond,TPMS diamond cell,literature,chiral,9,8,7,7,9,7,5,8,7,6,73,True,https://www.mdpi.com/2073-4360/18/19/2449
+s_spatial_trellis,Spatial trellis,hypothesis,crown,8,8,7,7,7,8,7,7,7,7,73,False,
+r_buckled_pvdf,Buckled PVDF arch,literature,chiral,8,8,7,10,7,8,6,6,6,6,72,False,https://doi.org/10.1038/s41528-024-00310-6
+r_fish_scale,Scale-fold origami,literature,crown,8,8,9,7,7,9,5,6,6,6,71,False,https://doi.org/10.1038/s41528-026-00563-3
+s_split_helix,Split helices,hypothesis,chiral,7,9,8,9,7,7,6,6,6,6,71,False,
+r_lc_origami,Origami LC honeycomb,literature,crown,8,6,7,6,7,9,5,7,9,6,70,False,https://doi.org/10.1038/s41528-025-00527-z
+s_double_saddle,Double saddle,hypothesis,chiral,7,9,7,8,7,7,6,6,6,7,70,False,

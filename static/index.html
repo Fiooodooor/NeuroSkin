@@ -1,0 +1,413 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>NeuroSkin · Evolution Lab 1.9.1</title><script src="/static/plotly.min.js"></script><style>
+:root{color-scheme:dark;--bg:#07111b;--p:#101e2b;--p2:#172b3b;--line:#2b4657;--txt:#e6f3f4;--muted:#93b1c0;--sea:#75d3bf;--gold:#ecbe7f}*{box-sizing:border-box}body{background:var(--bg);color:var(--txt);font:13px system-ui,Segoe UI,sans-serif;margin:0}header{padding:15px 20px;background:#10202e;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:10px}h1{font-size:21px;margin:0}h2{font-size:15px;margin:0 0 11px}small{color:var(--muted)}main{max-width:1800px;margin:auto;padding:13px;display:grid;gap:12px;grid-template-columns:310px minmax(480px,1fr) 355px}.panel{background:var(--p);border:1px solid var(--line);border-radius:12px;padding:15px;min-width:0}.left label{display:block;margin:12px 0 5px;color:var(--muted)}input,select,button{font:inherit;color:var(--txt);border:1px solid #3c5b68;border-radius:7px;background:#192d3c;padding:9px;width:100%}button{cursor:pointer}button:hover{background:#285366}button.main{background:var(--sea);border:0;color:#07302c;font-weight:750}.row{display:flex;gap:7px;align-items:center}.row>*{flex:1}.pills{display:flex;gap:5px}.pills button{font-size:11px;padding:7px}.statbox{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:12px}.stat{background:var(--p2);padding:9px;border-radius:7px}.stat strong{display:block;font-size:19px;color:var(--sea)}.progress{height:7px;border-radius:10px;background:#2b4353;margin:13px 0 5px;overflow:hidden}.progress div{height:100%;background:var(--sea);width:0}.stage{padding:0;overflow:hidden}.stage .bar{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:12px;border-bottom:1px solid var(--line)}#model{height:550px;width:100%}.note{font-size:11px;color:#e9cfad;background:#253039;padding:11px;border-left:3px solid var(--gold);border-radius:4px;line-height:1.55}.badge{padding:5px 10px;border-radius:18px;background:#315162;color:#c9ebef}.badge.running{background:#1f5a4b;color:#a1edcb}.badge.paused{background:#685232;color:#ffe0a6}.gallery{max-height:310px;overflow:auto;display:grid;gap:6px}.candidate{background:#192d40;border:1px solid #385265;padding:9px;text-align:left;border-radius:8px;display:flex;justify-content:space-between;align-items:center}.candidate.selected{border-color:var(--sea);background:#20534e}.candidate small{display:block;margin-top:3px}.metricgrid{display:grid;grid-template-columns:1fr 1fr;gap:7px}.metric{padding:8px;background:#1c3040;border-radius:6px}.metric b{display:block;font-size:16px;color:#b9edde}.chart{grid-column:span 2}.testpanel{grid-column:1/-1}.testcontrols{display:grid;grid-template-columns:2fr 1fr 1.3fr;gap:12px;align-items:end;margin:14px 0}.testcontrols label{display:block;color:var(--muted);margin-bottom:7px}.inlinecheck{display:flex!important;align-items:center;gap:8px}.inlinecheck input{width:auto}.testresults{display:grid;grid-template-columns:minmax(350px,2fr) minmax(300px,1fr);gap:14px}#responsegraph{height:340px}.resultpre{max-height:170px;overflow:auto;font-size:11px;color:#d3e6e7;white-space:pre-wrap}.warning{display:block;color:#f1cf9a;line-height:1.5;margin-top:8px}#history{height:260px}.footer{font-size:11px;text-align:center;color:var(--muted);padding:14px}.viewopts{display:flex;gap:5px;padding:11px;border-top:1px solid var(--line)}.viewopts label{display:flex;align-items:center;white-space:nowrap;gap:4px}.viewopts input{width:auto}.viewopts select{width:auto}.right h2{margin-top:15px}.right h2:first-child{margin-top:0}#error{color:#f3b0a4;font-size:12px;min-height:18px;padding-top:8px}button:disabled{opacity:.5}.caption{padding:10px 12px;border-top:1px solid var(--line);color:var(--muted);font-size:11px}#parameters{font:11px ui-monospace,Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere;max-height:120px;overflow:auto;color:#b7cdda}.metrichead{margin-top:12px}.legend{display:flex;gap:10px;flex-wrap:wrap;font-size:11px}.legend span:before{content:'● ';color:var(--sea)}.legend span:nth-child(2):before{color:var(--gold)}.legend span:nth-child(3):before{color:#7baedb}.legend span:nth-child(4):before{color:#b99ce8}.legend span:nth-child(5):before{color:#91b0bd}@media(max-width:1250px){main{grid-template-columns:300px 1fr}.right{grid-column:1/-1}.chart{grid-column:1/-1}}@media(max-width:760px){.testcontrols,.testresults{grid-template-columns:1fr}main{display:block;padding:8px}.panel{margin-bottom:10px}#model{height:400px}}
+
+.archive-panel{grid-column:1/-1}.archive-notice{margin-top:9px;color:var(--sea);font-size:11px}.archive-panel .row{gap:8px}.archive-panel .row select{flex:1}.archive-panel .row button{flex:0 0 auto;width:auto}@media(max-width:760px){.archive-panel .row{flex-wrap:wrap}.archive-panel .row button{flex:1}}
+/* Basic is the default. Advanced exposes identical engine, not an alternate simulation. */
+body.basic .advanced-only, body.basic .testpanel, body.basic #operators, body.basic #parameters,
+body.basic #metricgrid, body.basic .metrichead, body.basic .viewopts, body.basic .caption,
+body.basic .right > small:last-child {display:none!important}
+body.basic main{grid-template-columns:285px minmax(390px,1fr) 310px}
+body.basic #model{height:455px}
+body.basic .stage .bar{padding:12px}
+.mode-toggle{display:flex;gap:4px;border:1px solid #375766;border-radius:9px;padding:4px;margin-left:auto;max-width:220px}
+.mode-toggle button{padding:7px 12px;width:auto;border:0;background:transparent;color:#b9d2d9;font-weight:650}
+.mode-toggle button.active{background:#467c76;color:white}
+.pipeline{grid-column:1/-1;display:grid;gap:12px}.stage>.pipeline{margin:10px 12px 12px}.stage .pipeline-box{padding:12px}.stage .audit-cards{grid-template-columns:repeat(3,minmax(0,1fr))}.stage #pipelineStatus{font-weight:650;color:var(--sea)}
+.pipeline-box{border:1px solid #345363;border-radius:10px;background:#101e2b;padding:14px}
+.audit-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+.audit-card{border:1px solid #335161;background:#192e3f;padding:12px;border-radius:9px;cursor:pointer;text-align:left}
+.audit-card b{display:block;color:#a2e7d7;font-size:16px}.audit-card small{display:block;margin-top:5px}
+.audit-card.selected{border-color:#74d3c0}
+.audit-results{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:start}
+.audit-results pre{font-size:11px;white-space:pre-wrap;overflow:auto;max-height:170px}
+body.basic .audit-results{display:none}
+.pill-status{background:#263f4c;border-radius:15px;padding:4px 9px;color:#c6e0df;display:inline-block}
+@media(max-width:1100px){.stage .audit-cards,.audit-cards{grid-template-columns:1fr}.audit-results{grid-template-columns:1fr}body.basic main{grid-template-columns:1fr}.pipeline{grid-column:1/-1}}
+.seed-panel{grid-column:1/-1}.seedscroll{overflow:auto;max-height:440px}.seedtable{border-collapse:collapse;width:100%;min-width:1180px;font-size:11px}.seedtable th,.seedtable td{padding:7px 6px;border-bottom:1px solid var(--line);text-align:center}.seedtable th:first-child,.seedtable td:first-child{text-align:left;min-width:210px}.seedtable tr.picked{background:#193d3b}.seedtable button{padding:5px;width:auto}.seedscore{font-size:15px;font-weight:750;color:var(--sea)}#runcheck,#runspatial,#femRun{display:none!important}#evaluateAll{font-weight:750}#allEvalResult{max-height:350px;overflow:auto;white-space:pre-wrap}#allEvalStatus{font-size:12px;color:var(--sea)}
+</style></head><body class="basic"><header><div><h1>◈ NeuroSkin <span style="color:var(--sea)">Evolution Lab 1.9.1</span></h1><small>Mechanical + synthetic electrical screening · live 3D and load-case explorer</small></div><div class="mode-toggle" role="group" aria-label="Interface complexity"><button id="basicMode" class="active" type="button">Basic</button><button id="advancedMode" type="button">Advanced</button></div><span class="badge" id="status">Idle</span></header><main>
+<details class="panel archive-panel" aria-label="Saved evolution runs"><summary style="cursor:pointer;font-size:14px;font-weight:700">Saved experiments — reopen earlier runs and Top-3 generations</summary><div style="padding-top:12px">
+ <div class="row" style="justify-content:space-between"><h2 style="margin:0">Saved experiments</h2><button id="reloadArchives" style="max-width:95px">Refresh</button></div>
+ <small>Load past evolutions after restarting the server. The archive is read-only and can be inspected in 3D.</small>
+ <div class="row" style="margin-top:11px"><select id="archiveSelect" aria-label="Choose saved run"><option value="">Choose an experiment…</option></select><button id="openArchive" style="max-width:95px">Open</button></div>
+ <div class="row" style="margin-top:9px"><select id="stageSelect" aria-label="Inspect archived generation"><option value="">Final run result</option></select><button id="openStage" style="max-width:130px">Inspect stage</button></div>
+ <div class="advanced-only" style="margin-top:10px"><label for="compareArchive">Compare this run with</label>
+ <div class="row"><select id="compareArchive"><option value="">Select second run…</option></select><button id="compareRuns" style="max-width:110px">Compare</button></div>
+ <pre id="compareResult" class="resultpre">Cross-run comparisons require matching model source hash, objective and audit protocol.</pre></div>
+ <div id="archiveNotice" class="archive-notice">Live session · saved runs are stored under runs_v05/</div>
+ <div class="row" style="margin-top:10px"><button id="returnLive">Return to live</button><button id="downloadArchive">Download selected run ZIP</button></div>
+ </div></details>
+<section class="panel seed-panel"><details><summary style="cursor:pointer;font-size:15px;font-weight:700">20 starting geometries · 10 shortlisted · 10 transparent criteria</summary><p><small>Expert engineering PRIOR scores (not FEM measurements). Ten are independently proposed hypotheses; ten are inspired by published research. Select Preview to inspect the actual generated 3D model.</small></p><div class="seedscroll" id="seedLibrary">Loading library…</div></details></section>
+<section class="panel left"><h2>Evolution controls</h2><label>Search space</label><select id="mode"><option value="all">All families · cross-family evolution</option><option value="crown">A5 · Progressive Crown</option><option value="chiral">B5 · Chiral Torsion</option><option value="quadrant">C5 · Differential Quadrant</option></select><label>Duration</label><div class="pills"><button data-sec="60">60 s</button><button data-sec="120">120 s</button><button data-sec="300">300 s</button></div><label>Custom seconds</label><input id="seconds" type="number" min="3" max="3600" value="60"><label>CPU workers</label><input id="cores" type="number" min="1" max="256" value="1"><small id="coreinfo">Separate CPU processes; higher utilization depends on the workload. Each process uses one BLAS thread.</small><label>Population</label><select id="population"><option>24</option><option selected>48</option><option>80</option><option>120</option><option>192</option><option>256</option></select><label class="advanced-only">Exploration / structural change: <b id="exploreval">65%</b></label><input class="advanced-only" type="range" id="explore" min="0" max="100" value="65"><small class="advanced-only">Higher values increase novelty selection, topology jumps, random immigrants and cross-family mutations.</small><label>Optimization target</label><select id="objective"><option value="balanced">Balanced · 36% mechanics / 28% electrical / 18% robustness / 18% PVDF</option><option value="touch">Sensitive touch · 25% mechanics / 43% electrical / 12% robustness / 20% PVDF</option><option value="robust">Strain robustness · 30% mechanics / 17% electrical / 38% robustness / 15% PVDF</option><option value="dynamic">Dynamic events · 50% PVDF, 22% mechanics</option></select><label class="inlinecheck" style="margin-top:14px"><input id="physical_gate" type="checkbox" checked> <b>Physical plausibility gate</b></label><small>Reject candidates if downward vertical pressure produces insufficient assumed electrode signal or implausible displacement/tilt/reaction over the contact area.</small><label class="inlinecheck" style="margin-top:12px"><input type="checkbox" id="enable_fem" checked> <b>Run bonded-PVDF mechanical FEM for Top-3 finalists</b></label><small>Default: true 3D solid HEX8 even at 0.15625 mm. Optional space-frame beam FEM is much faster but NOT a 3D volume mesh. Fine solid grids may need substantial time and RAM.</small><label class="advanced-only">Mechanical FEM backend</label><select class="advanced-only" id="fem_backend"><option value="hex8" selected>Solid 3D HEX8 (accurate geometry)</option><option value="beam">Space-frame beam FEM (faster)</option></select><label class="advanced-only">FEM element length / voxel pitch [mm]</label><select class="advanced-only" id="fem_pitch"><option value="1.5">1.50 · coarse solid HEX8</option><option value="1.25">1.25 · solid HEX8</option><option value="0.8">0.80 · finer solid HEX8</option><option value="0.625">0.625 · 2×</option><option value="0.3125" selected>0.3125 · 4× finer</option><option value="0.25">0.2500 · 5×</option><option value="0.15625">0.15625 · 8× finer</option></select><label class="advanced-only">Optimization contact-grid</label><select class="advanced-only" id="gate_grid"><option value="3" selected>3 × 3 sampling (fast)</option><option value="5">5 × 5 sampling (accurate screening)</option><option value="7">7 × 7 sampling (slow)</option></select><label class="advanced-only">New random seed (saved for replay)</label><input class="advanced-only" id="seed" type="number" value="" readonly><div class="row" style="margin-top:14px"><button class="main" id="start">▶ Evolve</button><button class="main" style="background:#d6ab70;color:#1d241e" id="evaluateAll">◆ Evaluate All</button></div><div class="row" style="margin-top:7px"><button id="pause" disabled>Pause</button><button id="stop" disabled>Stop</button></div><div id="error"></div><div class="progress"><div id="progress"></div></div><div class="row"><small id="elapsed">0 / 60 s</small><small id="remaining">60 s remaining</small></div><div class="statbox"><div class="stat"><small>Generations</small><strong id="generations">0</strong></div><div class="stat"><small>Evaluations</small><strong id="evaluations">0</strong></div><div class="stat"><small>Topology diversity</small><strong id="diversity">0</strong></div><div class="stat"><small>Stagnation</small><strong id="stagnation">0</strong></div></div><div class="statbox advanced-only"><div class="stat"><small>CPU workers</small><strong id="workerCount">—</strong></div><div class="stat"><small>Evaluations / second</small><strong id="throughput">—</strong></div></div><h2 class="advanced-only" style="margin-top:18px">Variation operators</h2><div class="advanced-only" id="operators" class="metricgrid"></div><div class="note advanced-only" style="margin-top:14px">Fitness uses an chord/arc-length equivalent-beam <b>surrogate</b> with engineering assumptions. Top-3 finalists receive the selected mechanical FEM (3D solid HEX8 by default; optional space-frame beam); all other individuals use fast surrogate screening. The conceptual STL still contains overlapping parts; inspect the separate FEM mesh before drawing mechanical conclusions.</div></section>
+
+<section class="panel stage"><div class="bar"><div><h2 style="margin:0">Selected geometry · interactive 3D</h2><small id="viewtitle">Select an evolved candidate or preview a design</small></div><label style="display:flex;align-items:center;gap:5px;white-space:nowrap"><input id="showPiezo" type="checkbox" checked style="width:auto"> PVDF layer</label><label style="display:flex;align-items:center;gap:6px;font-size:12px">PVDF configuration <select id="piezoOverride" style="width:auto"><option value="">As saved</option><option value="1">One film (legacy)</option><option value="2">Opposed pair</option><option value="3">Three films</option><option value="4">Balanced quartet</option><option value="6">Six films (6+ legs)</option><option value="8">Eight films (8+ legs)</option></select></label><label style="display:flex;align-items:center;gap:5px;font-size:12px">Wiring <select id="piezoWiring" style="width:auto"><option value="">As saved</option><option value="0">Independent channels</option><option value="1">Signed charge sum</option><option value="2">Differential X</option><option value="3">Differential Y</option><option value="4">Alternating polarity</option></select></label><button style="width:auto" id="reset">Reset camera</button></div><div id="model"></div><div id="pvdfLayoutWarning" class="note" style="margin:5px 12px;display:none"></div>
+<section class="pipeline" id="top3Pipeline" aria-label="Full evaluation pipeline" aria-live="polite"><div class="pipeline-box">
+<div class="row" style="justify-content:space-between"><div><h2>Top-3 full audit · current generation and incumbent</h2>
+<small>Same full protocol in Basic and Advanced, plus 3D linear FEM for Top-3 when enabled: 25mN diagnostic + 0.1–0.4N operating-band spatial grid, all load cases, 3 PVDF frequencies, inverse reconstruction holdout, local identifiability, and manufacture warnings.</small></div>
+<div style="max-width:180px"><label class="advanced-only" for="audit_grid">Audit grid</label><select class="advanced-only" id="audit_grid"><option value="3">3×3 fast</option><option value="5" selected>5×5 normal</option><option value="7">7×7 thorough</option></select></div></div>
+<div style="margin:12px 0" id="pipelineStatus">Idle — start evolution to audit the top three finalists.</div>
+<div class="audit-cards" id="auditCards"><small>No finalists yet</small></div>
+<div class="audit-results"><div><h2>Audited incumbent · promotion decisions</h2><div id="championAudit">No evaluated winner.</div></div><div><h2>Evaluation criteria and last decision</h2><pre id="decisionAudit">—</pre></div></div>
+<div class="row" style="margin-top:12px"><button style="max-width:240px" id="reportAudit" disabled>Download full audit report</button><small>Concept STL is not guaranteed to be watertight; production readiness requires FEM + actual sensor calibration.</small></div>
+</div></section>
+
+<details id="femDetails" style="padding:10px;border-top:1px solid #2b4657;background:#0d1926"><summary style="cursor:pointer;color:#75d3bf;font-weight:700">Mechanical FEM: deformed mesh, stress and strain (click to expand)</summary>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end;margin:12px 0">
+<div><label>Load case</label><select id="femCase"><option value="press_center">Normal pressure (center)</option><option value="press_offset">Normal pressure (off-center)</option><option value="shear_x">Shear X + normal preload</option><option value="shear_y">Shear Y + normal preload</option><option value="torsion_z">Torsion Z + preload</option></select></div>
+<div><label>Force [N]</label><input id="femForce" type="number" value="0.1" step="0.025" min="0.001" max="0.5" style="width:100px"></div>
+<div><label>Contact X, Y [mm]</label><div style="display:flex"><input id="femOffsetX" type="number" value="1.0" min="-2" max="2" step=".5" style="width:65px"><input id="femOffsetY" type="number" value="0" min="-2" max="2" step=".5" style="width:65px"></div></div>
+<div><label>Compute device (for manual settings)</label><select id="femDevice"><option value="cpu" selected>CPU (recommended for Z840)</option><option value="gpu">CUDA 12 · GPU (small HEX8 only)</option></select></div><div><label>Mechanical FEM backend</label><select id="femViewBackend"><option value="hex8" selected>Solid 3D HEX8 (voxel mesh)</option><option value="beam">3D beam FEM (fast)</option></select></div><div><label>Mesh pitch / element length [mm]</label><select id="femViewPitch"><option value="1.5">1.50 · coarse solid HEX8</option><option value="1.25">1.25 · solid HEX8</option><option value="0.8">0.80 · finer solid HEX8</option><option value="0.625">0.625 · 2×</option><option value="0.3125" selected>0.3125 · 4× finer</option><option value="0.25">0.25 · 5×</option><option value="0.15625">0.15625 · 8× finer</option></select></div>
+<span class="note" style="max-width:210px">Run using <b>Evaluate All</b> · configurable FEM parameters above.</span><small style="max-width:310px">For HEX8, 4× and 8× mean refinement in all three axes (up to ~512× elements); requires memory, Numba and potentially minutes. </small>
+</div>
+<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><label>Color by <select id="femColor"><option value="stress_vm_MPa">von Mises stress [MPa]</option><option value="principal_strain">Principal strain</option><option value="displacement_mm">Displacement magnitude [mm]</option></select></label><label>Visual scale: <b id="femScaleText">5×</b><input type="range" id="femScale" min="1" max="30" value="5"></label><label><input type="checkbox" id="femReference" checked> Reference ghost</label></div>
+<div id="femPlot" style="height:490px"></div><div id="femStatus" class="note">Choose a model in the gallery, then compute. Mechanical field is not guessed or interpolated from the 6-DOF proxy.</div>
+<pre id="femMetrics" class="resultpre" style="max-height:210px">No 3D FEM run yet.</pre><small>FEM: explicitly selected HEX8 remains a solid solver at fine pitch; beam is a different approximation. CUDA is optional and limited to small assembled HEX8 systems. Beam pitch is along slender members, not through their cross-section. Small strains only; HEX8 includes an embedded PVDF membrane + adhesive shear-lag approximation. It does not resolve peel, delamination, nonlinear contact, hyperelasticity or coupled piezoelectric fields. The beam backend has limited laminate fidelity.</small>
+<div style="margin-top:16px"><h2 style="font-size:13px;margin-bottom:8px">Final laminate shell — resolved PVDF ribbons</h2><small>Last stage: reduced ribbon-shell post-process driven by the solved substrate displacement field. This is a visualization and screening step, not a fully coupled shell-solid multiphysics solve.</small></div>
+<div id="laminatePlot" style="height:360px"></div><div id="laminateShellStatus" class="note">Run Evaluate All to compute the final laminate shell on the current PVDF layout.</div>
+<pre id="laminateShellMetrics" class="resultpre" style="max-height:210px">No laminate shell result yet.</pre>
+</details>
+<div class="viewopts"><label><input id="wire" type="checkbox"> Wireframe</label><label><input id="transparent" type="checkbox"> Transparent</label><label><input id="auto" type="checkbox" checked> Follow best</label><label style="margin-left:auto">Detail <select id="quality"><option value="6">Fast</option><option value="10" selected>Detailed</option><option value="16">Fine</option></select></label></div><div class="caption"><div class="legend"><span>Flexure</span><span>PVDF ribbon</span><span>Sensor</span><span>Base</span><span>Inner mechanism</span><span>Contact pad</span></div><div style="margin-top:5px">New genotypes use 2 or 4 PVDF films on angularly distributed legs. Older saved models retain their original single strip unless a preview override is selected. Choose a model in the gallery. Deformation preview uses fixed base mounts, rigid moving contact pad and smoothly interpolated flexures. It is not a stress/strain field or FEM.</div></div></section>
+<section class="panel right"><h2>Selected candidate</h2><small id="gateStatus">Gate not evaluated during optimization</small><div style="font-size:29px;font-weight:800;color:var(--sea)" id="fitness">—</div><small>Finalist audit utility / 100 (when audited); NOT physical sensor accuracy</small><div id="metricgrid" class="metricgrid metrichead advanced-only"></div><h2>Choose a model</h2><div class="row"><select id="filter"><option value="all">All families</option><option value="crown">Crown</option><option value="chiral">Chiral</option><option value="quadrant">Quadrant</option></select><button id="best" style="max-width:95px">Best</button></div><div class="gallery" id="gallery" style="margin-top:8px"><small>Evolution candidates will appear here.</small></div><h2 class="advanced-only">Parameters</h2><div id="parameters">—</div><h2>Export selected model</h2><div class="row"><button id="stl" disabled>STL</button><button id="genome" disabled>Genome JSON</button><button id="json" disabled>Run JSON</button><button id="csv" disabled>History CSV</button></div><small style="display:block;margin-top:9px">Selected STL contains overlapping visualization primitives and is not automatically suitable for fabrication.</small></section>
+<section class="panel testpanel"><h2>Evaluate All — complete selected-model protocol</h2><small>One action updates all three inspectors: mechanical FEM, electrical load cases, spatial pressure scan, plus PVDF, inverse test, manufacturability, assumed viscoelastic unloading and optional real FEM. FEM materials are linear; the unloading model is NOT time-dependent nonlinear FEM.</small><p id="allEvalStatus">Choose a library seed or an evolved candidate, then click Evaluate All.</p><pre class="resultpre" id="allEvalResult">No full evaluation yet.</pre></section>
+<section class="panel chart"><h2>Live evolution · dual Y-axis scales</h2><small><b>Left Y: model utility 0–100</b> (best and population median). <b>Right Y: number of distinct family/topology combinations</b> (dashed). Neither means force, sensor accuracy or physical efficiency.</small><div id="history"></div></section>
+<section class="panel testpanel"><div class="row" style="justify-content:space-between"><div><h2>Load-case and predicted electrical response inspector</h2><small>Applies to the model selected in the gallery · reduced-order mechanics + explicit synthetic sensor-transfer functions</small></div></div>
+<div class="testcontrols"><div><label>Mechanical action</label><select id="loadcase"><option value="normal">Normal pressure (−Fz)</option><option value="shear_x">Lateral shear +Fx</option><option value="shear_y">Lateral shear +Fy</option><option value="torsion">Torsion Mz</option><option value="bend_x">Bending moment Mx</option><option value="stretch_x">Substrate stretch +X</option><option value="compression">Substrate compression −X</option><option value="offcenter">Off-centre normal force</option></select></div><div><label>Load amplitude <b id="loadval">100%</b></label><input type="range" id="loadamount" min="0" max="200" step="5" value="100"></div><div><label>Preview display</label><label class="inlinecheck"><input type="checkbox" id="deform">Show deformation (kinematic proxy)</label><label style="margin-top:6px">Visual magnification: <b id="deformscaleval">3×</b></label><input type="range" id="deformscale" min="1" max="12" step="1" value="3"><small id="deformnotice" class="warning">Select a load case. Arc-length anchored kinematic preview; this is not an FEM deformation field.</small></div></div>
+<div class="row" style="margin:10px 0"><label for="piezoFrequency">PVDF excitation frequency [Hz]</label><input id="piezoFrequency" type="number" min="0.01" max="1000" value="25" step="5" style="max-width:150px"></div><div class="testresults"><div id="responsegraph"></div><div><h2>Predicted outputs</h2><div id="electricalmetrics" class="metricgrid"></div><pre id="modeldisplacement" class="resultpre">Select a candidate and run a load case.</pre><small class="warning">Electrical results are hypothetical: capacitance assumes εr=2.8, 0.45-mm nominal gap, and idealized electrode motion. Hall output assumes a local linear gain. Mechanical displacement is from a small-deflection linear beam surrogate, not nonlinear FEM.</small></div></div><div class="testresults" style="margin-top:16px"><div><h2>PVDF dynamic response — simulated signal</h2><div id="piezoGraph" style="height:285px"></div></div><div><h2>PVDF characteristics</h2><div class="metricgrid" id="piezoMetrics"></div><div class="note" style="margin-top:12px">PVDF estimates use an assumed local film-strain transfer, linear d31/d33 constants, feedback capacitance and RC charge-leak response. PVDF cannot continuously sense static pressure with a simple charge amplifier. This is not piezoelectric FEM or hardware validation.</div></div></div></section>
+<section class="panel testpanel"><div class="row" style="justify-content:space-between"><div><h2>Spatial downward-pressure scan — electrical signal and physical plausibility</h2><small>Uniform downward force −Fz, applied independently at each point inside the selected contact-pad circle. The map explicitly flags failed locations.</small></div></div>
+<div class="testcontrols"><div><label>Sampling points</label><select id="spatial_grid"><option value="3">3 × 3</option><option value="5" selected>5 × 5</option><option value="7">7 × 7</option></select></div><div><label>Vertical force [N]</label><input type="number" id="spatial_force" value="0.1" min="0.001" max="10" step="0.05"></div><div><small>Radius = 85% of candidate contact-pad radius. No loads outside contact disk. Pass is a <b>screening flag</b>, not FEM validation.</small></div></div>
+<div class="testresults"><div><div id="spatialmap" style="height:380px"></div><small>Markers are colored by predicted pressure-channel SNR; red crosses indicate a failed gate condition. Hover to inspect vertical displacement and the reason.</small></div><div><h2>Spatial physical plausibility</h2><div class="metricgrid" id="spatialmetrics"></div><button id="exportspatial" disabled style="margin-top:9px">Export spatial scan CSV</button><div id="spatialflags" class="note" style="margin-top:12px">Select a candidate and run the spatial test.</div><small class="warning">Limitations: rigid contact pad, equivalent rods, assumed electrode gaps/noise. No unilateral contact solver, stress distribution, material fatigue, or 3D deformation field. Off-axis rotations can become invalid at large loads.</small></div></div>
+</section>
+
+</main><div class="footer">Local application · No cloud processing · Surrogate optimization → mesh convergence and nonlinear FEM → physical verification</div>
+<script src="/static/deformation.js"></script>
+<script>
+const $=id=>document.getElementById(id);let pinnedCandidate=null;let state=null,currentSelection={kind:'best',index:0,family:'crown'},selectedId='',follow=true,meshSignature='',busy=false;let currentResponse=null;let archiveRunId=null;let archiveGeneration=null;let fullArchiveState=null;let archiveRuns=[];let colors={base:'#66899f',flexure:'#71d5b4',contact:'#a0ded1',sensor:'#f1bd6d',inner:'#b09bdb',piezo:'#efbb65'};
+const baseLayout={paper_bgcolor:'#101e2b',plot_bgcolor:'#101e2b',margin:{l:0,r:0,t:0,b:0},scene:{bgcolor:'#101e2b',aspectmode:'data',xaxis:{title:'X · mm',color:'#88a7ba',gridcolor:'#263e4d'},yaxis:{title:'Y · mm',color:'#88a7ba',gridcolor:'#263e4d'},zaxis:{title:'Z · mm',color:'#88a7ba',gridcolor:'#263e4d'},camera:{eye:{x:1.8,y:1.5,z:1.5}}},showlegend:true,legend:{orientation:'h',x:0,y:1.03,font:{color:'#bfd0d6',size:10}},uirevision:'preserve-camera'};
+Plotly.newPlot('model',[],baseLayout,{responsive:true,displaylogo:false});Plotly.newPlot('history',[],{paper_bgcolor:'#101e2b',plot_bgcolor:'#101e2b'}, {responsive:true,displaylogo:false});
+Plotly.newPlot('laminatePlot',[],{...baseLayout,showlegend:false,uirevision:'laminate-camera',margin:{l:0,r:0,t:0,b:0}},{responsive:true,displaylogo:false});
+function apiErrorMessage(payload,status){
+ const detail=payload?.detail??payload?.message??payload;
+ if(Array.isArray(detail))return detail.map(x=>{
+   if(typeof x==='string')return x;
+   const location=Array.isArray(x.loc)?x.loc.filter(p=>p!=='body').join('.')+' — ':'';
+   return location+(x.msg||x.message||JSON.stringify(x));
+ }).join(' | ');
+ if(typeof detail==='string')return detail;
+ if(detail&&typeof detail==='object')return detail.msg||detail.message||JSON.stringify(detail);
+ return `HTTP ${status}: request failed`;
+}
+async function api(method,path,data){
+ let r;
+ try{r=await fetch('/api'+path,{method,headers:{'Content-Type':'application/json'},body:data!==undefined?JSON.stringify(data):undefined})}
+ catch(e){throw Error('Cannot connect to NeuroSkin server: '+e.message)}
+ const raw=await r.text();let j;
+ try{j=raw?JSON.parse(raw):{}}catch{j={detail:raw.slice(0,500)||`HTTP ${r.status}`}}
+ if(!r.ok)throw Error(apiErrorMessage(j,r.status));return j;
+}
+function findCandidate(sel){if(!state)return null;if(sel.kind==='best')return state.best;if(sel.kind==='family')return state.champions?.[sel.family];if(sel.kind==='id'||sel.kind==='seed')return pinnedCandidate;if(sel.kind==='gallery')return state.gallery?.[sel.index];return null}
+function piezoOverrideValue(){return $('piezoOverride').value?Number($('piezoOverride').value):null}
+function piezoWiringOverrideValue(){return $('piezoWiring').value!==''?Number($('piezoWiring').value):null}
+function metricBox(k,v){return `<div class="metric"><small>${k.replace(/_/g,' ')}</small><b>${typeof v==='number'?v.toLocaleString('en-US',{maximumFractionDigits:5}):String(v)}</b></div>`}
+function selectedUI(){
+ const c=findCandidate(currentSelection);if(!c)return;
+ $('fitness').textContent=Number(c.audit?.audit_score??c.fitness??0).toFixed(2);
+ $('viewtitle').textContent=`${c.family.toUpperCase()} / ${c.genome.topology} · generation ${c.generation} · ${c.id}`;
+ $('metricgrid').innerHTML=Object.entries(c.metrics||{}).filter(([k,v])=>typeof v==='number'&&k!=='fitness').slice(0,8).map(([k,v])=>metricBox(k,v)).join('');
+ $('parameters').textContent=JSON.stringify(c.genome,null,2);$('stl').disabled=false;$('genome').disabled=false;
+ const gate=c.metrics?.spatial_gate, audit=c.audit, summary=audit?.spatial_operating_summary;
+ if(audit&&!audit.audit_policy_version){
+   $('gateStatus').textContent='HISTORICAL AUDIT · scored under an older protocol. Re-run Evaluate All before comparing or promoting this model under v1.9.1.';
+ }else if(summary){
+   const pass=audit.feasible?'PASS':'NOT FEASIBLE';
+   const msg=(audit.screening_failure_reasons||[]).slice(0,3).join(', ');
+   $('gateStatus').textContent=`FULL AUDIT ${pass} · operating coverage ${(100*summary.operating_worst_coverage).toFixed(0)}% (0.1–0.4 N), min assumed SNR ${Number(summary.operating_min_snr_assumed).toFixed(2)}, 25 mN diagnostic coverage ${(100*summary.low_force_coverage).toFixed(0)}%${msg?' · '+msg:''}`;
+ }else if(gate){
+   $('gateStatus').textContent=`FAST SCREEN ${gate.status} · 0.1 N: ${gate.passing_points}/${gate.total_points} points · SNR ≥ 3 (assumed) · quality ${Number(gate.mean_point_quality??0).toFixed(2)}`;
+ }else{$('gateStatus').textContent='Screen not evaluated yet';}
+
+ for(const opt of $('piezoOverride').options){if(opt.value)opt.disabled=(c.family==='quadrant'&&Number(opt.value)>4);}
+ if(c.family==='quadrant'&&piezoOverrideValue()>4)$('piezoOverride').value='';
+ const legacy=!('piezo_count' in c.genome);
+ $('pvdfLayoutWarning').style.display='block';
+ $('pvdfLayoutWarning').textContent=piezoOverrideValue()!==null?`PVDF ${piezoOverrideValue()}-film override: archive remains unchanged; press Evaluate All to recalculate bonded-film mechanics and electrical response. Historical score is NOT comparable.`:legacy?'Archived model: original single-sided PVDF. Select Balanced quartet to inspect a corrected layout; rerun evolution before treating stored scores as comparable.':`Designed PVDF: ${c.genome.piezo_count} films. Primary mechanics includes bonded PVDF + adhesive stiffness, and Evaluate All adds a final reduced laminate-shell post-process for the PVDF ribbons.`;
+ }
+async function updateMesh(force=false){
+ const c=findCandidate(currentSelection);if(!c)return;
+ if(solvedFEM && (solvedFEM.candidate_id!==c.id || solvedFEM.family!==c.family)){solvedFEM=null;$('femStatus').textContent='Selected model changed. Compute real FEM to see its own displacement/stress field.';Plotly.react('femPlot',[],baseLayout);} if(laminateShell && (laminateShell.candidate_id!==c.id || laminateShell.family!==c.family)){laminateShell=null;$('laminateShellStatus').textContent='Selected model changed. Re-run Evaluate All to resolve the final laminate shell for this candidate.';$('laminateShellMetrics').textContent='No laminate shell result yet.';Plotly.react('laminatePlot',[],{...baseLayout,showlegend:false,uirevision:'laminate-camera',margin:{l:0,r:0,t:0,b:0}});}
+ const sig=[state?.id,currentSelection.kind,currentSelection.index,currentSelection.family,c.id,$('wire').checked,$('transparent').checked,$('showPiezo').checked,$('piezoOverride').value,$('piezoWiring').value,$('quality').value,$('deform').checked,$('deformscale').value,$('loadcase').value,$('loadamount').value,currentResponse?.candidate_id||''].join('|');
+ if(sig===meshSignature&&!force)return;meshSignature=sig;
+ const q=new URLSearchParams({...currentSelection,quality:$('quality').value,...(piezoOverrideValue()!==null?{piezo_count_override:piezoOverrideValue(),piezo_wiring_override:piezoWiringOverrideValue()}:{}),...(piezoWiringOverrideValue()!==null?{piezo_wiring_override:piezoWiringOverrideValue()}:{}),...(archiveRunId?{run_id:archiveRunId,...(archiveGeneration?{generation:archiveGeneration}:{})}:{})});
+ try{
+  const r=await fetch('/api/mesh?'+q.toString());if(!r.ok)throw Error('Mesh response '+r.status);
+  const data=await r.json();
+  const response=currentResponse?.candidate_id===c.id?currentResponse:null;
+  const enabled=$('deform').checked&&!!response;
+  const m=enabled?response.result.mechanics:null;
+  const scale=Number($('deformscale').value);
+  if(enabled){const diag=NeuroDeform.computeScale(m,c.genome,scale);
+   $('deformnotice').textContent=`Displayed magnification: ${diag.effectiveScale.toFixed(2)}×${diag.capped?' (automatically limited to avoid inverted geometry)':''} · ${diag.validity}. No local FEM deformation.`;
+  }else{$('deformnotice').textContent=$('deform').checked?'Run a load case first to enable a deformation preview.':'Preview disabled. Geometry is undeformed.';}
+  const traces=data.model.components.filter(comp=>comp.part!=='piezo'||$('showPiezo').checked).map(comp=>{
+   const v=enabled?comp.vertices.map(v=>NeuroDeform.transformVertex(comp.part,v,m,c.genome,scale,data.strut_paths)):comp.vertices;
+   const f=comp.faces;
+   return {type:'mesh3d',name:comp.part,showlegend:true,x:v.map(a=>a[0]),y:v.map(a=>a[1]),z:v.map(a=>a[2]),i:f.map(a=>a[0]),j:f.map(a=>a[1]),k:f.map(a=>a[2]),color:colors[comp.part]||'#a0b3bd',opacity:$('transparent').checked?0.53:1,flatshading:false,lighting:{ambient:.52,diffuse:.75,specular:.35,roughness:.45},hoverinfo:'skip',contour:$('wire').checked?{show:true,color:'#051d25',width:1}:undefined};
+  });
+  await Plotly.react('model',traces,baseLayout,{responsive:true,displaylogo:false});
+ }catch(e){$('error').textContent='3D error: '+e.message;}
+}
+
+function choose(sel){currentResponse=null;if(sel.kind==='gallery'&&state?.gallery?.[sel.index]){pinnedCandidate=structuredClone(state.gallery[sel.index]);sel={kind:'id',index:pinnedCandidate.id,family:pinnedCandidate.family}}currentSelection=sel;$('auto').checked=false;follow=false;selectedUI();updateMesh(true);renderGallery()}
+function renderGallery(){if(!state)return;const filt=$('filter').value;let arr=(state.gallery||[]).map((c,i)=>({c,i})).filter(x=>filt==='all'||x.c.family===filt);$('gallery').innerHTML=arr.map(({c,i})=>`<button class="candidate ${currentSelection.kind==='id'&&currentSelection.index===c.id?'selected':''}" data-i="${i}"><div><b>${c.family.toUpperCase()} · ${c.genome.topology}</b><small>Gen ${c.generation} · novelty ${c.novelty.toFixed(2)} · ${c.id}</small></div><b>${c.fitness.toFixed(1)}</b></button>`).join('')||'<small>No candidates yet</small>';for(let b of $('gallery').querySelectorAll('[data-i]'))b.onclick=()=>choose({kind:'gallery',index:Number(b.dataset.i),family:'crown'})}
+function graph(){if(!state?.history?.length)return;let h=state.history;Plotly.react('history',[{type:'scatter',mode:'lines',x:h.map(q=>q.elapsed),y:h.map(q=>q.best),name:'Best',line:{color:'#75d3bf',width:3}},{type:'scatter',mode:'lines',x:h.map(q=>q.elapsed),y:h.map(q=>q.median),name:'Median',line:{color:'#f1be76',width:2}},{type:'scatter',mode:'lines',x:h.map(q=>q.elapsed),y:h.map(q=>q.diversity),name:'Topologies',yaxis:'y2',line:{color:'#ab9be8',dash:'dot'}}],{paper_bgcolor:'#101e2b',plot_bgcolor:'#101e2b',font:{color:'#abc4cc'},margin:{l:50,r:40,t:25,b:40},legend:{orientation:'h',y:1.2},xaxis:{title:'Active time (s)',gridcolor:'#2a4254'},yaxis:{title:'Fitness (utility points, 0–100)',range:[0,102],gridcolor:'#2a4254'},yaxis2:{title:'Distinct topologies (count)',overlaying:'y',side:'right'}},{responsive:true,displaylogo:false})}
+function display(){if(!state)return;$('status').textContent=state.status+(state.status==='running'?(' · '+(state.phase||'screening').replaceAll('_',' ')):'');$('status').className='badge '+state.status;$('elapsed').textContent=`${state.elapsed.toFixed(1)} / ${state.duration.toFixed(1)} s`;$('remaining').textContent=`${Math.max(0,state.duration-state.elapsed).toFixed(1)} s remaining`;$('progress').style.width=Math.min(100,100*state.elapsed/state.duration)+'%';$('generations').textContent=state.generation;$('workerCount').textContent=state.cores??'—';$('throughput').textContent=state.evaluations_per_second??'—';$('evaluations').textContent=state.evaluated;$('diversity').textContent=state.diversity;$('stagnation').textContent=state.stagnation;$('start').disabled=!archiveRunId&&['running','paused'].includes(state.status);$('pause').disabled=!!archiveRunId||!['running','paused'].includes(state.status);$('stop').disabled=!!archiveRunId||!['running','paused'].includes(state.status);$('pause').textContent=state.status==='paused'?'Resume':'Pause';$('operators').innerHTML=Object.entries(state.mutations||{}).map(([k,v])=>metricBox(k,v)).join('');$('json').disabled=!state.id;$('csv').disabled=!state.history.length;if(state.error)$('error').textContent=state.error;
+ if(follow&&state.best){currentSelection={kind:'best',index:0,family:state.best.family};selectedUI();updateMesh()}
+ else if(findCandidate(currentSelection)){selectedUI()}
+ else if(state.best){currentSelection={kind:'best',index:0,family:state.best.family};selectedUI();updateMesh()}
+ renderGallery();graph();renderPipeline();}
+$('start').onclick=async()=>{try{$('error').textContent='';const workers=Number($('cores').value);if(!Number.isInteger(workers)||workers<1||workers>Number($('cores').max))throw Error(`Invalid CPU worker count: ${workers}. Available: 1–${$('cores').max}.`);state=await api('POST','/start',{mode:$('mode').value,seconds:Number($('seconds').value),population:Number($('population').value),seed:($('seed').value=String(crypto.getRandomValues(new Uint32Array(1))[0]>>>1),Number($('seed').value)),exploration:Number($('explore').value)/100,objective:$('objective').value,physical_gate:$('physical_gate').checked,gate_grid:Number($('gate_grid').value),cores:Number($('cores').value),audit_grid:Number($('audit_grid').value),fem_enabled:$('enable_fem').checked,fem_pitch_mm:Number($('fem_pitch').value),fem_backend:$('fem_backend').value});archiveRunId=null;archiveGeneration=null;setArchiveNotice();follow=true;$('auto').checked=true;meshSignature='';display()}catch(e){$('error').textContent=e.message}};
+$('pause').onclick=async()=>{try{state=await api('POST','/pause');display()}catch(e){$('error').textContent=e.message}};$('stop').onclick=async()=>{try{state=await api('POST','/stop');display()}catch(e){$('error').textContent=e.message}};
+$('best').onclick=()=>{if(!state?.best)return;choose({kind:'best',index:0,family:state.best.family})};$('auto').onchange=()=>{follow=$('auto').checked;if(follow&&state?.best){currentSelection={kind:'best',index:0,family:state.best.family};selectedUI();updateMesh(true)}};$('filter').onchange=renderGallery;
+$('showPiezo').onchange=()=>updateMesh(true);$('piezoOverride').onchange=()=>{currentResponse=null;selectedUI();updateMesh(true);markEvaluationStale()};$('piezoWiring').onchange=()=>{currentResponse=null;selectedUI();updateMesh(true);markEvaluationStale()};$('wire').onchange=()=>updateMesh(true);$('transparent').onchange=()=>updateMesh(true);$('quality').onchange=()=>updateMesh(true);$('reset').onclick=()=>Plotly.relayout('model',{'scene.camera':{eye:{x:1.8,y:1.5,z:1.5}}});$('explore').oninput=()=>{$('exploreval').textContent=$('explore').value+'%'};for(let b of document.querySelectorAll('[data-sec]'))b.onclick=()=>{$('seconds').value=b.dataset.sec};
+function selectedPayload(){const c=findCandidate(currentSelection);if(!c)return null;return {run_id:archiveRunId,generation:archiveGeneration,selection:currentSelection.kind,index:String(currentSelection.index),family:currentSelection.family,case:$('loadcase').value,fraction:Number($('loadamount').value)/100,frequency_hz:Number($('piezoFrequency').value),piezo_count_override:piezoOverrideValue(),piezo_wiring_override:piezoWiringOverrideValue()}}
+async function runCharacterization(){const input=selectedPayload();if(!input)return;try{const r=await api('POST','/characterize',input);currentResponse=r;const e=r.result.electrical,m=r.result.mechanics;const cases=r.sweep.rows;
+ $('electricalmetrics').innerHTML=metricBox('Total pressure ΔC [pF]',e.pressure_delta_pF.reduce((a,b)=>a+b,0))+metricBox('Lateral X ΔC [pF]',e.lateral_delta_pF[0])+metricBox('Lateral Y ΔC [pF]',e.lateral_delta_pF[1])+metricBox('Hall torsion ΔB [mT]',e.hall_torsion_delta_mT)+metricBox('PVDF dynamic Vpeak [V]',r.result.piezoelectric.peak_V)+metricBox('PVDF assumed SNR',r.result.piezoelectric.dynamic_snr_proxy);
+ $('modeldisplacement').textContent=JSON.stringify({displacement_mm:m.displacement_mm,rotation_rad:m.rotation_rad,substrate_strain:m.substrate_strain,force_N:m.applied_force_N,moment_Nmm:m.applied_moment_Nmm,offset_mm:m.offset_mm},null,2);
+ const xx=cases.map(r=>r.input_fraction*100);Plotly.react('responsegraph',[
+ {x:xx,y:cases.map(r=>r.pressure_sum_pF),name:'Σ pressure ΔC [pF]',type:'scatter',mode:'lines',line:{color:'#71d5b4'}},
+ {x:xx,y:cases.map(r=>r.lateral_x_pF),name:'Lateral X ΔC [pF]',type:'scatter',mode:'lines',line:{color:'#efbd71'}},
+ {x:xx,y:cases.map(r=>r.lateral_y_pF),name:'Lateral Y ΔC [pF]',type:'scatter',mode:'lines',line:{color:'#b4a3e9'}},
+ {x:xx,y:cases.map(r=>r.hall_mT),name:'Hall ΔB [mT]',type:'scatter',mode:'lines',yaxis:'y2',line:{color:'#a5d2ff',dash:'dot'}}],
+ {paper_bgcolor:'#101e2b',plot_bgcolor:'#101e2b',font:{color:'#abc4cc'},margin:{l:62,r:68,t:28,b:52},legend:{orientation:'h',y:1.27,font:{size:10}},xaxis:{title:'Applied fraction of nominal load (%)',gridcolor:'#294456'},yaxis:{title:'ΔC [pF]',gridcolor:'#294456'},yaxis2:{title:'ΔB [mT] · right axis',overlaying:'y',side:'right'}},{responsive:true,displaylogo:false});
+ const pie=r.result.piezoelectric;
+ $('piezoMetrics').innerHTML=metricBox('PVDF Q [pC]',pie.charge_pC)+metricBox('PVDF C [pF]',pie.capacitance_pF)+metricBox('Peak [V]',pie.peak_V)+metricBox('RC τ [s]',pie.leak_tau_s)+metricBox('Mode [pC/N]',pie.d_coefficient_pC_per_N)+metricBox('Local film strain',pie.strain_proxy)+metricBox('PVDF film count',pie.film_count)+metricBox('PVDF wiring',pie.wiring)+metricBox('Array imbalance [mm]',pie.layout?.centroid_offset_mm||0);
+ Plotly.react('piezoGraph',[
+  ...((pie.wiring==='independent'&&pie.channels?.length>1)?pie.channels.map((z,i)=>({x:pie.time_s,y:pie.time_s.map(t=>z.peak_V*Math.sin(2*Math.PI*pie.frequency_hz*t)*Math.sign(z.initial_charge_amplifier_V||1)),type:'scatter',mode:'lines',name:`Film ${i+1} (V)`,line:{width:1,dash:'dot'}})):[]),
+  {x:pie.time_s,y:pie.waveform_V,type:'scatter',mode:'lines',name:`PVDF ${pie.frequency_hz} Hz (V)`,line:{color:'#eec57f'}},
+  {x:pie.hold_time_s,y:pie.step_hold_V,type:'scatter',mode:'lines',name:'Step-hold decay (V)',line:{color:'#80d6cf',dash:'dot'}}
+ ],{paper_bgcolor:'#101e2b',plot_bgcolor:'#101e2b',font:{color:'#abc4cc'},margin:{l:62,r:18,t:20,b:55},xaxis:{title:'Time [s]'},yaxis:{title:'Charge amplifier output [V]'},legend:{orientation:'h',y:1.25}},{responsive:true,displaylogo:false});
+ updateMesh(true);
+ }catch(ex){$('error').textContent='Characterization: '+ex.message}}
+$('piezoFrequency').onchange=markEvaluationStale;$('loadcase').onchange=markEvaluationStale;$('loadamount').oninput=()=>{$('loadval').textContent=$('loadamount').value+'%';markEvaluationStale()};$('deform').onchange=()=>updateMesh(true);$('deformscale').oninput=()=>{$('deformscaleval').textContent=$('deformscale').value+'×';updateMesh(true)};
+Plotly.newPlot('piezoGraph',[],{paper_bgcolor:'#101e2b',plot_bgcolor:'#101e2b',font:{color:'#abc4cc'},margin:{l:55,r:18,t:25,b:48}},{responsive:true,displaylogo:false});
+Plotly.newPlot('responsegraph',[],{paper_bgcolor:'#101e2b',plot_bgcolor:'#101e2b',font:{color:'#abc4cc'},margin:{l:60,r:50,t:25,b:45}},{responsive:true,displaylogo:false});
+$('stl').onclick=()=>{let q=new URLSearchParams({selection:currentSelection.kind,index:currentSelection.index,family:currentSelection.family,...(piezoOverrideValue()!==null?{piezo_count_override:piezoOverrideValue(),piezo_wiring_override:piezoWiringOverrideValue()}:{}),...(piezoWiringOverrideValue()!==null?{piezo_wiring_override:piezoWiringOverrideValue()}:{}),...(archiveRunId?{run_id:archiveRunId,...(archiveGeneration?{generation:archiveGeneration}:{})}:{})});location.href='/api/export/stl?'+q};$('genome').onclick=()=>{let q=new URLSearchParams({selection:currentSelection.kind,index:currentSelection.index,family:currentSelection.family,...(piezoOverrideValue()!==null?{piezo_count_override:piezoOverrideValue(),piezo_wiring_override:piezoWiringOverrideValue()}:{}),...(piezoWiringOverrideValue()!==null?{piezo_wiring_override:piezoWiringOverrideValue()}:{}),...(archiveRunId?{run_id:archiveRunId,...(archiveGeneration?{generation:archiveGeneration}:{})}:{})});location.href='/api/export/genome?'+q};$('json').onclick=()=>location.href='/api/export/json'+(archiveRunId?'?run_id='+encodeURIComponent(archiveRunId):'');$('csv').onclick=()=>location.href='/api/export/csv'+(archiveRunId?'?run_id='+encodeURIComponent(archiveRunId):'');
+let lastSpatial = null;
+async function runSpatial(){
+ const payload=selectedPayload(); if(!payload){$('spatialflags').textContent='Select a candidate first';return;}
+ const req={run_id:archiveRunId,generation:archiveGeneration,selection:payload.selection,index:payload.index,family:payload.family,grid_size:Number($('spatial_grid').value),force_n:Number($('spatial_force').value)};
+ try{
+  const res=await api('POST','/spatial_pressure',req);const d=res.spatial;lastSpatial=d;$('exportspatial').disabled=false;const pts=d.points;
+  $('spatialmetrics').innerHTML=metricBox('Pass rate',`${d.passing_points}/${d.total_points}`)+metricBox('Min SNR (assumed)',d.min_snr_proxy)+metricBox('Max downward deflection [mm]',d.max_vertical_deflection_mm)+metricBox('Max tilt [rad]',d.max_tilt_rad);
+  $('spatialflags').textContent=`${d.status} · ${d.failure_reasons.length?d.failure_reasons.join(', '):'No threshold violations detected'} · threshold values are screening assumptions.`;
+  const trace={type:'scatter',mode:'markers+text',x:pts.map(z=>z.x_mm),y:pts.map(z=>z.y_mm),text:pts.map(z=>z.passed?'':'×'),textposition:'middle center',textfont:{color:'#fff',size:16},marker:{size:23,color:pts.map(z=>z.snr_proxy),colorscale:'Viridis',colorbar:{title:'SNR'},line:{color:pts.map(z=>z.passed?'#75d3bf':'#e37768'),width:pts.map(z=>z.passed?1:4)}},customdata:pts.map(z=>[z.snr_proxy,z.signal_norm_pF,z.vertical_deflection_mm,z.tilt_rad,z.flags.join(', ')||'none']),hovertemplate:'x %{x:.2f} mm, y %{y:.2f} mm<br>SNR %{customdata[0]:.2f}<br>||ΔC|| %{customdata[1]:.5f} pF<br>Downward deflection %{customdata[2]:.3f} mm<br>Tilt %{customdata[3]:.3f} rad<br>Flags %{customdata[4]}<extra></extra>'};
+  const theta=Array.from({length:101},(_,i)=>i*2*Math.PI/100);const circle={type:'scatter',mode:'lines',x:theta.map(t=>d.test_radius_mm*Math.cos(t)),y:theta.map(t=>d.test_radius_mm*Math.sin(t)),line:{color:'#557d85',dash:'dot'},hoverinfo:'skip',showlegend:false};
+  Plotly.react('spatialmap',[circle,trace],{paper_bgcolor:'#101e2b',plot_bgcolor:'#101e2b',font:{color:'#abc4cc'},margin:{l:55,r:55,t:30,b:55},xaxis:{title:'X on contact pad [mm]',scaleanchor:'y',gridcolor:'#294456'},yaxis:{title:'Y on contact pad [mm]',gridcolor:'#294456'},showlegend:false},{responsive:true,displaylogo:false});
+ }catch(ex){$('error').textContent='Spatial test: '+ex.message;}
+}
+
+$('exportspatial').onclick=()=>{if(!lastSpatial)return;const pts=lastSpatial.points,cols=['x_mm','y_mm','passed','snr_proxy','signal_norm_pF','signal_sum_pF','vertical_deflection_mm','lateral_mm','tilt_rad','negative_reaction_fraction','flags'];const quoted=v=>'"'+String(v??'').replaceAll('"','""')+'"';const rows=[cols.join(','),...pts.map(p=>cols.map(k=>quoted(Array.isArray(p[k])?p[k].join(';'):p[k])).join(','))];const blob=new Blob([rows.join('\n')],{type:'text/csv;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='neuroskin_spatial_pressure.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
+Plotly.newPlot('spatialmap',[],{paper_bgcolor:'#101e2b',plot_bgcolor:'#101e2b',font:{color:'#abc4cc'},margin:{l:55,r:30,t:30,b:45}},{responsive:true,displaylogo:false});
+
+
+// ACTUAL FEM VIEWER — plots the exact surface FE nodes and numerical displacements.
+let solvedFEM=null;let laminateShell=null;
+function renderSolvedFEM(){
+ if(!solvedFEM)return;
+ const m=solvedFEM.mesh,scale=Number($('femScale').value),v=m.vertices_mm,d=m.displacement_mm;
+ $('femScaleText').textContent=scale+'×';
+ const x=v.map((p,i)=>p[0]+scale*d[i][0]),y=v.map((p,i)=>p[1]+scale*d[i][1]),z=v.map((p,i)=>p[2]+scale*d[i][2]);
+ const colors=$('femColor').value==='displacement_mm'?d.map(p=>Math.hypot(...p)):m[$('femColor').value];
+ const traces=[];
+ if($('femReference').checked) traces.push({type:'mesh3d',name:'Undeformed reference',x:v.map(p=>p[0]),y:v.map(p=>p[1]),z:v.map(p=>p[2]),i:m.faces.map(p=>p[0]),j:m.faces.map(p=>p[1]),k:m.faces.map(p=>p[2]),color:'#91a7b6',opacity:.11,hoverinfo:'skip',showscale:false});
+ traces.push({type:'mesh3d',name:'Solved 3D FEM',x,y,z,i:m.faces.map(p=>p[0]),j:m.faces.map(p=>p[1]),k:m.faces.map(p=>p[2]),intensity:colors,colorscale:'Viridis',opacity:1,flatshading:false,colorbar:{title:$('femColor').value},hovertemplate:'x %{x:.2f}, y %{y:.2f}, z %{z:.2f} mm<br>Scalar %{intensity:.5g}<extra>3D FEM</extra>'});
+ Plotly.react('femPlot',traces,{...baseLayout,showlegend:false,uirevision:'fem-camera',margin:{l:0,r:0,t:0,b:0}},{responsive:true,displaylogo:false});
+}
+function renderLaminateShell(){
+ if(!laminateShell || !laminateShell.graphics){Plotly.react('laminatePlot',[],{...baseLayout,showlegend:false,uirevision:'laminate-camera',margin:{l:0,r:0,t:0,b:0}},{responsive:true,displaylogo:false});return;}
+ const scale=Number($('femScale').value), films=laminateShell.graphics.films||[];
+ const traces=[];
+ for(const film of films){
+   const v=film.vertices_mm||[], d=film.displacement_mm||[], faces=film.faces||[], field=film.field||[];
+   const x=v.map((p,i)=>p[0]+scale*((d[i]||[0,0,0])[0]||0)),y=v.map((p,i)=>p[1]+scale*((d[i]||[0,0,0])[1]||0)),z=v.map((p,i)=>p[2]+scale*((d[i]||[0,0,0])[2]||0));
+   if($('femReference').checked) traces.push({type:'mesh3d',name:`${film.name} ref`,x:v.map(p=>p[0]),y:v.map(p=>p[1]),z:v.map(p=>p[2]),i:faces.map(p=>p[0]),j:faces.map(p=>p[1]),k:faces.map(p=>p[2]),color:'#f1bd6d',opacity:.08,hoverinfo:'skip',showscale:false});
+   traces.push({type:'mesh3d',name:film.name,x,y,z,i:faces.map(p=>p[0]),j:faces.map(p=>p[1]),k:faces.map(p=>p[2]),intensity:field,colorscale:'Turbo',opacity:0.96,flatshading:false,showscale:false,hovertemplate:'x %{x:.2f}, y %{y:.2f}, z %{z:.2f} mm<br>Shell scalar %{intensity:.5g}<extra>'+film.name+'</extra>'});
+ }
+ Plotly.react('laminatePlot',traces,{...baseLayout,showlegend:false,uirevision:'laminate-camera',margin:{l:0,r:0,t:0,b:0},scene:{...baseLayout.scene,camera:{eye:{x:1.65,y:1.45,z:1.2}}}},{responsive:true,displaylogo:false});
+}
+// FEM fields are computed through the single Evaluate All action.
+// Previous standalone FEM run button was removed to avoid inconsistent audits.
+$('femScale').oninput=()=>{renderSolvedFEM();renderLaminateShell();};$('femColor').onchange=renderSolvedFEM;$('femReference').onchange=()=>{renderSolvedFEM();renderLaminateShell();};
+
+// UI is a pure projection of the same state; Basic never skips tests or changes fitness.
+function setView(mode){document.body.classList.toggle('basic',mode==='basic');$('basicMode').classList.toggle('active',mode==='basic');$('advancedMode').classList.toggle('active',mode==='advanced');
+ localStorage.setItem('neuroskin-view',mode);window.dispatchEvent(new Event('resize'));}
+$('basicMode').onclick=()=>setView('basic');$('advancedMode').onclick=()=>setView('advanced');
+setView('basic');
+function escapeText(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function renderPipeline(){if(!state)return;
+ const top=state.audit_top3||[],inc=state.audited_champion;
+ $('pipelineStatus').innerHTML=`<span class="pill-status">${escapeText(state.phase||'idle')}</span> · ${state.audit_history?.length||0} completed stages · ${inc?'incumbent '+escapeText(inc.id):'no audited incumbent yet'}`;
+ $('auditCards').innerHTML=top.length?top.map((c,i)=>`<button type="button" class="audit-card" data-audit-id="${escapeText(c.id)}"><small>Finalist #${i+1} · ${escapeText(c.family)} / ${escapeText(c.genome.topology)}</small><b>${Number(c.audit?.audit_score??0).toFixed(2)} / 100</b><small>${c.audit?.feasible?'PASS':'NOT FEASIBLE'} · FEM ${c.audit?.fem?.fem_score??'off/invalid'} · bonded PVDF ${c.audit?.fem?.pvdf_stiffness_included?'included':'not FEM-verified'} · fast score ${Number(c.fitness).toFixed(1)}</small><small>${escapeText((c.audit?.screening_failure_reasons||[]).slice(0,2).join(', ')||'No active screen violations')} · click to inspect 3D</small></button>`).join(''):'<small>No fully audited finalists yet.</small>';
+ for(const b of $('auditCards').querySelectorAll('[data-audit-id]')) b.onclick=()=>{
+  const c=top.find(c=>c.id===b.dataset.auditId);if(!c)return;
+  pinnedCandidate=structuredClone(c);currentSelection={kind:'id',index:c.id,family:c.family};follow=false;$('auto').checked=false;meshSignature='';selectedUI();updateMesh(true);
+ };
+ if(inc){const a=inc.audit;const d=a.decision_basis||{};
+ const summary=a.spatial_operating_summary||{};
+ const cov=(f)=>a.pressure_spatial?.[f]?Math.round(100*a.pressure_spatial[f].coverage_fraction)+'%':'—';
+ const issues=(a.screening_failure_reasons||[]).slice(0,4).join(', ');
+ $('championAudit').innerHTML=`<b>${escapeText(inc.family)} / ${escapeText(inc.genome.topology)} · ${a.audit_score.toFixed(2)}</b><small style="display:block;margin:7px 0">ID ${escapeText(inc.id)} · ${a.feasible?'Passes current engineering screen':'Best available candidate · screen FAILED'}</small><div class="metricgrid">${metricBox('0.1 N coverage',cov('0.1'))}${metricBox('0.4 N coverage',cov('0.4'))}${metricBox('25 mN diagnostic',cov('0.025'))}${metricBox('Worst operating SNR',d.assumed_signal_snr_min??'—')}${metricBox('Max tilt (rad)',summary.operating_max_tilt_rad??'—')}${metricBox('Holdout RMSE N',d.force_holdout_rmse_N??'—')}</div><small class="warning">${issues?'Screen issues: '+escapeText(issues):'Operating-band screen: no reported violations'}. Results use assumed noise and sensor transfer; not experimental validation.</small>`;
+ }else $('championAudit').textContent='No full-audit champion yet.';
+ const last=(state.stage_decisions||[]).at(-1);
+ $('decisionAudit').textContent=last?JSON.stringify(last,null,2):'—';
+ $('reportAudit').disabled=!inc;
+}
+$('reportAudit').onclick=()=>{location.href=archiveRunId?'/api/archives/'+encodeURIComponent(archiveRunId)+'/audit':'/api/audit/report'};
+
+async function poll(){if(busy||archiveRunId)return;busy=true;try{state=await api('GET','/state');display()}catch(e){$('error').textContent=e.message}finally{busy=false}}async function refreshArchives(){
+ try{
+  const data=await api('GET','/archives');archiveRuns=data.runs;
+  const prior=$('archiveSelect').value;
+  $('archiveSelect').replaceChildren(new Option('Choose an experiment…',''));
+  $('compareArchive').replaceChildren(new Option('Select second run…',''));
+  for(const r of archiveRuns){
+   const date=new Date(r.modified_utc*1000).toLocaleString();
+   const score=r.audit_score==null?'no audit':Number(r.audit_score).toFixed(2);
+   $('archiveSelect').add(new Option(`${date} · ${r.id} · gen ${r.generation} · audit ${score}`,r.id));
+   $('compareArchive').add(new Option(`${date} · ${r.id} · audit ${score}`,r.id));
+  }
+  if(archiveRuns.some(r=>r.id===prior))$('archiveSelect').value=prior;
+ }catch(err){$('archiveNotice').textContent='Archive error: '+err.message;}
+}
+function setArchiveNotice(){
+ const r=archiveRuns.find(q=>q.id===archiveRunId);
+ $('archiveNotice').textContent=archiveRunId?
+  `ARCHIVED RUN ${archiveRunId} · ${archiveGeneration?'generation '+archiveGeneration:'final result'} · read-only · ${r?.generation??'—'} generations`:
+  'Live session · saved runs are stored under runs_v05/';
+ $('downloadArchive').disabled=!archiveRunId&&!$('archiveSelect').value;
+}
+async function openSavedRun(){
+ const id=$('archiveSelect').value;if(!id)return;
+ try{
+  const data=await api('GET','/archives/'+encodeURIComponent(id));
+  archiveRunId=id;archiveGeneration=null;fullArchiveState=data;state=data;pinnedCandidate=null;currentResponse=null;lastSpatial=null;
+  follow=true;currentSelection={kind:'best',index:0,family:data.best?.family||'crown'};
+  meshSignature='';setArchiveNotice();display();updateMesh(true);
+  await refreshStages(id);
+ }catch(err){$('archiveNotice').textContent='Cannot open run: '+err.message;}
+}
+async function refreshStages(id){
+ $('stageSelect').replaceChildren(new Option('Final run result',''));
+ try{
+  const response=await api('GET','/archives/'+encodeURIComponent(id)+'/stages');
+  for(const stage of response.stages){
+   $('stageSelect').add(new Option(`Generation ${stage.generation} · audited ${Number(stage.score??0).toFixed(2)}`,String(stage.generation)));
+  }
+ }catch(err){$('archiveNotice').textContent='Stage history unavailable: '+err.message;}
+}
+$('openStage').onclick=async()=>{
+ if(!archiveRunId)return;
+ const selected=$('stageSelect').value;
+ if(!selected){archiveGeneration=null;state=fullArchiveState;}
+ else{
+  try{
+   const stage=await api('GET','/archives/'+encodeURIComponent(archiveRunId)+'/stages/'+Number(selected));
+   archiveGeneration=Number(selected);
+   state={...fullArchiveState,
+    best:stage.champion,audited_champion:stage.champion,audit_top3:stage.top3,
+    gallery:stage.top3,stage_decisions:[stage.decision],phase:'archived_stage',
+    status:'completed',generation:stage.generation};
+  }catch(err){$('archiveNotice').textContent='Cannot inspect generation: '+err.message;return;}
+ }
+ pinnedCandidate=null;currentResponse=null;follow=true;
+ currentSelection={kind:'best',index:0,family:state.best?.family||'crown'};
+ meshSignature='';setArchiveNotice();display();updateMesh(true);
+};
+$('compareRuns').onclick=async()=>{
+ const a=archiveRunId||$('archiveSelect').value,b=$('compareArchive').value;
+ if(!a||!b){$('compareResult').textContent='Select two saved runs.';return;}
+ try{
+  const c=await api('GET','/archives/compare?left='+encodeURIComponent(a)+'&right='+encodeURIComponent(b));
+  $('compareResult').textContent=(c.comparable?'Comparable with shared assumptions.':'NOT DIRECTLY COMPARABLE.')+'\n'+
+   JSON.stringify({left:c.left,right:c.right,delta_right_minus_left:c.score_delta_right_minus_left,warning:c.warning},null,2);
+ }catch(err){$('compareResult').textContent='Comparison failed: '+err.message;}
+};
+$('reloadArchives').onclick=refreshArchives;
+$('openArchive').onclick=openSavedRun;
+$('returnLive').onclick=async()=>{
+ archiveRunId=null;archiveGeneration=null;fullArchiveState=null;pinnedCandidate=null;currentResponse=null;meshSignature='';follow=true;
+ setArchiveNotice();await poll();
+};
+$('downloadArchive').onclick=()=>{
+ const id=archiveRunId||$('archiveSelect').value;
+ if(id)location.href='/api/archives/'+encodeURIComponent(id)+'/download';
+};
+$('archiveSelect').onchange=setArchiveNotice;
+setArchiveNotice();refreshArchives();
+async function loadSeedLibrary(){
+ try{
+  const r=await api('GET','/seed_library');const names=r.categories.map(x=>x.id);
+  const rows=r.seeds.map(s=>{
+   const cells=names.map(k=>`<td title="${escapeText(r.categories.find(z=>z.id===k)?.label||k)}">${s.criteria[k]}</td>`).join('');
+   const source=s.source_url?`<a href="${encodeURI(s.source_url)}" target="_blank" rel="noopener noreferrer">Paper</a>`:'Original hypothesis';
+   return `<tr class="${s.selected?'picked':''}"><td><b>${escapeText(s.title)}</b><br><small>${escapeText(s.id)} · ${escapeText(s.family)} · ${escapeText(s.origin)}</small><br><small>${escapeText(s.rationale)}</small></td>${cells}<td class="seedscore">${s.total}/100</td><td>${s.selected?'Top 10':'Candidate'}</td><td><button data-preview-seed="${escapeText(s.id)}">Preview</button> ${source}</td></tr>`;
+  });
+  $('seedLibrary').innerHTML=`<table class="seedtable"><thead><tr><th>Mechanism</th>${r.categories.map(c=>`<th title="${escapeText(c.label)}">${escapeText(c.id)}</th>`).join('')}<th>Total</th><th>Stage</th><th>Actions</th></tr></thead><tbody>${rows.join('')}</tbody></table>`;
+  for(const b of $('seedLibrary').querySelectorAll('[data-preview-seed]')) b.onclick=async()=>{
+   try{const c=await api('GET','/seeds/'+encodeURIComponent(b.dataset.previewSeed));
+    pinnedCandidate=c;currentSelection={kind:'seed',index:b.dataset.previewSeed,family:c.family};
+    archiveRunId=null;archiveGeneration=null;follow=false;$('auto').checked=false;
+    selectedUI();await updateMesh(true);$('allEvalStatus').textContent='Seed selected: '+b.dataset.previewSeed;
+   }catch(e){$('error').textContent=e.message;}
+  };
+ }catch(e){$('seedLibrary').textContent='Seed library error: '+e.message;}
+}
+function markEvaluationStale(){
+ const status=$('allEvalStatus');
+ if(status&&!status.textContent.startsWith('Evaluating')) status.textContent='Parameters changed. Press Evaluate All to refresh mechanical, electrical and spatial results.';
+}
+$('evaluateAll').onclick=async()=>{
+ const cand=findCandidate(currentSelection);
+ if(!cand){$('allEvalStatus').textContent='Select a candidate or library seed first.';return;}
+ const btn=$('evaluateAll');btn.disabled=true;
+ $('allEvalStatus').textContent='Evaluating mechanical FEM, PVDF laminate, final laminate shell, electrical load cases and spatial pressure…';
+ try{
+  const req={selection:currentSelection.kind,index:String(currentSelection.index),family:currentSelection.family,
+   run_id:archiveRunId,generation:archiveGeneration,piezo_count_override:piezoOverrideValue(),piezo_wiring_override:piezoWiringOverrideValue(),
+   audit_grid:Number($('audit_grid').value),objective:$('objective').value,
+   fem_enabled:$('enable_fem').checked,fem_backend:$('femViewBackend').value,
+   fem_pitch_mm:Number($('femViewPitch').value),
+   fem_compute_device:$('femDevice').value,fem_inspection_case:$('femCase').value,
+   fem_inspection_force_n:Number($('femForce').value),
+   fem_inspection_offset_x:Number($('femOffsetX').value),fem_inspection_offset_y:Number($('femOffsetY').value)};
+  const data=await api('POST','/evaluate_all',req);const a=data.audit, rec=data.recovery;
+  const fm=data.fem;
+  $('allEvalStatus').textContent=`${cand.id}: full protocol finished · score ${Number(a.audit_score).toFixed(2)}/100 (${a.score_band||'historical'}) · ${a.feasible?'PASS':'NOT FEASIBLE'} · FEM ${fm?.feasible_linear?'solved':fm?'not feasible':'disabled'}${a.screening_failure_reasons?.length?' · '+a.screening_failure_reasons.slice(0,3).join(', '):''}`;
+  const compact={candidate:data.candidate_id,audit_score:a.audit_score,screen_feasible:a.feasible,
+    score_band:a.score_band,spatial_operating_summary:a.spatial_operating_summary,
+    screening_failure_reasons:a.screening_failure_reasons,
+    strain_recovery:rec,manufacturability:a.manufacturability,
+    observability:a.observability,force_reconstruction:a.force_reconstruction,
+    pvdf_frequency_sweep:a.piezo_frequency_sweep,
+    laminate_shell:fm?.laminate_shell?{score:fm.laminate_shell.shell_score,feasible:fm.laminate_shell.feasible_shell_screen,max_eq_stress_MPa:fm.laminate_shell.max_eq_stress_MPa,max_interfacial_shear_MPa:fm.laminate_shell.max_interfacial_shear_MPa,max_top_strain_abs:fm.laminate_shell.max_top_fiber_strain_abs,warnings:fm.laminate_shell.warnings}:null,
+    fem:fm?{elements:fm.elements,score:fm.fem_score,warning:fm.mesh_warning,laminate_included:fm.pvdf_stiffness_included,film_count:fm.pvdf_film_count,film_strain:fm.pvdf_max_abs_effective_strain,film_energy_share:fm.pvdf_fraction_of_total_energy,load_cases:fm.load_cases}:null,
+    warning:data.warning};
+  $('allEvalResult').textContent=JSON.stringify(compact,null,2);
+  if(fm?.fields){solvedFEM={candidate_id:data.candidate_id,family:data.family,
+   mesh:fm.fields,metrics:fm.inspection_metrics||fm.load_cases?.press_center||{},genome:cand.genome,
+   nodes:fm.nodes,elements:fm.elements,pitch_mm:fm.mesh_pitch_mm,backend:fm.fem_backend,
+   meshing_warning:fm.mesh_warning,compute_device:'cpu',setup_s:fm.setup_time_s};
+   renderSolvedFEM();$('femStatus').textContent='FEM + bonded-film mechanical reinforcement: '+(fm.pvdf_stiffness_included?'included':'NOT included')+'; '+(fm.pvdf_film_count??0)+' PVDF films. '+(fm.mesh_warning||'');
+  }
+  if(fm?.laminate_shell && !fm.laminate_shell.failed){const viewShell=fm.laminate_shell_inspection&&!fm.laminate_shell_inspection.failed?fm.laminate_shell_inspection:fm.laminate_shell;laminateShell={candidate_id:data.candidate_id,family:data.family,graphics:viewShell.graphics};renderLaminateShell();$('laminateShellStatus').textContent=`Laminate shell solved · ${fm.laminate_shell.film_count} films · standardized 0.1N score ${Number(fm.laminate_shell.shell_score).toFixed(2)}/100 · ${fm.laminate_shell.feasible_shell_screen?'passes shell screen':'shell screen NOT feasible'} · graphic uses selected inspection load`;$('laminateShellMetrics').textContent=JSON.stringify({score:fm.laminate_shell.shell_score,feasible_shell_screen:fm.laminate_shell.feasible_shell_screen,max_eq_stress_MPa:fm.laminate_shell.max_eq_stress_MPa,max_interfacial_shear_MPa:fm.laminate_shell.max_interfacial_shear_MPa,max_top_fiber_strain_abs:fm.laminate_shell.max_top_fiber_strain_abs,warnings:fm.laminate_shell.warnings,per_film:fm.laminate_shell.per_film.map(x=>({film_index:x.film_index,member_index:x.member_index,eq_stress_MPa_max_abs:x.eq_stress_MPa_max_abs,interfacial_shear_MPa_max_abs:x.interfacial_shear_MPa_max_abs,top_fiber_strain_max_abs:x.top_fiber_strain_max_abs,shell_energy_Nmm:x.shell_energy_Nmm}))},null,2);}else{$('laminateShellStatus').textContent='Laminate shell not available for this run (likely no FEM result or non-solid backend).';$('laminateShellMetrics').textContent='No laminate shell result yet.';laminateShell=null;renderLaminateShell();}
+  $('allEvalStatus').textContent += ' · Updating electrical inspector…';
+  await runCharacterization();
+  $('allEvalStatus').textContent += ' · Updating spatial pressure map…';
+  await runSpatial();
+  $('allEvalStatus').textContent += ' · All three inspectors updated.';
+ }catch(e){$('allEvalStatus').textContent='Evaluate All failed: '+e.message;}
+ finally{btn.disabled=false;}
+};
+$('seed').value=String(crypto.getRandomValues(new Uint32Array(1))[0]>>>1);
+loadSeedLibrary();
+setInterval(poll,1100);fetch('/api/system').then(r=>r.json()).then(d=>{$('cores').max=d.logical_cores;$('cores').value=Math.max(1,Math.min(d.default_cores,d.logical_cores));$('coreinfo').textContent=`${d.logical_cores} logical CPUs available · ${d.hardware?.cpu?.physical_host||'unknown'} physical · ${d.hardware?.ram_total_mb?Math.round(d.hardware.ram_total_mb/1024)+' GB RAM':'RAM unknown'} · ${d.hardware?.nvidia_gpu?.available?(d.hardware.nvidia_gpu.name+' ('+d.hardware.nvidia_gpu.total_vram_mb+' MB VRAM)'):'GPU unverified'}; CPU evolution recommended.`}).catch(()=>{});poll();
+</script></body></html>

@@ -13,7 +13,7 @@ from electromechanics import examine, CASES
 from spatial_validation import spatial_pressure_test
 from optimization import PRESETS
 
-AUDIT_VERSION='1.9.1-operating-band-guided-screen-plus-SLS'
+AUDIT_VERSION='3.0-alpha-d31-rank5-screen'
 PRESSURE_FORCES_N=(.025,.10,.40)
 FREQUENCIES_HZ=(2.,25.,150.)
 NUISANCE_STRAINS=(-.05,.05)
@@ -157,7 +157,7 @@ def audit_candidate(family,g,objective='balanced',grid_size=5):
     strain=max(abs(cases[n]['piezo_strain_proxy']) for n in cases)
     # Hard engineering screening, not physical certification.
     feasible=bool(summary['screen_feasible'] and geom['passed'] and
-                  observability['rank_5_unknowns']>=3 and
+                  observability['rank_5_unknowns']==5 and
                   strain<=.08 and np.isfinite(quick) and unload['strain_screen_passed'])
     signal_component=min(1.,max(0.,min_snr)/8.)
     low_force_component=min(1.,max(0.,summary['low_force_min_snr_assumed'])/3.)
@@ -172,7 +172,7 @@ def audit_candidate(family,g,objective='balanced',grid_size=5):
         utility=min(49.99,utility*.5*(.40+.60*margin_quality))
     rejection_reasons=list(summary['failing_conditions'])
     if not geom['passed']:rejection_reasons.extend(f'manufacturing_{f}' for f in geom['flags'])
-    if observability['rank_5_unknowns']<3:rejection_reasons.append('underidentified_force_and_contact')
+    if observability['rank_5_unknowns']<5:rejection_reasons.append('underidentified_force_and_contact')
     if strain>.08:rejection_reasons.append('piezo_strain_proxy_excessive')
     if not unload['strain_screen_passed']:rejection_reasons.append('unloading_strain_limit')
     rejection_reasons=sorted(set(rejection_reasons))

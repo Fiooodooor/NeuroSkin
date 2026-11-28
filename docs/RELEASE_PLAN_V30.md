@@ -27,3 +27,10 @@ These milestones do not complete R03/R04/R09. Do not confuse software release wi
 - D003: corrected physics changes historical fitness; re-evaluation required.
 - D004: direct Git from working container remains blocked by DNS. The user uploaded v2.2 to main; new development now uses that commit. Keep main unchanged until tests and release gates are complete.
 - D005: transfer corrected source files directly, not the historical migration script; that script targets the original pristine v2.2 and must not be rerun on partially integrated revisions.
+
+## Revision 3 — physics corrections
+- [x] Shared signed broad-face d31 charge and active-area capacitance/mass across analytical, embedded membrane, shell and beam models. Legacy d33 request explicitly unsupported.
+- [x] Zero-reference shell curvature and corrected quadrature; single-stage reaction matrices match stiffness assembly.
+- [x] Rank-five full audit gate; voxel inflation and force imbalance disqualify linear FEM screening. GUI displays coefficient and FEM results.
+- Local regression: 79 passed, 45 subtests passed. These are engineering tests, not hardware evidence.
+- D006: older h01/h10 reference tests assumed coarse inflated meshes could pass. The new tests assert geometry rejection and retain equilibrium checks; do not lower this gate to recover old scores. A conforming mesh is still required. Historical score comparisons invalidated by source hashes.

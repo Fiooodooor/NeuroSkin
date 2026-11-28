@@ -14,6 +14,10 @@ def merge_fem_into_audit(audit: dict, fem: dict, family: str, genome: dict,
     audit['audited_surrogate_score'] = baseline
     audit['audited_surrogate_feasible'] = bool(audit['feasible'])
     audit['fem'] = fem if include_fields else dict(fem, fields=None)
+    if fem.get('inflated_features',0):
+        audit.setdefault('screening_failure_reasons', []).append('fem_geometry_inflated_members')
+    if not fem['feasible_linear']:
+        audit.setdefault('screening_failure_reasons', []).append('fem_linear_screen_failed')
     audit['audit_version'] = '2.2-standardized-multifidelity-mechanics'
     audit['audit_score'] = round(.4 * baseline + .6 * float(fem['fem_score']), 5)
     audit['validation_level'] = 'linear_continuum_FEM_plus_synthetic_electronics_unconverged'

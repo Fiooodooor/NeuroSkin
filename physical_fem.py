@@ -522,10 +522,10 @@ def fem_sweep(family,g,pitch_mm=1.25,include_fields=False,backend='auto',
         hybrid_stages['balance_score_0_100']=round(100.*balance,4)
         hybrid_stages['mode_separation_score_0_100']=round(100.*modal,4)
         score=.80*score+.12*(100.*balance)+.08*(100.*modal)
-    valid=bool(pressure_valid and extrema<.12 and mesh.voxels>80 and max(v['moment_equilibrium_relative'] for v in results.values())<1e-4)
+    valid=bool(pressure_valid and extrema<.12 and mesh.voxels>80 and mesh.inflated_features==0 and max(v['force_equilibrium_relative'] for v in results.values())<1e-4 and max(v['moment_equilibrium_relative'] for v in results.values())<1e-4)
     score=round(float(score),4)
     report={'fem_backend':'actual_hex8_linear_3d','fem_linear_solver':fem.solver_mode,'mesh_pitch_mm':pitch_mm,'elements':mesh.voxels,'nodes':len(mesh.nodes),'volume_mm3':round(mesh.volume_mm3,2),
-            'inflated_features':mesh.inflated_features,'mesh_warning':mesh.geometry_warning,'elastic_E_MPa':config.young_MPa,
+            'inflated_features':mesh.inflated_features,'geometry_fidelity_pass':mesh.inflated_features==0,'mesh_warning':mesh.geometry_warning,'elastic_E_MPa':config.young_MPa,
             'poisson':config.poisson,'setup_time_s':round(fem.setup_s,4),
             'load_cases':{k:{kk:(round(float(vv),7) if isinstance(vv,(float,np.floating)) else vv) for kk,vv in value.items() if kk not in ('displacement','element_strain','element_stress','von_mises_MPa','principal_strain')} for k,value in results.items()},
             'capacitance_delta_pF_assumed':signals,

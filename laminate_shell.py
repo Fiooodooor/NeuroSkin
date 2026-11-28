@@ -182,7 +182,10 @@ def resolve_laminate_shell(mesh, family: str, genome: dict, displacement) -> dic
         seg_def = np.linalg.norm(np.diff(deformed, axis=0), axis=1)
         membrane = (seg_def - seg_und) / np.maximum(seg_und, 1e-9)
         membrane_station = np.r_[membrane[0], 0.5 * (membrane[:-1] + membrane[1:]), membrane[-1]]
-        curvature = _curvature_from_polyline(deformed)
+        # Curvature change relative to the stress-free reference, scalar approximation.
+        curvature = _curvature_from_polyline(deformed) - _curvature_from_polyline(surf_pts)
+        raw_membrane = membrane_station.copy()
+        membrane_station *= props['shear_lag_transfer']
         tf = props['film_thickness_mm']
         top_strain = membrane_station + 0.5 * tf * curvature
         bottom_strain = membrane_station - 0.5 * tf * curvature
@@ -190,13 +193,15 @@ def resolve_laminate_shell(mesh, family: str, genome: dict, displacement) -> dic
         sx_top = Ex * top_strain
         sx_bottom = Ex * bottom_strain
         transfer = props['shear_lag_transfer']
-        shear = np.abs(props['pvdf_E_MPa'] * props['film_thickness_mm'] * (1.0 - transfer) * membrane_station / max(props['adhesive_thickness_mm'], 1e-6))
+        shear = np.abs(props['pvdf_E_MPa'] * props['film_thickness_mm'] * (1.0 - transfer) * raw_membrane / max(props['adhesive_thickness_mm'], 1e-6))
         eq = np.sqrt(np.maximum(0.0, sx_top ** 2 + 3.0 * shear ** 2))
-        ds_station = np.r_[seg_und[0], 0.5 * (seg_und[:-1] + seg_und[1:]), seg_und[-1]]
+        ds_station = np.r_[0.5*seg_und[0], 0.5 * (seg_und[:-1] + seg_und[1:]), 0.5*seg_und[-1]]
+        ds_station *= props['effective_span_mm'] / ds_station.sum()
         A11 = props['pvdf_E_MPa'] * tf * props['effective_width_mm']
         D11 = props['pvdf_E_MPa'] * (tf ** 3) * props['effective_width_mm'] / 12.0
         shell_energy = float(0.5 * np.sum((A11 * membrane_station ** 2 + D11 * curvature ** 2) * ds_station))
-        est_charge = float(-23.0 * props['pvdf_E_MPa'] * props['effective_width_mm'] * tf * membrane_station.mean())
+        from pvdf_physics import charge_pc
+        est_charge = charge_pc(props, np.average(membrane_station, weights=ds_station))
         field = eq
         ribbon_mesh = _build_ribbon_mesh(surf_pts, deformed, props['effective_width_mm'], station_disp, field)
         film = ShellFilmSummary(

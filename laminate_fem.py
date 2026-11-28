@@ -23,7 +23,7 @@ from pvdf_array import choose_film_members
 DEFAULT_E_PVDF_MPA=2500.0  # typical films 2--4 GPa, material-dependent
 DEFAULT_ADHESIVE_G_MPA=1.0 # assumption; must be measured for bonded laminate
 DEFAULT_ADHESIVE_THICKNESS_MM=0.06
-D31_PC_N=-23.0 # assumed nominal dynamic coefficient, not a calibrated electrode
+from pvdf_physics import charge_pc
 
 
 def material_parameters(genome: dict) -> dict:
@@ -130,7 +130,7 @@ class LaminateReinforcement:
             avg=float(np.average(strains,weights=np.asarray([e.length_mm for e in edges])))
             maximum=float(np.max(np.abs(strains)))
             ffilm=p['pvdf_E_MPa']*p['effective_width_mm']*p['film_thickness_mm']*p['shear_lag_transfer']*avg
-            charge=D31_PC_N*ffilm
+            charge=charge_pc(p,p['shear_lag_transfer']*avg)
             energy=float(sum(.5*e.stiffness_N_mm*np.dot(e.vector,u[e.indices])**2 for e in edges))
             per.append({'film_index':fi,'member_index':self.member_indices[fi],
                         'effective_strain':avg,'max_abs_effective_strain':maximum,

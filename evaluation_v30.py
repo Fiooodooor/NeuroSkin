@@ -24,7 +24,7 @@ from sensor_metrics import (
 )
 from electronics_budget import estimate_budget, ElectronicsAssumptions
 
-ENGINE_SIGNATURE = 'neuroskin-v2.2-validated-surrogate-20261128'
+ENGINE_SIGNATURE = 'neuroskin-v3-d31-rank5-screen'
 
 
 def solver_source_hash():
@@ -32,7 +32,7 @@ def solver_source_hash():
     h=sha256()
     root=Path(__file__).resolve().parent
     for name in ('electromechanics.py','advanced.py','sensor_metrics.py',
-                 'evaluation_v30.py','laminate_fem.py','physical_fem.py'):
+                 'evaluation_v30.py','laminate_fem.py','physical_fem.py','laminate_shell.py','piezoelectric.py','hybrid_geometry.py','pvdf_array.py','pvdf_physics.py','beam_fem.py','neuroskin_multiscale.py'):
         h.update(name.encode('utf-8')+b'\0')
         h.update((root/name).read_bytes())
     return h.hexdigest()
@@ -202,7 +202,7 @@ def evaluate_protocol(family: str, genome: dict, *, candidate_id: str = 'adhoc',
         TestResult(id='nonlinear_contact', status='unsupported', source='nonlinear_fem',
                    reason='No geometrically nonlinear contact solve in this release'),
         TestResult(id='hardware_test', status='not_run', source='hardware_measurement',
-                   reason='No physically measured calibration data supplied'),
+                   reason='Optional T3: no physically measured calibration data supplied; does not block software release or evolution'),
         TestResult(id='indenter_variation', status='unsupported', source='synthetic_surrogate',
                    reason='Indenter geometry is not included in the surrogate'),
         TestResult(id='temperature_variation', status='unsupported', source='synthetic_surrogate',

@@ -114,7 +114,7 @@ class HybridLibraryTests(unittest.TestCase):
                                            curve_stiffness(spec.upper_family,g),
                                            rtol=1e-9,atol=1e-9)
 
-    def test_tuned_reference_hybrids_pass_identical_complete_audit(self):
+    def test_tuned_reference_hybrids_report_geometry_gate(self):
         from hybrid_library import BY_ID
         from advanced import audit_job
         for code in ('h01_serpentine_quadrant','h10_dual_chiral'):
@@ -123,8 +123,9 @@ class HybridLibraryTests(unittest.TestCase):
                 genome=genome_for(spec)
                 self.assertGreater(genome['thickness'],0.5)
                 audit=audit_job((spec.upper_family,genome,'balanced',3,True,1.25,'hex8'))
-                self.assertTrue(audit['feasible'],str(audit['decision_basis']))
-                self.assertTrue(audit['fem']['feasible_linear'])
+                self.assertGreater(audit['fem']['inflated_features'],0)
+                self.assertFalse(audit['feasible'])
+                self.assertFalse(audit['fem']['feasible_linear'])
                 self.assertTrue(audit['laminate_shell']['feasible_shell_screen'])
 
     def test_electrical_wiring_mode_changes_available_information(self):
@@ -140,7 +141,8 @@ class HybridLibraryTests(unittest.TestCase):
     def test_full_fem_reports_two_stage_loads_and_shell(self):
         spec=ranked()[0];g=genome_for(spec)
         r=fem_sweep(spec.upper_family,g,pitch_mm=1.25,backend='hex8',include_fields=True)
-        self.assertTrue(r['feasible_linear'])
+        self.assertGreater(r['inflated_features'],0)
+        self.assertFalse(r['feasible_linear'])
         d=r['hybrid_stages']
         self.assertGreater(d['lower_compression_mm'],0)
         self.assertGreater(d['upper_compression_mm'],0)
@@ -155,7 +157,8 @@ class HybridLibraryTests(unittest.TestCase):
         from hybrid_library import BY_ID
         spec=BY_ID['h10_dual_chiral'];g=genome_for(spec)
         report=fem_sweep(spec.upper_family,g,pitch_mm=.625,backend='hex8')
-        self.assertTrue(report['feasible_linear'])
+        self.assertGreater(report['inflated_features'],0)
+        self.assertFalse(report['feasible_linear'])
         self.assertLess(report['moment_equilibrium_max'],1e-7)
         self.assertGreater(report['elements'],2000)
 

@@ -81,25 +81,16 @@ def raw_mechanics(family, genome, case='normal', force=None, moment=None, offset
  load=np.array([*F,M[0]+off[1]*F[2],M[1]-off[0]*F[2],M[2]+off[0]*F[1]-off[1]*F[0]])
  # Very simplified substrate stretch: prescribed affine movement at strut foot.
  # Solve equivalent nodal load on rigid pad induced by moving the bases.
- paths=structural_struts(family,genome)
+ from advanced import stage_member_local_matrices
+ members=stage_member_local_matrices(family,genome,E=genome.get('material_E',1.0))
  if abs(strain)>0:
-  for pts,r,_ in paths:
-   a,b=pts[0],pts[-1]; d=b-a;L=np.linalg.norm(d);n=d/L
-   arc=sum(np.linalg.norm(y-x) for x,y in zip(pts[:-1],pts[1:]));r=float(r)
-   A=np.pi*r*r;I=np.pi*r**4/4; E=genome.get('material_E',1.0)
-   kl=(E*A/arc*(L/arc)**2)*np.outer(n,n)+(12*E*I/arc**3)*(np.eye(3)-np.outer(n,n))
-   rp=b-np.array([0,0,genome['height']]); B=np.column_stack((np.eye(3),-skew(rp)))
-   moved=np.array([a[0]*strain,0.,0.])
+  for pts,kl,B in members:
+   moved=np.array([pts[0][0]*strain,0.,0.])
    load+=B.T@kl@moved
  u=np.linalg.solve(K,load)
  foot=[]
- for pts,r,_ in paths:
-  a,b=pts[0],pts[-1];d=b-a;L=np.linalg.norm(d);n=d/L
-  arc=sum(np.linalg.norm(y-x) for x,y in zip(pts[:-1],pts[1:]));r=float(r)
-  A=np.pi*r*r;I=np.pi*r**4/4;E=genome.get('material_E',1.0)
-  kl=(E*A/arc*(L/arc)**2)*np.outer(n,n)+(12*E*I/arc**3)*(np.eye(3)-np.outer(n,n))
-  rp=b-np.array([0,0,genome['height']]);B=np.column_stack((np.eye(3),-skew(rp)))
-  moved=np.array([a[0]*strain,0,0])
+ for pts,kl,B in members:
+  moved=np.array([pts[0][0]*strain,0.,0.])
   reaction=kl@(B@u-moved)
   foot.append([float(x) for x in reaction])
  return {'displacement_mm':u[:3].tolist(),'rotation_rad':u[3:].tolist(),'foot_reactions_N':foot,'applied_force_N':F.tolist(),'applied_moment_Nmm':M.tolist(),'offset_mm':list(off),'substrate_strain':strain,'K_N_per_mm_proxy':K.tolist()}

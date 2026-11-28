@@ -222,3 +222,6 @@ Canonical development branch: `develop/v3`. Consolidate the full v2.2-derived in
 
 ## Revision 40 — FEM energy reuse and membrane validity display
 - Reuse the already computed internal force in linear FEM strain energy, avoiding one redundant global matvec per load. Show signed bilateral taxel reactions on a common absolute color scale and report exact maximum Q1 corner slope against an explicit assumed 0.1 engineering screen (diagnostic only). Reject noninteger subdivision counts in direct calls. Restore geometry visibility immediately on Basic/Advanced switches. Add membrane slope scaling and API regression. No gates changed; T3 remains optional.
+
+## Revision 41 — workstation Evaluate All benchmark
+- Add a local HTTP benchmark of the actual Evaluate All route, using fixed seed/hybrid identity, same geometry, pitch, full preview request and eight standard loads. Compare audit/FEM scores, per-load physical quantities, mesh/protocol identity and qualification flags before calculating speedup. Report actual case and matvec workers, solver and phase timings. Failed FEM is excluded from speedup claims. Example: `python benchmark_evaluate_all.py --cores 1,16,24,40 --pitch .3125 --repeats 1` with an idle local server. No measured workstation speedup yet.

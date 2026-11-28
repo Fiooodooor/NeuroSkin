@@ -7,7 +7,7 @@ import manual_evaluation as m
 def test_budget_respects_cpu_ram_gpu():
     p=m.plan_manual(40,100000,True,'hex8',.3125,'cpu',True)
     assert p.surrogate_processes==3 and p.fem_case_workers==8
-    assert p.surrogate_processes+p.fem_case_workers<=40
+    assert p.surrogate_processes+p.fem_case_workers+p.matvec_workers<=40 and p.matvec_workers>0
     assert m.plan_manual(40,100000,True,'hex8',.3125,'gpu',True).fem_case_workers==1
     assert m.plan_manual(40,None,True,'hex8',.3125,'cpu',True).surrogate_processes==0
     assert m.plan_manual(1,100000,True,'hex8',.3125,'cpu',True).fem_case_workers==1
@@ -21,8 +21,8 @@ def test_parallel_dag_overlaps_and_returns_input_results(monkeypatch):
             entered.set();assert release.wait(5)
         return name
     monkeypatch.setattr(m,'surrogate_stage',surrogate)
-    def fem():
-        assert entered.wait(5);release.set();return 'fem'
+    def fem(phase):
+        assert entered.wait(5);phase({'phase':'test_case'});release.set();return 'fem'
     p=m.plan_manual(8,100000,True,'hex8',.3125,'cpu',True)
     r=m.run_manual('crown',{},dict(hybrid=True,fem_enabled=True),p,fem,updates.append,executor_factory=ThreadPoolExecutor)
     assert [r[k] for k in ('audit','validation','orientation','fem')]==['audit','validation','orientation','fem']

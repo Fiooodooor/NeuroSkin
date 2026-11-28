@@ -28,7 +28,7 @@ def allocate_manual(name,req,cpu,ram_mb,gpu_busy,has_active):
         desired=max(1,min(cpu,int(req.get('compute_workers') or 1)))
         plan=plan_manual(desired,None if ram_mb is None else 2*ram_mb,req.get('fem_enabled',True),
                          req.get('fem_backend','hex8'),req.get('fem_pitch_mm',.625),device,True)
-        count=plan.surrogate_processes+plan.fem_case_workers
+        count=plan.surrogate_processes+plan.fem_case_workers+plan.matvec_workers
         memory=plan.reserved_ram_mb_estimate
     elif name=='linear_fem':
         count=1;device='gpu' if req.get('compute_device')=='gpu' else 'cpu'
@@ -84,6 +84,7 @@ class ComputeAdmission:
                 cpu=max(0,int(cap['cpu'])-used['cpu_workers'])
                 ram=cap.get('ram_mb')
                 ram=None if ram is None else max(0,int(ram*.5)-used['ram_mb_estimate'])
+                if name=='evaluate_all' and request.get('compute_workers') is None:request={**request,'compute_workers':cap.get('default_cores',1)}
                 try:allocation=allocate_manual(name,request,cpu,ram,bool(used['gpu_slots']),bool(self._active))
                 except ComputeBusy as exc:self._reject(str(exc))
             self._sequence+=1

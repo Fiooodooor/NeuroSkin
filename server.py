@@ -28,7 +28,7 @@ def evolution_alive():
 
 def compute_capacity():
  from audit_scheduler import available_ram_mb
- return {'cpu':available_cores(),'ram_mb':available_ram_mb()}
+ return {'cpu':available_cores(),'ram_mb':available_ram_mb(),'default_cores':getattr(app.state,'default_cores',1)}
 
 COMPUTE=ComputeAdmission(evolution_alive,compute_capacity)
 @asynccontextmanager
@@ -439,13 +439,13 @@ def evaluate_all(req:EvaluateAllRequest):
    plan=plan_manual(cores,available_ram_mb(),req.fem_enabled,req.fem_backend,req.fem_pitch_mm,req.fem_compute_device,hybrid)
   options={'objective':req.objective,'audit_grid':req.audit_grid,'candidate_id':candidate['id'],
            'hybrid':hybrid,'fem_enabled':req.fem_enabled,'inspector_force':req.fem_inspection_force_n}
-  def solve_fem():
+  def solve_fem(phase_callback):
    from physical_fem import fem_sweep
    try:
     return fem_sweep(candidate['family'],g,pitch_mm=req.fem_pitch_mm,backend=req.fem_backend,include_fields=True,
                   inspector_case=req.fem_inspection_case,inspector_force_N=req.fem_inspection_force_n,
                   inspector_offset=(req.fem_inspection_offset_x,req.fem_inspection_offset_y),compute_device=plan.device,
-                  include_previews=req.fem_include_previews,case_workers=plan.fem_case_workers),None
+                  include_previews=req.fem_include_previews,case_workers=plan.fem_case_workers,matvec_workers=plan.matvec_workers,phase_callback=phase_callback),None
    except (ValueError,RuntimeError,MemoryError) as exc:
     return None,exc
   results=run_manual(candidate['family'],g,options,plan,solve_fem,COMPUTE.progress_callback())

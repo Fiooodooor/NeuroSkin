@@ -30,7 +30,7 @@
       const r=await fetch('/api/compute/status',{cache:'no-store'});if(!r.ok)throw Error('HTTP '+r.status);
       const c=await r.json(),a=c.manual_active;lastCompute=c;
       computeStatus.textContent=(a?'Heavy analysis: '+a.name+' · '+a.elapsed_s.toFixed(1)+' s':c.evolution_active?'Evolution owns heavy-compute slot (including pause/cleanup)':'Heavy-compute slot available')+' · '+c.available_cpu+' CPUs · '+(c.available_ram_mb==null?'RAM unknown':(c.available_ram_mb/1024).toFixed(1)+' GiB RAM available');
-      if(c.manual_jobs?.length){computeStatus.textContent+=' · '+c.manual_jobs.length+' active / '+c.reserved.cpu_workers+' reserved CPU workers / '+(c.reserved.ram_mb_estimate/1024).toFixed(2)+' GiB estimated RAM / '+c.reserved.gpu_slots+' GPU slot';for(const job of c.manual_jobs){const p=job.progress;computeStatus.textContent+=' · '+job.name+' '+job.elapsed_s.toFixed(1)+' s';if(p)computeStatus.textContent+=' ['+Object.entries(p.stages).map(([k,v])=>k+': '+v.state).join(' · ')+']';}}
+      if(c.manual_jobs?.length){computeStatus.textContent+=' · '+c.manual_jobs.length+' active / '+c.reserved.cpu_workers+' reserved CPU workers / '+(c.reserved.ram_mb_estimate/1024).toFixed(2)+' GiB estimated RAM / '+c.reserved.gpu_slots+' GPU slot';for(const job of c.manual_jobs){const p=job.progress;computeStatus.textContent+=' · '+job.name+' '+job.elapsed_s.toFixed(1)+' s';if(p)computeStatus.textContent+=' ['+Object.entries(p.stages).map(([k,v])=>k+': '+v.state+(v.detail?' / '+v.detail.phase+(v.detail.total?' '+v.detail.completed+'/'+v.detail.total:''):'')).join(' · ')+']';}}
       renderComputeHistory();
     }catch{computeStatus.textContent='Compute status unavailable';lastCompute=null;renderComputeHistory();}
     finally{computePending=false;}
@@ -338,7 +338,7 @@
     const coverage=make('div','workspace-result-coverage');coverage.append(make('strong','','Operating pressure coverage · synthetic screen'));
     for(const [force,s] of Object.entries(a.pressure_spatial||{})){const row=make('div','workspace-coverage-row'),meter=make('meter');meter.min=0;meter.max=1;meter.value=s.coverage_fraction;row.append(make('span','',force+' N'),meter,make('span','',(100*s.coverage_fraction).toFixed(0)+'%'));coverage.append(row);}
     if(coverage.children.length>1)evaluationCards.append(coverage);
-    if(data.compute_telemetry){const t=data.compute_telemetry;add('Compute plan',t.plan.surrogate_processes+' processes / '+t.plan.fem_case_workers+' FEM cases',Object.entries(t.stages).map(([k,v])=>k+' '+(v.elapsed_s??'—')+' s').join(' · '));}
+    if(data.compute_telemetry){const t=data.compute_telemetry;add('Compute plan',t.plan.surrogate_processes+' processes / '+t.plan.fem_case_workers+' FEM cases / '+(t.plan.matvec_workers||0)+' matvec threads',Object.entries(t.stages).map(([k,v])=>k+' '+(v.elapsed_s??'—')+' s').join(' · '));}
   }
   // The legacy mode toggles remain authoritative; observe only presentation/state.
   new MutationObserver(mode).observe(document.body,{attributes:true,attributeFilter:['class']});

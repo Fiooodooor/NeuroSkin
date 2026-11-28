@@ -11,7 +11,7 @@ import dataclasses
 import math
 import time
 import threading
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from typing import Any
 import numpy as np
@@ -223,7 +223,7 @@ class HexElasticSolver:
     """Factorize global 3D stiffness once, reuse for independent load cases."""
     def __init__(self, mesh:SolidMesh, young_MPa:float=1., poisson:float=.35,
                  *, matrixfree_threshold: int=18_000, cg_maxiter: int=5000, cg_rtol:float=5e-5, cg_timeout_s:float=180., compute_device: str='cpu',
-                 family:str|None=None, genome:dict|None=None, include_laminate:bool=True):
+                 family:str|None=None, genome:dict|None=None, include_laminate:bool=True, matvec_executor=None, matvec_chunks=1):
         t=time.monotonic();self.mesh=mesh
         n=len(mesh.nodes); self.edof=(3*mesh.elements[:,:,None]+np.arange(3)[None,None,:]).reshape(-1,24)
         klocal=ke_hex(young_MPa,poisson,mesh.pitch_mm)
@@ -266,7 +266,7 @@ class HexElasticSolver:
         else:
             try:
                 self.matrixfree=MatrixFreeElasticity(self.edof,klocal,self.free,3*n,
-                       maxiter=cg_maxiter,rtol=cg_rtol,timeout_s=cg_timeout_s,extra_stiffness=extra)
+                       maxiter=cg_maxiter,rtol=cg_rtol,timeout_s=cg_timeout_s,extra_stiffness=extra,matvec_executor=matvec_executor,matvec_chunks=matvec_chunks)
             except RuntimeError as exc:raise InvalidGeometry(str(exc)) from exc
         lmb=young_MPa*poisson/((1+poisson)*(1-2*poisson))
         mu=young_MPa/(2*(1+poisson))
@@ -374,7 +374,19 @@ class HexElasticSolver:
 
 
 def fem_sweep(family,g,pitch_mm=1.25,include_fields=False,backend='auto',
-              inspector_case='press_center',inspector_force_N=.1,inspector_offset=(0.,0.),compute_device='cpu',case_workers=1,include_previews=False):
+              inspector_case='press_center',inspector_force_N=.1,inspector_offset=(0.,0.),compute_device='cpu',case_workers=1,include_previews=False,matvec_workers=0,phase_callback=None):
+    """Own and drain an optional shared matvec pool separately from RHS workers."""
+    if type(matvec_workers) is not int or not 0<=matvec_workers<=32:raise ValueError('matvec_workers must be 0..32')
+    if type(case_workers) is not int or not 1<=case_workers<=8:raise ValueError('case_workers must be 1..8')
+    args=(family,g,pitch_mm,include_fields,backend,inspector_case,inspector_force_N,inspector_offset,compute_device,case_workers,include_previews)
+    if matvec_workers>=2 and compute_device=='cpu' and backend!='beam':
+        chunks=min(8,max(2,math.ceil(matvec_workers/case_workers)))
+        with ThreadPoolExecutor(max_workers=matvec_workers,thread_name_prefix='fem-matvec') as pool:
+            return _fem_sweep_impl(*args,matvec_executor=pool,matvec_chunks=chunks,matvec_workers=matvec_workers,phase_callback=phase_callback)
+    return _fem_sweep_impl(*args,phase_callback=phase_callback)
+
+
+def _fem_sweep_impl(family,g,pitch_mm,include_fields,backend,inspector_case,inspector_force_N,inspector_offset,compute_device,case_workers,include_previews,*,matvec_executor=None,matvec_chunks=1,matvec_workers=0,phase_callback=None):
     """Real FEM: small-pitch space-frame or coarser HEX8 solid with explicit backend labels."""
     if type(case_workers) is not int or not 1<=case_workers<=8:
         raise ValueError('case_workers must be an integer in 1..8')
@@ -382,7 +394,10 @@ def fem_sweep(family,g,pitch_mm=1.25,include_fields=False,backend='auto',
         raise ValueError('backend must be auto, beam or hex8')
     if g.get('hybrid_id','none') not in ('none',None,'') and backend=='beam':
         raise InvalidGeometry('Two-stage hybrid requires a connected solid HEX8 mesh; the legacy beam FEM cannot represent the rigid middle plate')
+    def phase(name,**extra):
+        if phase_callback is not None:phase_callback({'phase':name,**extra})
     if backend=='beam' or (backend=='auto' and pitch_mm<.7 and g.get('hybrid_id','none') in ('none',None,'')):
+        phase('beam_sweep')
         from beam_fem import beam_sweep
         return beam_sweep(family,g,pitch_mm=pitch_mm,include_fields=include_fields,inspector_case=inspector_case,
                           inspector_force_N=inspector_force_N,inspector_offset=inspector_offset,include_previews=include_previews)
@@ -393,10 +408,12 @@ def fem_sweep(family,g,pitch_mm=1.25,include_fields=False,backend='auto',
     No global physics claims if the model is nonconvergent or too highly strained.
     """
     config=FEMConfig(pitch_mm=pitch_mm,young_MPa=float(g.get('material_E',1.0)))
+    phase('mesh_generation')
     mesh=voxel_mesh(family,g,config,build_surface=include_fields or include_previews)
+    phase('assembly_factorization',elements=mesh.voxels,nodes=len(mesh.nodes))
     fem=HexElasticSolver(mesh,config.young_MPa,config.poisson,
             family=family,genome=g,
-            matrixfree_threshold=config.matrixfree_threshold,cg_maxiter=config.cg_maxiter,cg_rtol=config.cg_rtol,cg_timeout_s=config.cg_timeout_s,compute_device=compute_device)
+            matrixfree_threshold=config.matrixfree_threshold,cg_maxiter=config.cg_maxiter,cg_rtol=config.cg_rtol,cg_timeout_s=config.cg_timeout_s,compute_device=compute_device,matvec_executor=matvec_executor,matvec_chunks=matvec_chunks)
     cases={
        'press_center':dict(force=(0.,0.,-.1)),
        'press_x_minus':dict(force=(0.,0.,-.1),offset=(-1.4,0.)),
@@ -414,13 +431,21 @@ def fem_sweep(family,g,pitch_mm=1.25,include_fields=False,backend='auto',
     # GPU and unaccelerated Python matvec remain serial. Direct sparse solves
     # serialize only the SuperLU call; their field recovery can overlap.
     used_workers=case_workers if fem.gpu is None and (fem.matrixfree is None or fem.matrixfree.accelerated) else 1
+    actual_matvec_workers=matvec_workers if fem.matrixfree is not None and fem.matrixfree.matvec_executor is not None else 0
+    phase('standard_load_cases',completed=0,total=len(cases),case_workers=used_workers,matvec_workers=actual_matvec_workers)
+    solved={}
     if used_workers>1:
         if fem.matrixfree is not None:fem.matrixfree.warmup()
         with ThreadPoolExecutor(max_workers=used_workers) as executor:
-            solved=list(executor.map(lambda params:fem.solve(**params),cases.values()))
-        results=dict(zip(cases,solved))
+            futures={executor.submit(fem.solve,**params):name for name,params in cases.items()}
+            for future in as_completed(futures):
+                name=futures[future];solved[name]=future.result()
+                phase('standard_load_cases',completed=len(solved),total=len(cases),last_case=name,case_workers=used_workers,matvec_workers=actual_matvec_workers)
     else:
-        results={name:fem.solve(**params) for name,params in cases.items()}
+        for name,params in cases.items():
+            solved[name]=fem.solve(**params)
+            phase('standard_load_cases',completed=len(solved),total=len(cases),last_case=name,case_workers=used_workers,matvec_workers=actual_matvec_workers)
+    results={name:solved[name] for name in cases}
     cases_wall_s=time.monotonic()-cases_started
     baseline=results['press_center']
     hybrid_stages=None
@@ -481,6 +506,7 @@ def fem_sweep(family,g,pitch_mm=1.25,include_fields=False,backend='auto',
           'source':'Connected HEX8 stage displacement samples and normalized 3-axis mechanical transfer; no sensor calibration'}
     inspection=None
     if include_fields:
+        phase('custom_inspection')
         if inspector_case not in ('press_center','press_offset','shear_x','shear_y','torsion_z'):
             raise ValueError('Unsupported FEM inspection case')
         force_n=float(inspector_force_N)
@@ -500,6 +526,7 @@ def fem_sweep(family,g,pitch_mm=1.25,include_fields=False,backend='auto',
     shell_result=None
     shell_inspection_result=None
     if fem.laminate:
+        phase('laminate_shell')
         from laminate_shell import resolve_laminate_shell
         try:
             # Champion scores MUST use the standardized 0.1N centered case;
@@ -560,7 +587,7 @@ def fem_sweep(family,g,pitch_mm=1.25,include_fields=False,backend='auto',
     score=round(float(score),4)
     report={'fem_backend':'actual_hex8_linear_3d','fem_linear_solver':fem.solver_mode,'mesh_pitch_mm':pitch_mm,'elements':mesh.voxels,'nodes':len(mesh.nodes),'volume_mm3':round(mesh.volume_mm3,2),
             'inflated_features':mesh.inflated_features,'geometry_fidelity_pass':mesh.inflated_features==0,'mesh_warning':mesh.geometry_warning,'elastic_E_MPa':config.young_MPa,
-            'poisson':config.poisson,'setup_time_s':round(fem.setup_s,4),'load_case_workers':used_workers,
+            'poisson':config.poisson,'setup_time_s':round(fem.setup_s,4),'load_case_workers':used_workers,'matrixfree_matvec_workers':actual_matvec_workers,
             'load_cases_wall_s':round(cases_wall_s,4),'direct_factor_nnz':int(fem.factor.nnz) if fem.factor is not None else None,
             'cg_preconditioner':('nodal_block_jacobi' if fem.matrixfree.block_inv is not None else 'scalar_jacobi') if fem.matrixfree is not None else None,
             'load_cases':{k:{kk:(round(float(vv),7) if isinstance(vv,(float,np.floating)) else vv) for kk,vv in value.items() if kk not in ('displacement','element_strain','element_stress','von_mises_MPa','principal_strain','boundary_vectors','boundary_error')} for k,value in results.items()},
@@ -589,6 +616,7 @@ def fem_sweep(family,g,pitch_mm=1.25,include_fields=False,backend='auto',
                      'Larger strains require hyperelasticity and contact',
                      'Electrical capacitance is a separate parallel-plate estimate using FEM displacement, not coupled field FEM',
                      'PVDF is mechanically embedded in the primary solve as an effective axial membrane with approximate adhesive shear-lag. A final reduced ribbon-shell post-process is also reported, but it is still not a fully coupled film+bond shell/solid multiphysics solve.']}
+    phase('report_and_field_serialization')
     if include_fields:
         report['fields']=_serialize_mesh_fields(mesh,inspection)
         report['inspection_case']=inspector_case

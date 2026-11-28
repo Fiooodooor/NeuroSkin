@@ -19,6 +19,7 @@ class ManualPlan:
     available_ram_mb: int | None
     reserved_ram_mb_estimate: int
     device: str
+    matvec_workers: int = 0
 
 
 def fem_base_ram_mb(fem_enabled,backend,pitch):
@@ -40,7 +41,12 @@ def plan_manual(cores, ram_mb, fem_enabled, backend, pitch, device, hybrid):
     cases=1
     if solid and device=='cpu' and ram_mb is not None:
         cases=max(1,min(8,cpu_left,1+(budget-base-processes*reserve)//256))
-    return ManualPlan(cores,processes,cases,ram_mb,base+processes*reserve+(cases-1)*256,device)
+    memory=base+processes*reserve+(cases-1)*256
+    matvec=0
+    if solid and device=='cpu' and pitch<.5 and ram_mb is not None:
+        matvec=max(0,min(32,cpu_left-cases,(budget-memory)//64))
+        if matvec<2:matvec=0
+    return ManualPlan(cores,processes,cases,ram_mb,memory+matvec*64,device,matvec)
 
 
 def surrogate_stage(name,family,genome,options):
@@ -85,8 +91,14 @@ def run_manual(family,genome,options,plan,solve_fem,progress,*,executor_factory=
     lock=Lock()
     def state(name,status,elapsed=None):
         with lock:
+            detail=stages[name].get('detail')
             stages[name]={'state':status}
+            if detail is not None:stages[name]['detail']=detail
             if elapsed is not None:stages[name]['elapsed_s']=round(elapsed,3)
+            progress({'plan':asdict(plan),'stages':{k:dict(v) for k,v in stages.items()}})
+    def fem_phase(detail):
+        with lock:
+            stages['fem']['detail']=dict(detail)
             progress({'plan':asdict(plan),'stages':{k:dict(v) for k,v in stages.items()}})
     def local(name,fn):
         t=monotonic();state(name,'running')
@@ -99,7 +111,7 @@ def run_manual(family,genome,options,plan,solve_fem,progress,*,executor_factory=
     if plan.surrogate_processes==0:
         for name in ['audit','fem','validation','orientation']:
             if name in names:
-                out[name]=local(name,solve_fem if name=='fem' else lambda n=name:surrogate_stage(n,family,genome,options))
+                out[name]=local(name,(lambda:solve_fem(fem_phase)) if name=='fem' else lambda n=name:surrogate_stage(n,family,genome,options))
     else:
         factory=executor_factory or (lambda count:ProcessPoolExecutor(max_workers=count,mp_context=get_context('spawn')))
         remote=[n for n in names if n!='fem']
@@ -114,7 +126,7 @@ def run_manual(family,genome,options,plan,solve_fem,progress,*,executor_factory=
                     state(n,'failed' if fut.cancelled() or fut.exception() is not None else 'completed',monotonic()-start)
                 f.add_done_callback(done)
             try:
-                out[local_name]=local(local_name,solve_fem if local_name=='fem' else lambda:surrogate_stage(local_name,family,genome,options))
+                out[local_name]=local(local_name,(lambda:solve_fem(fem_phase)) if local_name=='fem' else lambda:surrogate_stage(local_name,family,genome,options))
                 for name,f in futures.items():out[name]=f.result()
             finally:
                 for f in futures.values():f.cancel()

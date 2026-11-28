@@ -39,6 +39,21 @@ if njit:
                 out[edof[e,i]]+=val
         return out
 
+    @njit(cache=True,nogil=True)
+    def _node_gather_chunk(edof,ke,x,offsets,incident_e,incident_a,out,lo,hi):
+        # Each worker owns disjoint node rows; no atomic additions, no races.
+        # Stable incidence order matches the serial element assembly order.
+        for node in range(lo,hi):
+            for i in range(3):
+                acc=0.
+                for q in range(offsets[node],offsets[node+1]):
+                    e=incident_e[q];row=3*incident_a[q]+i
+                    value=0.
+                    for j in range(24):
+                        value+=ke[row,j]*x[edof[e,j]]
+                    acc+=value
+                out[3*node+i]=acc
+
     @njit(cache=True)
     def _element_blocks_fast(edof, ke, n_nodes):
         blocks=np.zeros((n_nodes,3,3),dtype=np.float64)
@@ -61,10 +76,11 @@ else:
     _element_matvec_fast=None
     _element_diag_fast=None
     _element_blocks_fast=None
+    _node_gather_chunk=None
 
 
 class MatrixFreeElasticity:
-    def __init__(self, edof, ke, free, ndofs, *, maxiter=5000, rtol=5e-5, timeout_s=180.0, extra_stiffness=None):
+    def __init__(self, edof, ke, free, ndofs, *, maxiter=5000, rtol=5e-5, timeout_s=180.0, extra_stiffness=None, matvec_executor=None, matvec_chunks=1):
         self.edof=np.ascontiguousarray(edof,dtype=np.int32)
         self.ke=np.ascontiguousarray(ke,dtype=np.float64)
         self.free=np.asarray(free,dtype=np.int32)
@@ -74,6 +90,17 @@ class MatrixFreeElasticity:
         self.timeout_s=float(timeout_s)
         self.extra_stiffness=extra_stiffness
         self.accelerated=njit is not None
+        self.matvec_executor=matvec_executor if self.accelerated and matvec_chunks>1 else None
+        self.matvec_chunks=max(1,int(matvec_chunks)) if self.matvec_executor is not None else 1
+        if self.matvec_executor is not None:
+            flat=(self.edof[:,::3]//3).ravel()
+            order=np.argsort(flat,kind='stable')
+            self.incident_e=np.ascontiguousarray(order//8,dtype=np.int32)
+            self.incident_a=np.ascontiguousarray(order%8,dtype=np.int32)
+            self.offsets=np.r_[0,np.cumsum(np.bincount(flat,minlength=self.ndofs//3))].astype(np.int64)
+            self.ranges=[(i*(self.ndofs//3)//self.matvec_chunks,(i+1)*(self.ndofs//3)//self.matvec_chunks) for i in range(self.matvec_chunks)]
+            # Compile once in the owning thread before simultaneous case solves.
+            _node_gather_chunk(self.edof,self.ke,np.zeros(self.ndofs),self.offsets,self.incident_e,self.incident_a,np.zeros(self.ndofs),0,1)
         if not self.accelerated and len(self.edof)>5_000:
             raise RuntimeError('High-resolution matrix-free FEM requires optional numba; install with pip install numba')
         if self.accelerated:
@@ -134,8 +161,14 @@ class MatrixFreeElasticity:
         return out[self.free]
 
     def _global_matvec(self,x):
-        base=(_element_matvec_fast(self.edof,self.ke,np.asarray(x,dtype=np.float64),self.ndofs) if self.accelerated
-              else _element_matvec_py(self.edof,self.ke,np.asarray(x,dtype=np.float64),self.ndofs))
+        x=np.asarray(x,dtype=np.float64)
+        if self.matvec_executor is not None:
+            base=np.zeros(self.ndofs,dtype=np.float64)
+            futures=[self.matvec_executor.submit(_node_gather_chunk,self.edof,self.ke,x,self.offsets,self.incident_e,self.incident_a,base,lo,hi) for lo,hi in self.ranges]
+            for f in futures:f.result()
+        else:
+            base=(_element_matvec_fast(self.edof,self.ke,x,self.ndofs) if self.accelerated
+                  else _element_matvec_py(self.edof,self.ke,x,self.ndofs))
         if self.extra_stiffness is not None:
             base += self.extra_stiffness@x
         return base

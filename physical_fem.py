@@ -315,7 +315,8 @@ class HexElasticSolver:
                 u[self.free]=self.matrixfree.solve(f)[self.free]
         except RuntimeError as exc:
             raise InvalidGeometry(str(exc)) from exc
-        r=self._multiply(u)-f
+        internal_force=self._multiply(u)
+        r=internal_force-f
         U=u.reshape(-1,3);R=r.reshape(-1,3)
         epsilon=np.einsum('ab,cb->ca',self.B,u[self.edof],optimize=True)
         sigma=epsilon@self.D.T
@@ -337,7 +338,7 @@ class HexElasticSolver:
         reference_moment_Nmm=max(float(np.linalg.norm(mf)),abs(torque_z_Nmm),
                                   float(np.linalg.norm(load))*characteristic_length_mm,1e-10)
         moment_error=float(np.linalg.norm(mr+mf)/reference_moment_Nmm)
-        energy=float(.5*u@self._multiply(u))
+        energy=float(.5*u@internal_force)
         laminate_energy=(self.laminate.energy_Nmm(u) if self.laminate else 0.)
         laminate_response=(self.laminate.response(u) if self.laminate else None)
         # Effective capacitance proxy uses displacement of actual FE top nodes;

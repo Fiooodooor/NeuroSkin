@@ -22,7 +22,7 @@
   function tile(d){
     const a=Array.from({length:d.reaction_N.length},(_,i)=>i*d.pitch_mm),n=a.length;
     const x=[],y=[],z=[],r=[];for(let j=0;j<n;j++)for(let i=0;i<n;i++){x.push(a[i]);y.push(a[j]);z.push(-d.displacement_mm[j][i]);r.push(d.reaction_N[j][i]);}
-    const taxels={type:'scatter3d',mode:'markers',name:'Pad-average reaction',x,y,z,marker:{size:6,color:r,colorscale:'RdBu',reversescale:true,showscale:true,colorbar:{title:'Reaction [N]',x:1.01},opacity:.95},text:r.map(v=>v.toPrecision(4)+' N'),hovertemplate:'Reaction %{text}<extra></extra>'};
+    const taxels={type:'scatter3d',mode:'markers',name:'Pad-average reaction',x,y,z,marker:{size:6,color:r,colorscale:'RdBu',reversescale:true,cmin:-Math.max(1e-12,...r.map(Math.abs)),cmax:Math.max(1e-12,...r.map(Math.abs)),showscale:true,colorbar:{title:'Reaction [N]',x:1.01},opacity:.95},text:r.map(v=>v.toPrecision(4)+' N'),hovertemplate:'Reaction %{text}<extra></extra>'};
     let traces=[taxels],title='Discrete taxel displacement and reaction';
     if(d.membrane_surface){
       const s=d.membrane_surface;

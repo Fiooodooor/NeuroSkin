@@ -171,7 +171,7 @@ def tile_report(kz, req):
         if grid.sum()<=1e-12:return None
         iy,ix=np.indices(grid.shape)
         return [float((grid*ix).sum()*pitch/grid.sum()),float((grid*iy).sum()*pitch/grid.sum())]
-    extra={k:result[k] for k in ('membrane_surface','membrane_energy_Nmm','spring_energy_Nmm','energy_balance_error_Nmm','free_residual_N','minimum_reaction_N') if k in result}
+    extra={k:result[k] for k in ('membrane_surface','membrane_energy_Nmm','spring_energy_Nmm','energy_balance_error_Nmm','free_residual_N','minimum_reaction_N','maximum_membrane_slope','small_slope_screen','small_slope_screen_limit') if k in result}
     return {'tier':'T0','model':model,'kz_N_mm':float(kz),**extra,
             'pitch_mm':pitch,'input_contacts':[c.model_dump(mode='json') for c in req.contacts],'load_grid_N':f.tolist(),'reaction_N':result['reaction_N'].tolist(),
             'displacement_mm':result['displacement_mm'].tolist(),'noisy_reactions_N':y.reshape(n,n).tolist(),

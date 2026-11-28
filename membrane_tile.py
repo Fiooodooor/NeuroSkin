@@ -16,7 +16,7 @@ class MembraneTile:
         k=np.asarray(kz,float);h=float(pitch_mm);T=float(tension_N_mm);q=subdivisions
         if k.ndim!=2 or k.shape[0]!=k.shape[1] or k.shape[0] not in (3,5,8) or not np.isfinite(k).all() or np.any(k<=0):
             raise ValueError('Invalid taxel stiffness grid')
-        if not np.isfinite([h,T]).all() or h<=0 or T<=0 or q not in (4,8):
+        if not np.isfinite([h,T]).all() or h<=0 or T<=0 or type(q) is not int or q not in (4,8):
             raise ValueError('Positive pitch/tension and 4 or 8 subdivisions required')
         n=k.shape[0];m=n*q+1;step=h/q
         self.n,self.m,self.pitch,self.step,self.k,self.T=n,m,h,step,k.ravel(),T
@@ -64,12 +64,18 @@ class MembraneTile:
         rhs[self.center_ids,np.arange(self.n*self.n)]=1.
         transfer=self.k[:,None]*(self.B@self.factor.solve(rhs))
         Em=float(u@self.Km@u/2);Es=float(np.dot(pad,reactions)/2)
+        # In a bilinear Q1 cell each gradient component varies linearly
+        # along the other axis. The maximum gradient norm occurs at a corner.
+        w=u.reshape(self.m,self.m)
+        gx=np.diff(w,axis=1)/self.step;gy=np.diff(w,axis=0)/self.step
+        slope=float(max(np.hypot(a,b).max() for a in (gx[:-1],gx[1:]) for b in (gy[:,:-1],gy[:,1:])))
         return {'displacement_mm':pad.reshape(self.n,self.n),'reaction_N':reactions.reshape(self.n,self.n),
                 'transfer':transfer,'force_balance_error_N':abs(float(reactions.sum()-f.sum())),
                 'strain_energy_Nmm':Em+Es,'membrane_energy_Nmm':Em,'spring_energy_Nmm':Es,
                 'energy_balance_error_Nmm':abs(Em+Es-float(f@u/2)),
                 'free_residual_N':float(np.linalg.norm(self.K@u-f)),
                 'minimum_reaction_N':float(reactions.min()),
+                'maximum_membrane_slope':slope,'small_slope_screen':bool(slope<=.1),'small_slope_screen_limit':.1,
                 'membrane_surface':{'axis_mm':self.axis.tolist(),'displacement_mm':u.reshape(self.m,self.m).tolist(),
                                     'pad_width_mm':self.pitch/2,'tension_N_mm':self.T,
                                     'node_count':self.m*self.m},

@@ -37,4 +37,15 @@ def test_real_tile_api():
         assert r.status_code==200,r.text
         d=r.json();assert d['tier']=='T0' and d['membrane_surface']['node_count']==169
         assert d['force_balance_error_N']<1e-8
+        assert isinstance(d['small_slope_screen'],bool) and d['maximum_membrane_slope']>=0
         assert d['diagnostic_context']['settings']['membrane_model']=='tensioned_q1'
+
+
+def test_small_slope_screen_scales_and_is_not_qualification():
+    m=MembraneTile(np.full((3,3),.4),20,.2,4)
+    a=m.solve([(20,20,.001)])
+    b=m.solve([(20,20,10.)])
+    assert a['small_slope_screen'] and not b['small_slope_screen']
+    assert b['maximum_membrane_slope']==pytest.approx(10000*a['maximum_membrane_slope'])
+    assert b['tier']=='T0'
+    with pytest.raises(ValueError):MembraneTile(np.ones((3,3)),20,.2,4.)

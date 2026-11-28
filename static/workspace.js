@@ -282,9 +282,9 @@
     const pane=make('section','workspace-pane');pane.id='workspace-panel-'+id;pane.setAttribute('role','tabpanel');pane.setAttribute('aria-labelledby','workspace-tab-'+id);pane.append(node);main.append(pane);panels.set(id,pane);
     const tab=button('workspace-tab-'+id,title,()=>show(id));tab.setAttribute('role','tab');tab.setAttribute('aria-controls',pane.id);if(expert)tab.classList.add('advanced-only');nav.append(tab);tabs.set(id,tab);
   }
-  const simpleLabels={all:'Everything', 'single:all':'Single-stage designs','hybrid:all':'All two-stage hybrids',balanced:'Balanced',touch:'Sensitive touch',robust:'Strain robustness',dynamic:'Dynamic events'};
+  const simpleLabels={all:'Everything', 'single:all':'Single-stage designs','hybrid:all':'All two-stage hybrids',balanced:'Balanced',touch:'Sensitive touch',robust:'Strain robustness',dynamic:'Dynamic events',electronics:'Electronics co-design'};
   function updateLabels(){for(const id of ['mode','objective'])for(const opt of el(id).options){if(!opt.dataset.fullLabel)opt.dataset.fullLabel=opt.textContent;opt.title=opt.dataset.fullLabel;const text=advanced?opt.dataset.fullLabel:(simpleLabels[opt.value]||opt.dataset.fullLabel);if(opt.textContent!==text)opt.textContent=text;}}
-  function mode(){advanced=!document.body.classList.contains('basic');el('basicMode').setAttribute('aria-pressed',String(!advanced));el('advancedMode').setAttribute('aria-pressed',String(advanced));updateLabels();if(!advanced&&views.find(v=>v[0]===active)?.[3])show('overview');else{mountGeometry();update();resize();}}
+  function mode(){advanced=!document.body.classList.contains('basic');el('basicMode').setAttribute('aria-pressed',String(!advanced));el('advancedMode').setAttribute('aria-pressed',String(advanced));updateLabels();if(!advanced&&views.find(v=>v[0]===active)?.[3])show('overview');else{mountGeometry();update();refreshGeometryVisibility();resize();}}
   function resize(){requestAnimationFrame(()=>{for(const plot of main.querySelectorAll('.js-plotly-plot'))if(plot.getClientRects().length&&plot._fullLayout)try{Plotly.Plots.resize(plot);}catch{}});}
   function show(id){if(!panels.has(id)||(!advanced&&views.find(v=>v[0]===id)[3]))id='overview';active=id;
     for(const [key,p] of panels){p.hidden=key!==id;const t=tabs.get(key);t.setAttribute('aria-selected',String(key===id));t.tabIndex=key===id?0:-1;}

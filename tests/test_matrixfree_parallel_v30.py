@@ -25,3 +25,12 @@ def test_parallel_gather_same_operator_and_concurrent_rhs():
         np.testing.assert_allclose(x['displacement'],y['displacement'],atol=1e-9,rtol=1e-7)
         assert y['force_equilibrium_relative']<1e-6
         assert y['energy_Nmm']==pytest.approx(x['energy_Nmm'],rel=1e-7)
+
+def test_incidence_partition_balances_and_covers_all_nodes():
+    offsets=np.r_[0,np.cumsum([1]*32+[8]*32)]
+    ranges=mf.balanced_node_ranges(offsets,4)
+    assert ranges[0][0]==0 and ranges[-1][1]==64
+    assert all(a[1]==b[0] for a,b in zip(ranges,ranges[1:]))
+    loads=[offsets[hi]-offsets[lo] for lo,hi in ranges]
+    assert max(loads)-min(loads)<=8
+    assert mf.balanced_node_ranges(np.array([0,2]),32)==[(0,1)]

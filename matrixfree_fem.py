@@ -79,6 +79,23 @@ else:
     _node_gather_chunk=None
 
 
+def balanced_node_ranges(offsets, chunks):
+    """Partition by incident element count, not geometric node count."""
+    offsets=np.asarray(offsets,dtype=np.int64)
+    n=len(offsets)-1
+    if n<1 or chunks<1 or offsets[0]!=0 or np.any(np.diff(offsets)<0):
+        raise ValueError('Invalid incidence offsets or chunk count')
+    chunks=min(n,int(chunks))
+    cuts=[0]
+    for i in range(1,chunks):
+        target=offsets[-1]*i/chunks
+        k=int(np.searchsorted(offsets,target,side='left'))
+        if k>0 and abs(offsets[k-1]-target)<abs(offsets[k]-target):k-=1
+        cuts.append(max(cuts[-1]+1,min(n-(chunks-i),k)))
+    cuts.append(n)
+    return list(zip(cuts[:-1],cuts[1:]))
+
+
 class MatrixFreeElasticity:
     def __init__(self, edof, ke, free, ndofs, *, maxiter=5000, rtol=5e-5, timeout_s=180.0, extra_stiffness=None, matvec_executor=None, matvec_chunks=1):
         self.edof=np.ascontiguousarray(edof,dtype=np.int32)
@@ -92,13 +109,17 @@ class MatrixFreeElasticity:
         self.accelerated=njit is not None
         self.matvec_executor=matvec_executor if self.accelerated and matvec_chunks>1 else None
         self.matvec_chunks=max(1,int(matvec_chunks)) if self.matvec_executor is not None else 1
+        self._active_lock=threading.Lock();self._active_solves=0
         if self.matvec_executor is not None:
             flat=(self.edof[:,::3]//3).ravel()
             order=np.argsort(flat,kind='stable')
             self.incident_e=np.ascontiguousarray(order//8,dtype=np.int32)
             self.incident_a=np.ascontiguousarray(order%8,dtype=np.int32)
             self.offsets=np.r_[0,np.cumsum(np.bincount(flat,minlength=self.ndofs//3))].astype(np.int64)
-            self.ranges=[(i*(self.ndofs//3)//self.matvec_chunks,(i+1)*(self.ndofs//3)//self.matvec_chunks) for i in range(self.matvec_chunks)]
+            # Several precomputed partitions let a remaining single RHS use
+            # more of the shared pool without oversubscribing eight active RHS.
+            self._partitions={n:balanced_node_ranges(self.offsets,n) for n in range(1,self.matvec_chunks+1)}
+            self.ranges=self._partitions[self.matvec_chunks]
             # Compile once in the owning thread before simultaneous case solves.
             _node_gather_chunk(self.edof,self.ke,np.zeros(self.ndofs),self.offsets,self.incident_e,self.incident_a,np.zeros(self.ndofs),0,1)
         if not self.accelerated and len(self.edof)>5_000:
@@ -164,7 +185,13 @@ class MatrixFreeElasticity:
         x=np.asarray(x,dtype=np.float64)
         if self.matvec_executor is not None:
             base=np.zeros(self.ndofs,dtype=np.float64)
-            futures=[self.matvec_executor.submit(_node_gather_chunk,self.edof,self.ke,x,self.offsets,self.incident_e,self.incident_a,base,lo,hi) for lo,hi in self.ranges]
+            with self._active_lock:active=max(1,self._active_solves)
+            # At least ~512 incident elements per task, except tiny verification
+            # meshes which deliberately exercise the parallel path.
+            useful=max(2,int(self.offsets[-1]//512))
+            chunks=min(self.matvec_chunks,useful,max(2,(self.matvec_chunks+active-1)//active))
+            ranges=self._partitions[chunks]
+            futures=[self.matvec_executor.submit(_node_gather_chunk,self.edof,self.ke,x,self.offsets,self.incident_e,self.incident_a,base,lo,hi) for lo,hi in ranges]
             for f in futures:f.result()
         else:
             base=(_element_matvec_fast(self.edof,self.ke,x,self.ndofs) if self.accelerated
@@ -182,6 +209,12 @@ class MatrixFreeElasticity:
         return self._global_matvec(np.asarray(x,dtype=np.float64))
 
     def solve(self,load):
+        with self._active_lock:self._active_solves+=1
+        try:return self._solve(load)
+        finally:
+            with self._active_lock:self._active_solves-=1
+
+    def _solve(self,load):
         rhs=np.asarray(load,dtype=np.float64)[self.free]
         self._diagnostics.iterations=0
         self._diagnostics.residual=None

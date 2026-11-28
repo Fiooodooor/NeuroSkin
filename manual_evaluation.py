@@ -49,6 +49,11 @@ def plan_manual(cores, ram_mb, fem_enabled, backend, pitch, device, hybrid):
     return ManualPlan(cores,processes,cases,ram_mb,memory+matvec*64,device,matvec)
 
 
+def manual_worker_initializer():
+    import signal
+    signal.signal(signal.SIGINT,signal.SIG_IGN)
+
+
 def surrogate_stage(name,family,genome,options):
     # Explicitly import only numerical modules; no server or controller in a worker.
     if name=='audit':
@@ -113,7 +118,7 @@ def run_manual(family,genome,options,plan,solve_fem,progress,*,executor_factory=
             if name in names:
                 out[name]=local(name,(lambda:solve_fem(fem_phase)) if name=='fem' else lambda n=name:surrogate_stage(n,family,genome,options))
     else:
-        factory=executor_factory or (lambda count:ProcessPoolExecutor(max_workers=count,mp_context=get_context('spawn')))
+        factory=executor_factory or (lambda count:ProcessPoolExecutor(max_workers=count,mp_context=get_context('spawn'),initializer=manual_worker_initializer))
         remote=[n for n in names if n!='fem']
         local_name='fem' if 'fem' in names else remote.pop(0)
         with factory(plan.surrogate_processes) as pool:

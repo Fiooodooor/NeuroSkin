@@ -228,3 +228,6 @@ Canonical development branch: `develop/v3`. Consolidate the full v2.2-derived in
 
 ## Revision 42 — live VRAM admission
 - Explicit GPU requests probe available VRAM before locking admission; reserve <=45% free and <=1024 MiB, pass that budget through to CUDA CSR allocation (which independently checks actual live CUDA free memory). Reject known insufficient RAM rather than admitting an unsafe exclusive request. Expose VRAM reservation and tolerate non-DAG progress messages. No automatic GPU acceleration or hard OS limits; previous revision 41 CI passed.
+
+## Revision 43 — incidence-balanced adaptive matvec partitions
+- Balance work by node-element incidence rather than node count; precompute stable partitions and adapt chunk count to the number of active RHS solves so a remaining case can use more of the shared pool. Preserve element order and disjoint writes. Manual spawn workers ignore SIGINT (parent owns cancellation). Existing exact operator and new partition tests; no measured workstation speedup claim.

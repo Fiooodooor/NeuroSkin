@@ -381,7 +381,7 @@ def fem_sweep(family,g,pitch_mm=1.25,include_fields=False,backend='auto',
     if type(case_workers) is not int or not 1<=case_workers<=8:raise ValueError('case_workers must be 1..8')
     args=(family,g,pitch_mm,include_fields,backend,inspector_case,inspector_force_N,inspector_offset,compute_device,case_workers,include_previews)
     if matvec_workers>=2 and compute_device=='cpu' and backend!='beam':
-        chunks=min(8,max(2,math.ceil(matvec_workers/case_workers)))
+        chunks=matvec_workers
         with ThreadPoolExecutor(max_workers=matvec_workers,thread_name_prefix='fem-matvec') as pool:
             return _fem_sweep_impl(*args,matvec_executor=pool,matvec_chunks=chunks,matvec_workers=matvec_workers,phase_callback=phase_callback,gpu_budget_mb=gpu_budget_mb)
     return _fem_sweep_impl(*args,phase_callback=phase_callback,gpu_budget_mb=gpu_budget_mb)

@@ -67,3 +67,10 @@ These milestones do not complete R03/R04/R09. Do not confuse software release wi
 
 ## Revision 9 — single development branch
 Canonical development branch: `develop/v3`. Consolidate the full v2.2-derived integrated tree, previous develop/v3 history and the current main license in a non-force merge. Previous integrated branch remains historical; do not develop there. Original snapshot importer/status are historical only. T3 remains optional.
+
+## Revision 10 — resource-aware parallel audits (3.0.0-alpha.4)
+- [x] Remove the fixed <0.4 mm serial-audit switch. Bound candidate-process and HEX8 case concurrency by CPU budget and available RAM. Preserve all eight standardized load cases, ordering and numerical gates.
+- [x] Shared matrix-free operator with GIL-free Numba matvec and per-thread CG diagnostics; lock shared SuperLU solves, allow concurrent field recovery. GPU and beam remain serial within a candidate.
+- [x] Live outstanding/cached/completed audit counters and elapsed time; Windows spawn ceiling of 61 processes; no orphan queued audit jobs on stop. Root VERSION and GUI identify alpha.4.
+- [x] 31 focused tests passed locally, including spawned workers, serial/parallel numerical equivalence, lifecycle, refinement and readout. CI updated. Run `python benchmark_audits.py --cores 1,16,24,32,40 --pitch .3125 --grid 5` on the target workstation.
+- D012: memory reservations are estimates, not hard RSS caps. Unknown RAM or small budgets restrict concurrency; a single solver retains its existing memory guard. SuperLU factorization and solve are serial and only field recovery overlaps; max eight independent case workers per candidate. NUMA and actual speedup on dual Xeon/P1000 remain unmeasured. No change in audit protocol or evidence tier.

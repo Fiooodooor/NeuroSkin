@@ -1,3 +1,5 @@
+> **Historical migration record.** Superseded by the v2.2 upload and consolidation into `develop/v3`. Do not re-import this old snapshot over the current branch.
+
 # v2.2 baseline migration — incomplete remote state
 
 The original user-supplied ZIP SHA-256 is `1868195365f120fa271907dc848d83994cb29eec09a74ab3359964a016c34f2f`.

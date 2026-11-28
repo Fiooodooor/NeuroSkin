@@ -4,6 +4,7 @@ Parameters are dimensionalized in mm. All metrics are surrogate screening estima
 from __future__ import annotations
 import copy, csv, io, json, math, random, threading, time, uuid, os, concurrent.futures, multiprocessing, hashlib
 from pathlib import Path
+from audit_scheduler import available_ram_mb, plan_audits, process_capacity, run_audit_batch
 # Avoid nested BLAS pools competing with the evolutionary worker processes.
 os.environ['OPENBLAS_NUM_THREADS']='1'
 os.environ['OMP_NUM_THREADS']='1'
@@ -535,11 +536,12 @@ def audit_job(job):
  fem_enabled=bool(options[0]) if options else False
  pitch=float(options[1]) if len(options)>1 else 1.25
  fem_backend=str(options[2]) if len(options)>2 else 'auto'
+ case_workers=int(options[3]) if len(options)>3 else 1
  if fem_enabled:
   from physical_fem import fem_sweep, InvalidGeometry
   from audit_combine import merge_fem_into_audit, mark_fem_failure
   try:
-   fem=fem_sweep(fam,g,pitch_mm=pitch,include_fields=False,backend=fem_backend)
+   fem=fem_sweep(fam,g,pitch_mm=pitch,include_fields=False,backend=fem_backend,case_workers=case_workers)
    merge_fem_into_audit(audit,fem,fam,g,fem_backend=fem_backend,include_fields=True)
   except (InvalidGeometry,ValueError,MemoryError,RuntimeError) as exc:
    mark_fem_failure(audit,exc,fem_backend=fem_backend)
@@ -584,7 +586,7 @@ def engine_provenance():
  for name in ('seed_library.py','archetype_geometry.py','recovery_sim.py','advanced.py','engine.py','optimization.py','electromechanics.py',
               'piezoelectric.py','spatial_validation.py','full_evaluation.py','geometry_fixes.py','physical_fem.py','laminate_fem.py','laminate_shell.py','hybrid_geometry.py','hybrid_library.py','pvdf_array.py',
               'reference_fem.py','beam_fem.py','matrixfree_fem.py','selection_refinement.py','search_space.py','orientation_study.py',
-              'audit_combine.py','validation_contract.py','sensor_metrics.py','evaluation_v30.py','electronics_budget.py','validation_protocol_v30.json','pvdf_physics.py','neuroskin_multiscale.py','symmetry_geometry.py'):
+              'audit_combine.py','validation_contract.py','sensor_metrics.py','evaluation_v30.py','electronics_budget.py','validation_protocol_v30.json','pvdf_physics.py','neuroskin_multiscale.py','symmetry_geometry.py','audit_scheduler.py'):
   data=(Path(__file__).parent/name).read_bytes()
   h.update(name.encode('utf-8')+b'\0'+data)
  return {'release':(Path(__file__).parent/'VERSION').read_text(encoding='utf-8').strip(),'model_type':'spatial_feasibility_guided_evolution_plus_PVDF_shell',
@@ -618,7 +620,7 @@ class EvolutionV5:
   with self.lock:
    if self.thread is not None and self.thread.is_alive():raise RuntimeError('Stop current run before starting a new run')
    self.stop_event.clear();self.pause_event.clear();self.records={};self.state=self.empty()
-   self.state.update(provenance=engine_provenance(),cores=int(cores),workers_active=0,evaluations_per_second=0,engine='multiprocessing spawn; BLAS threads capped to 1',id=str(uuid.uuid4())[:8],status='running',mode=mode,family=mode,duration=float(duration),seed=int(seed),objective=objective,physical_gate=bool(physical_gate),gate_grid=gate_grid,audit_grid=audit_grid,phase='initializing',fem_enabled=bool(fem),fem_pitch_mm=float(fem_pitch),fem_backend=fem_backend,search_strategy=search_strategy,search_precision=float(search_precision))
+   self.state.update(provenance=engine_provenance(),cores=int(cores),workers_active=0,screening_processes=process_capacity(cores,population),audit_progress={},evaluations_per_second=0,engine='spawn processes; bounded concurrent FEM load cases; BLAS threads capped to 1',id=str(uuid.uuid4())[:8],status='running',mode=mode,family=mode,duration=float(duration),seed=int(seed),objective=objective,physical_gate=bool(physical_gate),gate_grid=gate_grid,audit_grid=audit_grid,phase='initializing',fem_enabled=bool(fem),fem_pitch_mm=float(fem_pitch),fem_backend=fem_backend,search_strategy=search_strategy,search_precision=float(search_precision))
    self.thread=threading.Thread(target=self._loop,args=(mode,float(duration),int(seed),population,exploration,objective,bool(physical_gate),gate_grid,int(cores),audit_grid,bool(fem),float(fem_pitch),fem_backend,search_strategy,float(search_precision)),daemon=True);self.thread.start()
   return self.snapshot()
  def pause(self):
@@ -677,13 +679,13 @@ class EvolutionV5:
   pool=None;incumbent=None;audit_history=[];decision_history=[];audits_by_fingerprint={}
   try:
    if cores>1:
-    pool=concurrent.futures.ProcessPoolExecutor(max_workers=min(cores,population),mp_context=multiprocessing.get_context('spawn'),initializer=evolution_worker_initializer)
+    pool=concurrent.futures.ProcessPoolExecutor(max_workers=process_capacity(cores,population),mp_context=multiprocessing.get_context('spawn'),initializer=evolution_worker_initializer)
     with self.lock:self._pool=pool
    while active<duration and not self.stop_event.is_set():
     now=time.monotonic();active+=0 if self.pause_event.is_set() else max(0.,now-last);last=now
     if self.pause_event.is_set():time.sleep(.05);continue
     scored=[]
-    with self.lock:self.state['phase']='fast_screening'
+    with self.lock:self.state.update(phase='fast_screening',workers_active=process_capacity(cores,population),audit_progress={})
     jobs=[(fam,p,objective,physical_gate,gate_grid) for fam,p in pop]
     results=list(pool.map(evaluate_job,jobs,chunksize=max(1,population//max(1,cores*4)))) if pool else list(map(evaluate_job,jobs))
     self._check_stop()
@@ -726,9 +728,16 @@ class EvolutionV5:
       c['audit']=copy.deepcopy(audits_by_fingerprint[fingerprint]);finalists[i]=c
      else:
       audit_jobs.append((c['family'],c['genome'],objective,audit_grid,fem_enabled,fem_pitch,fem_backend));audit_indices.append((i,fingerprint))
-    # Ultrafine meshes are memory hungry: serialize expensive FEM audits, while
-    # keeping the fast population screening parallel across --cores workers.
-    evaluations=list(pool.map(audit_job,audit_jobs,chunksize=1)) if pool and audit_jobs and (not fem_enabled or fem_backend=='beam' or (fem_backend=='auto' and fem_pitch<.7) or fem_pitch>=.4) else list(map(audit_job,audit_jobs))
+    # Memory-aware finalist scheduling; all eight standardized load cases
+    # remain unchanged. CPU budget is shared between processes and RHS threads.
+    plan=plan_audits(len(audit_jobs),cores,fem_enabled,fem_backend,fem_pitch,available_ram_mb())
+    cached=len(top)-len(audit_jobs)
+    audit_started=time.monotonic()
+    def audit_progress(inflight,completed):
+     with self.lock:self.state.update(workers_active=inflight,audit_progress={**plan.as_dict(),
+           'total':len(top),'cached':cached,'completed':cached+completed,'inflight':inflight,
+           'elapsed_s':round(time.monotonic()-audit_started,1)})
+    evaluations=run_audit_batch(pool,audit_job,audit_jobs,plan,check_stop=self._check_stop,progress=audit_progress)
     self._check_stop()
     for (i,key),a in zip(audit_indices,evaluations):
      audits_by_fingerprint[key]=a;top[i]['audit']=copy.deepcopy(a);finalists[i]=top[i]
@@ -782,7 +791,7 @@ class EvolutionV5:
     # Durable per-generation Top-3 snapshots, independently inspectable after restart.
     # The staged record is written atomically so a crash never creates a half JSON file.
     self._save_stage(gen+1, active, finalists, incumbent, decision)
-    with self.lock:self.state.update(phase='selection',audit_top3=copy.deepcopy(finalists),
+    with self.lock:self.state.update(phase='selection',workers_active=0,audit_top3=copy.deepcopy(finalists),
        audited_champion=copy.deepcopy(incumbent),
        audit_history=copy.deepcopy(audit_history[-300:]),stage_decisions=copy.deepcopy(decision_history[-300:]))
     stall+=1;gen+=1
@@ -802,7 +811,7 @@ class EvolutionV5:
      with self.lock:
       for c in gallery+finalists+[incumbent]:self.records[c["id"]]=copy.deepcopy(c)
      history.append({'generation':gen,'elapsed':round(active,2),'best':round(max(x['fitness'] for x in champions.values()),4),'median':round(float(np.median([x[1]['fitness'] for x in scored])),4),'diversity':diversity})
-     with self.lock:self.state.update(elapsed=min(duration,active),generation=gen,evaluated=seen,workers_active=min(cores,population),evaluations_per_second=round(seen/max(active,.001),2),best=copy.deepcopy(incumbent),champions=copy.deepcopy(champions),gallery=copy.deepcopy(gallery),history=copy.deepcopy(history[-600:]),diversity=diversity,stagnation=stall,mutations=stats.copy(),qd_archive_size=len(qd))
+     with self.lock:self.state.update(elapsed=min(duration,active),generation=gen,evaluated=seen,workers_active=0,evaluations_per_second=round(seen/max(active,.001),2),best=copy.deepcopy(incumbent),champions=copy.deepcopy(champions),gallery=copy.deepcopy(gallery),history=copy.deepcopy(history[-600:]),diversity=diversity,stagnation=stall,mutations=stats.copy(),qd_archive_size=len(qd))
     elites=sorted_current[:max(2,population//8)]
     def tournament(fam=None):
      pool=[x[1] for x in scored if fam is None or x[1]['family']==fam]
@@ -881,7 +890,10 @@ class EvolutionV5:
    with self.lock:
     if self._pool is pool:self._pool=None
    if pool:
-    try:pool.shutdown(wait=not self.stop_event.is_set(),cancel_futures=True)
+    try:
+     terminate=getattr(pool,'terminate_workers',None)
+     if self.stop_event.is_set() and callable(terminate):terminate()
+     else:pool.shutdown(wait=True,cancel_futures=True)
     except (RuntimeError,ValueError,OSError):
      import logging
      logging.getLogger(__name__).warning('Worker pool already terminated',exc_info=True)

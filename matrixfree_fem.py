@@ -6,6 +6,7 @@ accelerator; large fine grids require it for practical computation.
 """
 from __future__ import annotations
 import time
+import threading
 import numpy as np
 from scipy.sparse.linalg import LinearOperator, cg
 try:
@@ -27,7 +28,7 @@ def _element_diag_py(edof, diag_ke, ndofs):
     return out
 
 if njit:
-    @njit(cache=True)
+    @njit(cache=True,nogil=True)
     def _element_matvec_fast(edof, ke, x, ndofs):
         out=np.zeros(ndofs, dtype=np.float64)
         for e in range(edof.shape[0]):
@@ -95,8 +96,19 @@ class MatrixFreeElasticity:
             except np.linalg.LinAlgError:
                 self.block_inv=None
         self.M=LinearOperator((n,n),matvec=self._precondition,dtype=np.float64)
-        self.last_iterations=0
-        self.last_relative_residual=None
+        self._diagnostics=threading.local()
+
+    @property
+    def last_iterations(self):
+        return getattr(self._diagnostics,"iterations",0)
+
+    @property
+    def last_relative_residual(self):
+        return getattr(self._diagnostics,"residual",None)
+
+    def warmup(self):
+        """Compile the shared read-only kernel before concurrent RHS solves."""
+        self._global_matvec(np.zeros(self.ndofs,dtype=np.float64))
 
     def _precondition(self,v):
         if self.block_inv is None:
@@ -123,10 +135,11 @@ class MatrixFreeElasticity:
 
     def solve(self,load):
         rhs=np.asarray(load,dtype=np.float64)[self.free]
-        self.last_iterations=0
+        self._diagnostics.iterations=0
+        self._diagnostics.residual=None
         started=time.monotonic()
         def tick(_):
-            self.last_iterations+=1
+            self._diagnostics.iterations+=1
             if time.monotonic()-started>self.timeout_s:
                 raise RuntimeError(f'Matrix-free CG timed out after {self.timeout_s:g} seconds ({self.last_iterations} iterations). Use a coarser pitch, increase timeout, or improve preconditioning.')
         x,info=cg(self.A,rhs,M=self.M,rtol=self.rtol,atol=0.0,maxiter=self.maxiter,callback=tick)
@@ -135,7 +148,7 @@ class MatrixFreeElasticity:
         u=np.zeros(self.ndofs)
         u[self.free]=x
         residual=np.linalg.norm(self.multiply(u)[self.free]-rhs)/max(np.linalg.norm(rhs),1e-12)
-        self.last_relative_residual=float(residual)
+        self._diagnostics.residual=float(residual)
         if info != 0 or residual > max(self.rtol*5,1e-4):
             raise RuntimeError(f'Matrix-free CG did not converge: info={info}, iterations={self.last_iterations}, residual={residual:.3g}. Increase maxiter, use a coarser pitch or a stronger preconditioner.')
         return u

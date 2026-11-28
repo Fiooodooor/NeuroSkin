@@ -30,7 +30,7 @@ async def application_lifespan(app):
    logging.getLogger('neuroskin.shutdown').warning(
     'Evolution still stopping; latest completed stage snapshots remain saved.')
 
-app=FastAPI(title='NeuroSkin Evolution Lab',version='2.2.0',lifespan=application_lifespan)
+app=FastAPI(title='NeuroSkin Evolution Lab',version=(ROOT/'VERSION').read_text(encoding='utf-8').strip(),lifespan=application_lifespan)
 app.mount('/static',StaticFiles(directory=ROOT/'static'),name='static')
 
 class Start(BaseModel):

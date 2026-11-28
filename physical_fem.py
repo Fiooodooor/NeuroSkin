@@ -10,6 +10,8 @@ from __future__ import annotations
 import dataclasses
 import math
 import time
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Any
 import numpy as np
@@ -242,6 +244,7 @@ class HexElasticSolver:
         self.solver_mode=('gpu_sparse_cg' if self.compute_device=='gpu' else
                           ('direct_sparse' if len(mesh.elements)<=matrixfree_threshold else 'matrix_free_cg'))
         self.factor=None;self.matrixfree=None;self.K=None;self.gpu=None
+        self._factor_lock=threading.Lock()
         if self.solver_mode in ('direct_sparse','gpu_sparse_cg'):
             rr=np.broadcast_to(self.edof[:,:,None],(len(self.edof),24,24)).ravel()
             cc=np.broadcast_to(self.edof[:,None,:],(len(self.edof),24,24)).ravel()
@@ -304,7 +307,9 @@ class HexElasticSolver:
             if self.gpu is not None:
                 u[self.free]=self.gpu.solve(f[self.free])
             elif self.factor is not None:
-                u[self.free]=self.factor.solve(f[self.free])
+                # SuperLU factor is shared, but its solve is not assumed reentrant.
+                with self._factor_lock:
+                    u[self.free]=self.factor.solve(f[self.free])
             else:
                 u[self.free]=self.matrixfree.solve(f)[self.free]
         except RuntimeError as exc:
@@ -356,8 +361,10 @@ class HexElasticSolver:
 
 
 def fem_sweep(family,g,pitch_mm=1.25,include_fields=False,backend='auto',
-              inspector_case='press_center',inspector_force_N=.1,inspector_offset=(0.,0.),compute_device='cpu'):
+              inspector_case='press_center',inspector_force_N=.1,inspector_offset=(0.,0.),compute_device='cpu',case_workers=1):
     """Real FEM: small-pitch space-frame or coarser HEX8 solid with explicit backend labels."""
+    if type(case_workers) is not int or not 1<=case_workers<=8:
+        raise ValueError('case_workers must be an integer in 1..8')
     if backend not in ('auto','beam','hex8'):
         raise ValueError('backend must be auto, beam or hex8')
     if g.get('hybrid_id','none') not in ('none',None,'') and backend=='beam':
@@ -387,7 +394,17 @@ def fem_sweep(family,g,pitch_mm=1.25,include_fields=False,backend='auto',
        'shear_y':dict(force=(0.,.03,-.04)),
        'torsion_z':dict(force=(0.,0.,-.04),torque_z_Nmm=.02)
     }
-    results={name:fem.solve(**params) for name,params in cases.items()}
+    # Shared read-only mesh and stiffness; do not clone large FEM objects.
+    # GPU and unaccelerated Python matvec remain serial. Direct sparse solves
+    # serialize only the SuperLU call; their field recovery can overlap.
+    used_workers=case_workers if fem.gpu is None and (fem.matrixfree is None or fem.matrixfree.accelerated) else 1
+    if used_workers>1:
+        if fem.matrixfree is not None:fem.matrixfree.warmup()
+        with ThreadPoolExecutor(max_workers=used_workers) as executor:
+            solved=list(executor.map(lambda params:fem.solve(**params),cases.values()))
+        results=dict(zip(cases,solved))
+    else:
+        results={name:fem.solve(**params) for name,params in cases.items()}
     baseline=results['press_center']
     hybrid_stages=None
     if g.get('hybrid_id','none') not in ('none',None,''):
@@ -526,7 +543,7 @@ def fem_sweep(family,g,pitch_mm=1.25,include_fields=False,backend='auto',
     score=round(float(score),4)
     report={'fem_backend':'actual_hex8_linear_3d','fem_linear_solver':fem.solver_mode,'mesh_pitch_mm':pitch_mm,'elements':mesh.voxels,'nodes':len(mesh.nodes),'volume_mm3':round(mesh.volume_mm3,2),
             'inflated_features':mesh.inflated_features,'geometry_fidelity_pass':mesh.inflated_features==0,'mesh_warning':mesh.geometry_warning,'elastic_E_MPa':config.young_MPa,
-            'poisson':config.poisson,'setup_time_s':round(fem.setup_s,4),
+            'poisson':config.poisson,'setup_time_s':round(fem.setup_s,4),'load_case_workers':used_workers,
             'load_cases':{k:{kk:(round(float(vv),7) if isinstance(vv,(float,np.floating)) else vv) for kk,vv in value.items() if kk not in ('displacement','element_strain','element_stress','von_mises_MPa','principal_strain')} for k,value in results.items()},
             'capacitance_delta_pF_assumed':signals,
             'fem_capacitor_assumption':{'electrode_area_mm2':area_mm2,'dielectric_gap_mm':gap_mm,

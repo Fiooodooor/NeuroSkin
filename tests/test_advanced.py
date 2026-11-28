@@ -14,7 +14,7 @@ class TestAdvanced(unittest.TestCase):
   for f in FAMILIES:
    a=new_genome(f,r)
    b=jump(f,a,r,'topology')
-   self.assertNotEqual(a['topology'],b['topology'])
+   self.assertNotEqual((a.get('hybrid_id','none'),a['topology']),(b.get('hybrid_id','none'),b['topology']))
    c=jump(f,a,r,'wide')
    self.assertTrue(np.isfinite(proxy(f,c)[0]))
    d=cross(f,a,c,r)

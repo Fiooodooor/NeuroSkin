@@ -49,3 +49,8 @@ These milestones do not complete R03/R04/R09. Do not confuse software release wi
 - [x] 22 focused tests passed, including nonlinear candidate and API tests; JavaScript syntax checked. New tests added to existing Windows CI job (remote execution pending).
 - D008: voxel-derived nonlinear candidate results are DIAGNOSTIC_ONLY and T2_qualified=false, irrespective of numerical convergence. Inflated geometry requires explicit diagnostic opt-in. Limit: 250 HEX8 / 1500 TET4 per request; one concurrent nonlinear request per server process. This does not replace CAD-conforming multimaterial FEM or integrate nonlinear fitness.
 - D009: tile inverse uses direct reaction sensing and the same assumed scalar transfer model. It is not electrical sensing, independent decoder validation, physical membrane, or identification of the number of contacts.
+
+## Revision 6 — evolution regression correction
+- [x] Topology jumps select a distinct effective architecture, not an overwritten label. No new orphan hybrid labels; categorical and integer genes are not interpolated during crossover.
+- 29 focused tests and 41 subtests passed (2 long lifecycle cases deselected). Full-suite qualification remains pending.
+- D010: a hybrid-to-hybrid transition may legitimately retain the topology label 'hybrid'; tests now compare architecture identity as well. Scope repair may still constrain the result in a single-architecture mode.

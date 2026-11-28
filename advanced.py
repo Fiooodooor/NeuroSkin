@@ -87,7 +87,7 @@ def _snap_piezo_count(p,family=None):
 
 def new_genome(family,rng):
  p=random_genome(family,rng);p.update({k:(rng.randint(int(lo),int(hi)) if k in INTEGER_GENES else round(rng.uniform(lo,hi),5)) for k,(lo,hi) in PARAM_EXTRA[family].items()});p['piezo_count']=rng.choices((2,3,4) if family=='quadrant' else (2,3,4,6,8),
-                           weights=(.18,.04,.78) if family=='quadrant' else (.13,.03,.53,.22,.09))[0];p['piezo_wiring']=rng.choices([0,1,2,3,4],[.65,.08,.10,.10,.07])[0];p['topology']=rng.choice(KINDS[family]);p['hybrid_id']='none'
+                           weights=(.18,.04,.78) if family=='quadrant' else (.13,.03,.53,.22,.09))[0];p['piezo_wiring']=rng.choices([0,1,2,3,4],[.65,.08,.10,.10,.07])[0];p['topology']=rng.choice([k for k in KINDS[family] if k!='hybrid']);p['hybrid_id']='none'
  if rng.random()<.16:
   from hybrid_library import SPECS
   ids=[x.id for x in SPECS if x.upper_family==family]
@@ -98,13 +98,20 @@ def new_genome(family,rng):
 
 def jump(family,p,rng,level='local'):
  q=dict(p);wide=(level!='local')
- if level=='topology':q['topology']=rng.choice([k for k in KINDS[family] if k!=p['topology']])
  if level=='restart':return new_genome(family,rng)
- if level in ('topology','wide') and rng.random()<(.60 if level=='topology' else .22):
+ if level=='topology':
+  from hybrid_library import SPECS
+  old=(p.get('hybrid_id','none') or 'none',p['topology'])
+  singles=[('none',k) for k in KINDS[family] if k!='hybrid' and ('none',k)!=old]
+  hybrids=[(s.id,'hybrid') for s in SPECS if s.upper_family==family and (s.id,'hybrid')!=old]
+  # Select a distinct architecture, not a label that is later overwritten.
+  q['hybrid_id'],q['topology']=rng.choice(hybrids if hybrids and rng.random()<.60 else singles)
+ elif level=='wide' and rng.random()<.22:
   from hybrid_library import SPECS
   ids=[x.id for x in SPECS if x.upper_family==family]
   q['hybrid_id']=rng.choice(['none']+ids) if ids else 'none'
-  if q['hybrid_id']!='none':q['topology']='hybrid';q['height']=max(6.2,q['height'])
+  if q['hybrid_id']=='none' and q['topology']=='hybrid':
+   q['topology']=rng.choice([k for k in KINDS[family] if k!='hybrid'])
  keys=list(LIMITS[family])+list(PARAM_EXTRA[family]);rng.shuffle(keys)
  n=rng.randint(max(1,len(keys)//2),len(keys)) if wide else rng.randint(1,3)
  for k in keys[:n]:
@@ -120,13 +127,14 @@ def cross(family,a,b,rng):
  for k in a:
   if k not in b:continue
   if k in ('topology','hybrid_id') or not isinstance(a[k],(int,float)) or not isinstance(b[k],(int,float)):q[k]=rng.choice([a[k],b[k]])
-  elif rng.random()<.25 and k not in ['ribs','tier_count']:
+  elif rng.random()<.25 and k not in INTEGER_GENES:
    # A single interpolation coefficient is mandatory: separate draws can
    # produce weights summing above 1 and unphysical adhesive parameters.
    alpha=rng.random()
    q[k]=round(a[k]*alpha+b[k]*(1.-alpha),5)
   else:q[k]=rng.choice([a[k],b[k]])
  if q.get('hybrid_id','none')!='none':q['topology']='hybrid';q['height']=max(6.2,q['height'])
+ elif q['topology']=='hybrid':q['topology']=rng.choice([k for k in KINDS[family] if k!='hybrid'])
  return _snap_piezo_count(jump(family,q,rng),family)
 
 def transmute(family,genome,target,rng):

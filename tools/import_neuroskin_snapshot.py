@@ -58,6 +58,5 @@ def main():
     if a.push:
         print(git('push','origin','HEAD:refs/heads/develop/v3'))
 
-
 if __name__=='__main__':
     main()

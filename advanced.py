@@ -593,6 +593,8 @@ def engine_provenance():
 class EvolutionEngine:
  def __init__(self,folder):
   self.lock=threading.RLock();self.folder=Path(folder);self.folder.mkdir(parents=True,exist_ok=True)
+  from user_bests import UserBests
+  self.user_bests=UserBests(self.folder/'user_bests')
   self.thread=None;self._pool=None;self.stop_event=threading.Event();self.pause_event=threading.Event();self.records={};self.state=self.empty()
  def empty(self):
   return dict(id='',status='idle',mode='all',family='all',duration=60.,elapsed=0.,generation=0,evaluated=0,seed=42,best=None,champions={},gallery=[],history=[],diversity=0,stagnation=0,mutations={},error='',objective='balanced',physical_gate=False,gate_grid=3,cores=1,audit_top3=[],audit_history=[],audited_champion=None,phase='idle',audit_grid=5,stage_decisions=[],search_strategy='adaptive',search_precision=.8,qd_archive_size=0,population_pareto_size=0)
@@ -923,6 +925,7 @@ class EvolutionEngine:
   target=dest/'results.json';temp=dest/'results.json.tmp'
   temp.write_text(json.dumps(state,indent=2),encoding='utf-8')
   os.replace(temp,target)
+  self.user_bests.capture(state)
 
  def save(self):
   state=self.snapshot()

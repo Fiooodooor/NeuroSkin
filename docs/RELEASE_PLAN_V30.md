@@ -6,6 +6,7 @@ Stan aktualizowany na podstawie kodu linii 3 i testów. Dokument zastępuje hist
 
 | Obszar | Implementacja | Weryfikacja |
 | --- | --- | --- |
+| User bests | Trzecia kategoria Library: jeden końcowy audytowany champion na completed/stopped run przy niezaokrąglonym audit_score >90; trwały genotyp, audyt i provenance. Preview, eksport, Evaluate All i Multiscale | Regresje progu, braku wpisów iteracyjnych, najlepszego wcześniejszego championa, idempotencji, restartu, API i Chromium |
 | GUI Basic / Advanced | `static/workspace.js`: Basic zwija, Advanced rozwija sekcje ustawień; ta sama konfiguracja i silnik | Test przeglądarkowy przełączania i niezmienności ustawień |
 | Evolution presets | Cztery przykłady, dostosowanie do liczby CPU, własne zapisy, brak automatycznego startu | Testy Node oraz Chromium |
 | Wysokość środkowych wykresów | Resize w pionie i ResizeObserver dopasowujący Plotly | Rzeczywiste przeciągnięcie narożnika w Chromium |

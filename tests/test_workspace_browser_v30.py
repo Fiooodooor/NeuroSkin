@@ -309,6 +309,49 @@ def test_presets_modes_and_resizable_panels(app_url):
         browser.close()
 
 
+def test_user_bests_third_category_refresh_preview_and_multiscale(app_url, tmp_path, monkeypatch):
+    import server
+    from advanced import EvolutionEngine
+    from playwright.sync_api import sync_playwright, expect
+    engine = EvolutionEngine(tmp_path/'user-best-runs')
+    engine.state.update(id='browser_bests', status='running')
+    monkeypatch.setattr(server, 'EVO', engine)
+    candidate = server.select_candidate('hybrid', 'h01_serpentine_quadrant', 'quadrant')
+    candidate.update(id='earlier-champion', generation=1, audit={'audit_score': 94.5, 'feasible': True})
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(headless=True, args=['--disable-dev-shm-usage', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'])
+        page = browser.new_page(viewport={'width': 1500, 'height': 1000})
+        errors = []
+        page.on('pageerror', lambda e: errors.append(str(e)))
+        page.goto(app_url, wait_until='domcontentloaded')
+        page.locator('#workspace-tab-library').click()
+        expect(page.locator('#workspace-panel-library .seed-panel')).to_have_count(3)
+        expect(page.locator('#userBestsLibrary')).to_contain_text('No user bests yet')
+        engine.state.update(status='completed', best=candidate, audited_champion=candidate, generation=2)
+        engine._write_result(engine.snapshot())
+        preview = page.locator('[data-user-best="browser_bests"]')
+        expect(preview).to_be_visible(timeout=20000)  # Completion poll refreshes without a reload.
+        expect(page.locator('#userBestsLibrary')).to_contain_text('94.50/100')
+        preview.click()
+        expect(page.locator('#workspaceCandidate')).to_contain_text('user-best-browser_bests')
+        page.wait_for_function('geometryCache?.data?.candidate?.id==="user-best-browser_bests"', timeout=30000)
+        selection = page.evaluate('selectedPayload()')
+        assert selection['selection'] == 'user_best' and selection['expected_live_run_id'] is None
+        engine.state.update(id='next_live_run', status='idle')
+        page.wait_for_function('state?.id==="next_live_run"', timeout=15000)
+        expect(page.locator('#workspaceCandidate')).to_contain_text('user-best-browser_bests')
+        page.locator('#advancedMode').click()
+        page.locator('#workspace-tab-multiscale').click()
+        lab = page.frame_locator('#workspaceLabFrame')
+        expect(lab.locator('#selection')).to_have_value('user_best', timeout=20000)
+        lab.locator('#lab-tab-1').click()
+        lab.locator('#tile').click()
+        expect(lab.locator('#lab-panel-1 .lab-status')).to_contain_text('Completed', timeout=30000)
+        assert engine.user_bests.get('browser_bests')['score'] == 94.5
+        assert not errors, errors
+        browser.close()
+
+
 def test_computed_skin_patch_three_five_seven_views(app_url):
     from playwright.sync_api import sync_playwright, expect
     from pathlib import Path

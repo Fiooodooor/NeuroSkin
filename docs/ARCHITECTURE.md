@@ -89,6 +89,10 @@ Rekomendacja wybiera najlepszy obliczony wariant osobno dla każdej siatki: najp
 
 ## Wykonanie i trwałość
 
+`user_bests.py::UserBests` przechowuje niezależny od archiwum katalog `runs/user_bests/`. `EvolutionEngine._write_result` wywołuje `capture` po atomowym zapisie wyniku; mechanizm dopuszcza wyłącznie terminalne `completed`/`stopped` oraz `audit_score >90`. Zapis finalizing i snapshoty generacji niczego nie dodają. Jeden niezmienny plik na run zabezpiecza ponawiane zapisy. Do biblioteki trafia istniejący końcowy champion, nie najwyższa ocena proxy populacji ani osobny finalist każdej generacji.
+
+`GET /api/user_bests` zwraca metadane wpisów, a `GET /api/user_bests/{run_id}` dokładnego kandydata z osobną tożsamością `user-best-{run_id}`. Selekcja `user_best` działa w istniejących ścieżkach inspekcji, eksportu, Evaluate All i Multiscale bez zależności od bieżącej instancji ewolucji. Historyczne audyty zachowują swoje oryginalne tożsamości. GUI odświeża trzecią kategorię przy zakończeniu runu, otwarciu Library lub użyciu Refresh.
+
 ```mermaid
 flowchart TB
   subgraph L[Jedna lokalna instancja aplikacji]

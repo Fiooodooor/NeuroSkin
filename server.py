@@ -107,6 +107,18 @@ def hybrid_library_api():
  from hybrid_library import library_json
  return library_json()
 
+@app.get('/api/user_bests')
+def user_bests_api():
+ return {'category':'user_bests','title':'User bests','threshold_exclusive':90,
+         'score_type':'full_audit_score','entries':EVO.user_bests.list_entries(),
+         'policy':'One final audited champion per completed or stopped run; score strictly above 90. Original scores retain their original protocol and provenance.'}
+
+@app.get('/api/user_bests/{run_id}')
+def user_best_api(run_id:str):
+ try:return EVO.user_bests.candidate(run_id)
+ except FileNotFoundError:raise HTTPException(404,'User best not found')
+ except (ValueError, OSError, KeyError, TypeError) as exc:raise HTTPException(422,str(exc))
+
 @app.get('/api/hybrids/{hybrid_id}')
 def hybrid_candidate_api(hybrid_id: str):
  c=select_candidate('hybrid',hybrid_id,'quadrant')
@@ -229,6 +241,8 @@ def archive_audit(run_id:str,generation:int|None=None):
    headers={'Content-Disposition':f'attachment; filename="neuroskin_{run_id}_audit.json"'})
 
 def select_candidate(kind:str,index:str,family:str,run_id:str|None=None,generation:int|None=None):
+ if kind=='user_best' and not run_id:
+  return user_best_api(str(index))
  if kind=='hybrid' and not run_id:
   from hybrid_library import BY_ID, genome_for
   from advanced import proxy

@@ -9,7 +9,7 @@
   const archive=main.querySelector('.archive-panel'),libraries=[...main.querySelectorAll('.seed-panel')];
   const tests=[...main.querySelectorAll('.testpanel')],history=main.querySelector('.chart');
   const audit=el('top3Pipeline'),fem=el('femDetails');
-  if(!left||!stage||!right||!archive||libraries.length!==2||tests.length!==3||!history||!audit||!fem)return;
+  if(!left||!stage||!right||!archive||libraries.length!==3||tests.length!==3||!history||!audit||!fem)return;
   document.body.classList.add('workspace');
   const nav=make('nav','workspace-tabs');nav.setAttribute('aria-label','Workspace views');nav.setAttribute('role','tablist');
   const commands=make('div','workspace-commands');
@@ -120,7 +120,7 @@
   const signalActions=make('div','workspace-signal-actions');
   signalActions.append(button('workspaceCharacterize','Refresh response',()=>runCharacterization()),button('workspaceSpatial','Run spatial scan',()=>runSpatial()));
   signals.prepend(signalActions);
-  const library=make('section','workspace-stack');libraries.forEach((n,i)=>{n.querySelector('details').open=i===0;library.append(n);});
+  const library=make('section','workspace-stack');libraries.forEach((n,i)=>{n.querySelector('details').open=i===0||i===2;library.append(n);});
   archive.open=true;
   const lab=make('section','panel workspace-lab');
   const labBar=make('div','workspace-labbar');const labContext=make('span','','Select a candidate in Overview or Library.');labContext.id='workspaceLabContext';
@@ -290,11 +290,11 @@
   function resize(){requestAnimationFrame(()=>{for(const plot of main.querySelectorAll('.js-plotly-plot'))if(plot.getClientRects().length&&plot._fullLayout)try{Plotly.Plots.resize(plot);}catch{}});}
   function show(id){if(!panels.has(id)||(!advanced&&views.find(v=>v[0]===id)[3]))id='overview';active=id;
     for(const [key,p] of panels){p.hidden=key!==id;const t=tabs.get(key);t.setAttribute('aria-selected',String(key===id));t.tabIndex=key===id?0:-1;}
-    if(id==='multiscale'&&!bound)bindLab(false);mountGeometry();update();renderPinnedGeometry();syncLabVisibility();updateDetailedFEM();if(!isFEMVisible())renderFEMPreviews();refreshGeometryVisibility();resize();
+    if(id==='library')loadUserBests();if(id==='multiscale'&&!bound)bindLab(false);mountGeometry();update();renderPinnedGeometry();syncLabVisibility();updateDetailedFEM();if(!isFEMVisible())renderFEMPreviews();refreshGeometryVisibility();resize();
   }
   nav.addEventListener('keydown',e=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;const visible=views.filter(v=>advanced||!v[3]).map(v=>v[0]);let i=visible.indexOf(active);i=e.key==='Home'?0:e.key==='End'?visible.length-1:(i+(e.key==='ArrowRight'?1:-1)+visible.length)%visible.length;e.preventDefault();show(visible[i]);tabs.get(visible[i]).focus();});
   function current(){const p=selectedPayload(),c=findCandidate(currentSelection);if(!p||!c)return null;
-    const libraryKind=['seed','hybrid'].includes(p.selection);return {selection:p.selection,index:p.index,family:c.family,run_id:p.run_id,generation:p.generation,piezo_count_override:p.piezo_count_override,piezo_wiring_override:p.piezo_wiring_override,expected_live_run_id:!p.run_id&&!libraryKind?state?.id:null,expected_candidate_id:String(c.id)};}
+    const libraryKind=['seed','hybrid','user_best'].includes(p.selection);return {selection:p.selection,index:p.index,family:c.family,run_id:p.run_id,generation:p.generation,piezo_count_override:p.piezo_count_override,piezo_wiring_override:p.piezo_wiring_override,expected_live_run_id:!p.run_id&&!libraryKind?state?.id:null,expected_candidate_id:String(c.id)};}
   function labUrl(p,embedded){const q=new URLSearchParams();for(const [k,v] of Object.entries(p))if(v!=null)q.set(k,v);if(embedded)q.set('embedded','1');return '/v30?'+q;}
   function syncLabVisibility(){for(const item of openLabs.values())item.frame.contentWindow?.postMessage({type:'neuroskin:lab-visible',visible:active==='multiscale'&&item.frame===frame},location.origin);}
   function activateSession(key){
@@ -321,7 +321,7 @@
   }
   function updateRuns(){const opts=[new Option('Live experiment',''),...[...el('archiveSelect').options].filter(o=>o.value).map(o=>new Option(o.textContent,o.value))];const key=JSON.stringify(opts.map(o=>[o.value,o.textContent]));if(runSwitch.dataset.options!==key){runSwitch.replaceChildren(...opts);runSwitch.dataset.options=key;}runSwitch.value=archiveRunId||'';}
   runSwitch.onchange=()=>{if(runSwitch.value){el('archiveSelect').value=runSwitch.value;el('openArchive').click();}else el('returnLive').click();show('overview');};
-  function update(){const p=current();updateRuns();runLabel.textContent=archiveRunId?`Archive ${archiveRunId}${archiveGeneration!=null?' · generation '+archiveGeneration:''}`:(p&&['seed','hybrid'].includes(p.selection)?'Library preview':'Live session');live.hidden=!archiveRunId;
+  function update(){const p=current();updateRuns();runLabel.textContent=archiveRunId?`Archive ${archiveRunId}${archiveGeneration!=null?' · generation '+archiveGeneration:''}`:(p&&['seed','hybrid','user_best'].includes(p.selection)?'Library preview':'Live session');live.hidden=!archiveRunId;
     const c=findCandidate(currentSelection);candidateLabel.textContent=p?`${p.family} / ${c.genome.topology} · ${p.expected_candidate_id}`:'No candidate selected';
     empty.hidden=!!p;el('model').classList.toggle('workspace-model-empty',!p);
     if(archiveRunId)el('start').disabled=true;
@@ -355,7 +355,7 @@
   el('multiscaleLab').onclick=()=>{setView('advanced');advanced=true;show('multiscale');};
   el('multiscaleLab').classList.add('advanced-only');
   // Preview actions in the library should return directly to the 3D workspace.
-  library.addEventListener('click',e=>{if(e.target.closest('[data-hybrid],[data-preview-seed]'))show('overview');});
+  library.addEventListener('click',e=>{if(e.target.closest('[data-hybrid],[data-preview-seed],[data-user-best]'))show('overview');});
   archive.addEventListener('click',e=>{if(e.target.closest('#openArchive,#openStage,#returnLive'))show('overview');});
   window.addEventListener('message',e=>{if(e.origin!==location.origin)return;const item=[...openLabs.values()].find(x=>x.frame.contentWindow===e.source);if(!item)return;if(e.data?.type==='neuroskin:lab-height'&&Number.isFinite(e.data.height))item.frame.style.height=Math.max(180,Math.min(18000,e.data.height+12))+'px';else if(e.data?.type==='neuroskin:lab-report'){const r=reports.record(e.data.result);if(r&&reports.matchesFrame(r,item.context)){item.reports.set(r.diagnostic_context.path,r);renderReports();}}else if(e.data?.type==='neuroskin:lab-busy'&&typeof e.data.busy==='boolean'){item.busy=e.data.busy;if(item.frame===frame){labBusy=item.busy;update();}}});
   function clearComponents(){componentInspector.set(null,null);}

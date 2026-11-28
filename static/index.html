@@ -38,6 +38,7 @@ body.basic .audit-results{display:none}
  </div></details>
 <section class="panel seed-panel"><details><summary style="cursor:pointer;font-size:15px;font-weight:700">20 starting geometries · 10 shortlisted · 10 transparent criteria</summary><p><small>Expert engineering PRIOR scores (not FEM measurements). Ten are independently proposed hypotheses; ten are inspired by published research. Select Preview to inspect the actual generated 3D model.</small></p><div class="seedscroll" id="seedLibrary">Loading library…</div></details></section>
 <section class="panel seed-panel"><details open><summary style="cursor:pointer;font-size:15px;font-weight:700">NEW · Ten two-stage hybrid architectures · scored 10×10</summary><p><small>Upper sensing stage → shared middle plate → lower reference stage. These are engineering-prior rankings, NOT measured accuracy or FEM results. Every architecture is a real generation-zero genotype. Preview in 3D or run Evaluate All.</small></p><div class="seedscroll" id="hybridLibrary">Loading hybrid library…</div></details></section>
+<section class="panel seed-panel"><details open><summary style="cursor:pointer;font-size:15px;font-weight:700">User bests</summary><p><small>One final champion per completed or stopped run, with full-audit score strictly above 90/100. Original scores retain their own protocol and provenance.</small></p><button type="button" id="refreshUserBests">Refresh</button><div class="seedscroll" id="userBestsLibrary">Loading user bests...</div></details></section>
 <section class="panel left"><h2>Evolution controls</h2><label>Search space</label><select id="mode"><option value="all">Everything · singles + all hybrids</option><option value="single:all">Single-stage geometries only</option><option value="hybrid:all">All 10 two-stage hybrids</option></select><small>Search scopes are loaded from the same server catalogue used by evolution.</small>
 <label class="advanced-only">Search strategy</label><select class="advanced-only" id="searchStrategy"><option value="adaptive" selected>Adaptive · explore + QD + refine</option><option value="explore">Global exploration</option><option value="precision">Precision refinement</option></select>
 <label class="advanced-only">Local search precision: <b id="precisionValue">80%</b></label><input class="advanced-only" id="searchPrecision" type="range" min="0" max="100" value="80"><small class="advanced-only">Higher precision = smaller numerical mutations near promising candidates; the global and topology operators stay available.</small>
@@ -118,13 +119,13 @@ async function api(method,path,data){
  try{j=raw?JSON.parse(raw):{}}catch{j={detail:raw.slice(0,500)||`HTTP ${r.status}`}}
  if(!r.ok)throw Error(apiErrorMessage(j,r.status));return j;
 }
-function findCandidate(sel){if(['id','seed','hybrid'].includes(sel.kind))return pinnedCandidate;if(!state)return null;if(sel.kind==='best')return state.best;if(sel.kind==='family')return state.champions?.[sel.family];if(sel.kind==='id'||sel.kind==='seed'||sel.kind==='hybrid')return pinnedCandidate;if(sel.kind==='gallery')return state.gallery?.[sel.index];return null}
+function findCandidate(sel){if(['id','seed','hybrid','user_best'].includes(sel.kind))return pinnedCandidate;if(!state)return null;if(sel.kind==='best')return state.best;if(sel.kind==='family')return state.champions?.[sel.family];if(sel.kind==='id'||sel.kind==='seed'||sel.kind==='hybrid'||sel.kind==='user_best')return pinnedCandidate;if(sel.kind==='gallery')return state.gallery?.[sel.index];return null}
 function piezoOverrideValue(){return $('piezoOverride').value?Number($('piezoOverride').value):null}
 function piezoWiringOverrideValue(){return $('piezoWiring').value!==''?Number($('piezoWiring').value):null}
 function metricBox(k,v){return `<div class="metric"><small>${k.replace(/_/g,' ')}</small><b>${typeof v==='number'?v.toLocaleString('en-US',{maximumFractionDigits:5}):String(v)}</b></div>`}
 let lastSelectionIdentity='',meshRequest=0,responseRequest=0,spatialRequest=0,selectionRevision=0,contextRevision=0,startPending=false;
 let geometryCache=null;
-function selectionIdentity(){const c=findCandidate(currentSelection);return JSON.stringify([archiveRunId,archiveGeneration,archiveRunId||(['seed','hybrid'].includes(currentSelection.kind)?null:state?.id),c?.id,c?.family,piezoOverrideValue(),piezoWiringOverrideValue()]);}
+function selectionIdentity(){const c=findCandidate(currentSelection);return JSON.stringify([archiveRunId,archiveGeneration,archiveRunId||(['seed','hybrid','user_best'].includes(currentSelection.kind)?null:state?.id),c?.id,c?.family,piezoOverrideValue(),piezoWiringOverrideValue()]);}
 function invalidateInspectors(){geometryCache=null;window.NeuroWorkspace?.clearComponents?.();selectionRevision++;window.NeuroWorkspace?.renderEvaluation(null);currentResponse=null;lastSpatial=null;solvedFEM=null;femPreviewFields=null;femPreviewError=null;window.NeuroWorkspace?.renderFEMPreviews?.();laminateShell=null;responseRequest++;spatialRequest++;$('exportspatial').disabled=true;for(const id of ['electricalmetrics','piezoMetrics','spatialmetrics'])$(id).replaceChildren();for(const id of ['modeldisplacement','spatialflags','femMetrics','laminateShellMetrics','validationMetrics','allEvalResult'])$(id).textContent='Selection changed — run the inspector again.';$('femStatus').textContent='No FEM result for this selection.';$('laminateShellStatus').textContent='No laminate result for this selection.';$('validationStatus').textContent='No validation result for this selection.';$('orientationPanel').style.display='none';$('orientationStudy').textContent='No orientation result for this selection.';for(const id of ['responsegraph','piezoGraph','spatialmap','femPlot','laminatePlot']){const p=$(id);if(p?._fullLayout)Plotly.react(p,[],p.layout||{}, {responsive:true,displaylogo:false});}markEvaluationStale();}
 function selectedUI(){
  const c=findCandidate(currentSelection);if(!c){if(lastSelectionIdentity){lastSelectionIdentity='';invalidateInspectors();$('viewtitle').textContent='No candidate selected';$('fitness').textContent='—';$('gateStatus').textContent='No screening result';$('metricgrid').replaceChildren();$('parameters').textContent='—';$('stl').disabled=true;$('genome').disabled=true;meshSignature='';meshRequest++;Plotly.react('model',[],baseLayout,{responsive:true,displaylogo:false});}return;}
@@ -209,7 +210,7 @@ async function command(path){if(archiveRunId)return;const revision=contextRevisi
 $('pause').onclick=()=>command('/pause');$('stop').onclick=()=>command('/stop');
 $('best').onclick=()=>{if(!state?.best)return;choose({kind:'best',index:0,family:state.best.family})};$('auto').onchange=()=>{follow=$('auto').checked;if(follow&&state?.best){currentSelection={kind:'best',index:0,family:state.best.family};selectedUI();updateMesh(true)}};$('filter').onchange=renderGallery;
 $('showPiezo').onchange=()=>updateMesh(true);$('piezoOverride').onchange=()=>{currentResponse=null;selectedUI();updateMesh(true);markEvaluationStale()};$('piezoWiring').onchange=()=>{currentResponse=null;selectedUI();updateMesh(true);markEvaluationStale()};$('wire').onchange=()=>updateMesh(true);$('transparent').onchange=()=>updateMesh(true);$('quality').onchange=()=>updateMesh(true);$('reset').onclick=()=>Plotly.relayout('model',{'scene.camera':{eye:{x:1.8,y:1.5,z:1.5}}});$('explore').oninput=()=>{$('exploreval').textContent=$('explore').value+'%'};$('searchPrecision').oninput=()=>{$('precisionValue').textContent=$('searchPrecision').value+'%'};for(let b of document.querySelectorAll('[data-sec]'))b.onclick=()=>{$('seconds').value=b.dataset.sec};
-function selectedPayload(){const c=findCandidate(currentSelection);if(!c)return null;return {run_id:archiveRunId,generation:archiveGeneration,selection:['seed','hybrid'].includes(currentSelection.kind)?currentSelection.kind:'id',index:['seed','hybrid'].includes(currentSelection.kind)?String(currentSelection.index):String(c.id),family:c.family,expected_live_run_id:!archiveRunId&&!['seed','hybrid'].includes(currentSelection.kind)?state?.id:null,expected_candidate_id:String(c.id),case:$('loadcase').value,fraction:Number($('loadamount').value)/100,frequency_hz:Number($('piezoFrequency').value),piezo_count_override:piezoOverrideValue(),piezo_wiring_override:piezoWiringOverrideValue()}}
+function selectedPayload(){const c=findCandidate(currentSelection);if(!c)return null;return {run_id:archiveRunId,generation:archiveGeneration,selection:['seed','hybrid','user_best'].includes(currentSelection.kind)?currentSelection.kind:'id',index:['seed','hybrid','user_best'].includes(currentSelection.kind)?String(currentSelection.index):String(c.id),family:c.family,expected_live_run_id:!archiveRunId&&!['seed','hybrid','user_best'].includes(currentSelection.kind)?state?.id:null,expected_candidate_id:String(c.id),case:$('loadcase').value,fraction:Number($('loadamount').value)/100,frequency_hz:Number($('piezoFrequency').value),piezo_count_override:piezoOverrideValue(),piezo_wiring_override:piezoWiringOverrideValue()}}
 $('multiscaleLab').onclick=()=>{const p=selectedPayload();const q=new URLSearchParams();if(p)for(const k of ['selection','index','family','run_id','generation','piezo_count_override','piezo_wiring_override'])if(p[k]!=null)q.set(k,p[k]);location.href='/v30?'+q;};
 async function runCharacterization(){const input=selectedPayload();if(!input)return;const request=++responseRequest,identity=selectionIdentity();try{const r=await api('POST','/characterize',input);if(request!==responseRequest||identity!==selectionIdentity()||JSON.stringify(input)!==JSON.stringify(selectedPayload())||String(r.candidate_id)!==input.expected_candidate_id)return;currentResponse={...r,_input:JSON.stringify(input)};const e=r.result.electrical,m=r.result.mechanics;const cases=r.sweep.rows;
  $('electricalmetrics').innerHTML=metricBox('Total pressure ΔC [pF]',e.pressure_delta_pF.reduce((a,b)=>a+b,0))+metricBox('Lateral X ΔC [pF]',e.lateral_delta_pF[0])+metricBox('Lateral Y ΔC [pF]',e.lateral_delta_pF[1])+metricBox('Hall torsion ΔB [mT]',e.hall_torsion_delta_mT)+metricBox('PVDF dynamic Vpeak [V]',r.result.piezoelectric.peak_V)+metricBox('PVDF assumed SNR',r.result.piezoelectric.dynamic_snr_proxy);
@@ -314,7 +315,8 @@ function renderPipeline(){if(!state)return;
 }
 $('reportAudit').onclick=()=>{location.href=archiveRunId?'/api/archives/'+encodeURIComponent(archiveRunId)+'/audit'+(archiveGeneration!=null?'?generation='+archiveGeneration:''):'/api/audit/report'};
 
-async function poll(){if(busy||archiveRunId||startPending)return;busy=true;const revision=contextRevision;try{const next=await api('GET','/state');if(revision===contextRevision&&!archiveRunId&&!startPending){state=next;display()}}catch(e){$('error').textContent=e.message}finally{busy=false}}async function refreshArchives(){
+let userBestRun=null;
+async function poll(){if(busy||archiveRunId||startPending)return;busy=true;const revision=contextRevision;try{const next=await api('GET','/state');if(revision===contextRevision&&!archiveRunId&&!startPending){state=next;display();if(next.id&&['completed','stopped'].includes(next.status)&&userBestRun!==next.id){userBestRun=next.id;loadUserBests();}}}catch(e){$('error').textContent=e.message}finally{busy=false}}async function refreshArchives(){
  try{
   const data=await api('GET','/archives');archiveRuns=data.runs;
   const prior=$('archiveSelect').value;
@@ -479,6 +481,36 @@ $('evaluateAll').onclick=async()=>{
  }catch(e){$('allEvalStatus').textContent='Evaluate All failed: '+e.message;}
  finally{btn.disabled=false;}
 };
+let userBestsRevision=0;
+async function loadUserBests(){
+ const revision=++userBestsRevision;
+ try{
+  const data=await api('GET','/user_bests');if(revision!==userBestsRevision)return;
+  const host=$('userBestsLibrary');host.replaceChildren();
+  if(!data.entries.length){host.textContent='No user bests yet. Finish a run with a full-audit score above 90/100.';return;}
+  const table=document.createElement('table');table.className='seedtable';table.style.minWidth='600px';
+  const head=document.createElement('tr');for(const text of ['Geometry','Run / provenance','Final audit','Preview']){const cell=document.createElement('th');cell.textContent=text;head.append(cell);}table.append(head);
+  for(const entry of data.entries){
+   const row=document.createElement('tr'),geometry=document.createElement('td'),origin=document.createElement('td'),score=document.createElement('td'),action=document.createElement('td'),button=document.createElement('button');
+   geometry.textContent=entry.family+' / '+entry.topology;
+   origin.textContent=entry.run_id+' / '+entry.candidate_id+' / seed '+entry.run_context.seed+' / '+entry.run_context.objective;
+   origin.title='Original source '+(entry.run_context.provenance?.sha256||'unknown')+' / genome '+entry.genome_hash;
+   score.className='seedscore';score.textContent=Number(entry.score).toFixed(2)+'/100';
+   button.type='button';button.textContent='Preview';button.dataset.userBest=entry.run_id;
+   button.onclick=async()=>{
+    const revision=++contextRevision;
+    try{const c=await api('GET','/user_bests/'+encodeURIComponent(entry.run_id));if(revision!==contextRevision)return;
+     pinnedCandidate=c;currentSelection={kind:'user_best',index:entry.run_id,family:c.family};archiveRunId=null;archiveGeneration=null;
+     follow=false;$('auto').checked=false;currentResponse=null;lastSpatial=null;solvedFEM=null;laminateShell=null;
+     selectedUI();await updateMesh(true);$('allEvalStatus').textContent='User best from run '+entry.run_id+'. Original audit retained; use Evaluate All for a current evaluation.';
+    }catch(e){$('error').textContent=e.message;}
+   };
+   action.append(button);row.append(geometry,origin,score,action);table.append(row);
+  }
+  host.append(table);
+ }catch(e){if(revision===userBestsRevision)$('userBestsLibrary').textContent='User bests unavailable: '+e.message;}
+}
+$('refreshUserBests').onclick=loadUserBests;
 async function loadHybridLibrary(){
  try{
   const data=await api('GET','/hybrid_library');const cats=data.criteria.map(c=>c.id);
@@ -499,6 +531,6 @@ async function loadHybridLibrary(){
  }catch(e){$('hybridLibrary').textContent='Hybrid library unavailable: '+e.message;}
 }
 $('seed').value=String(crypto.getRandomValues(new Uint32Array(1))[0]>>>1);
-loadSeedLibrary();loadHybridLibrary();refreshSearchScopes();
+loadSeedLibrary();loadHybridLibrary();loadUserBests();refreshSearchScopes();
 setInterval(poll,1100);fetch('/api/system').then(r=>r.json()).then(d=>{$('cores').max=d.logical_cores;$('cores').value=Math.max(1,Math.min(d.default_cores,d.logical_cores));$('coreinfo').textContent=`${d.logical_cores} logical CPUs available · ${d.hardware?.cpu?.physical_host||'unknown'} physical · ${d.hardware?.ram_total_mb?Math.round(d.hardware.ram_total_mb/1024)+' GB RAM':'RAM unknown'} · ${d.hardware?.nvidia_gpu?.available?(d.hardware.nvidia_gpu.name+' ('+d.hardware.nvidia_gpu.total_vram_mb+' MB VRAM)'):'GPU unverified'}; CPU evolution recommended.`}).catch(()=>{});poll();
 </script><script src="/static/workspace_reports.js"></script><script src="/static/workspace_profiles.js"></script><script src="/static/fem_previews.js"></script><script src="/static/component_inspection.js"></script><script src="/static/workspace.js"></script></body></html>

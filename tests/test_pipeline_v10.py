@@ -47,10 +47,15 @@ class TestPipelineV10(unittest.TestCase):
   with tempfile.TemporaryDirectory() as folder:
    e=EvolutionV5(folder)
    e.start('all',3,13,12,.5,cores=1,audit_grid=3)
-   until=time.monotonic()+22
-   while e.snapshot()['status'] not in ('completed','stopped','failed') and time.monotonic()<until:time.sleep(.12)
-   s=e.snapshot()
-   self.assertEqual(s['status'],'completed',s.get('error'))
+   # A 3s evolutionary budget finishes the in-flight full generation. This
+   # lifecycle test is not a hardware-independent performance benchmark.
+   until=time.monotonic()+120
+   try:
+    while e.snapshot()['status'] not in ('completed','stopped','failed') and time.monotonic()<until:time.sleep(.12)
+    s=e.snapshot()
+    self.assertEqual(s['status'],'completed',f"{s.get('error')} phase={s.get('phase')}")
+   finally:
+    self.assertTrue(e.shutdown(timeout=10.))
    self.assertGreaterEqual(len(s['audit_history']),1)
    self.assertEqual(len(s['audit_top3']),3)
    self.assertIsNotNone(s['audited_champion'])

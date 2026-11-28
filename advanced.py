@@ -943,10 +943,19 @@ class EvolutionV5:
    for a in state.get('audit_history',[]):w.writerow({k:a.get(k) for k in w.fieldnames})
   (dest/'stage_decisions.json').write_text(json.dumps(state.get('stage_decisions',[]),indent=2))
  def lookup(self,kind='best',index=0,family=None):
-  s=self.snapshot()
-  if kind=='id':
-   with self.lock:return copy.deepcopy(self.records.get(str(index)))
-  if kind=='best':return s['best']
-  if kind=='family':return s['champions'].get(family)
-  if kind=='gallery':return s['gallery'][index] if 0<=index<len(s['gallery']) else None
-  return None
+  # The current finalists can be published between gallery/records checkpoints.
+  # Resolve all live selections under one lock without copying the entire run.
+  with self.lock:
+   s=self.state
+   if kind=='id':
+    values=[s.get('best'),s.get('audited_champion'),*(s.get('audit_top3') or []),*(s.get('gallery') or []),*(s.get('champions') or {}).values()]
+    c=next((x for x in values if x and str(x.get('id'))==str(index)),None)
+    return copy.deepcopy(c if c is not None else self.records.get(str(index)))
+   if kind=='best':return copy.deepcopy(s.get('best'))
+   if kind=='family':return copy.deepcopy(s.get('champions',{}).get(family))
+   if kind=='gallery':
+    try:i=int(index)
+    except (ValueError,TypeError):return None
+    gallery=s.get('gallery',[])
+    return copy.deepcopy(gallery[i]) if 0<=i<len(gallery) else None
+   return None

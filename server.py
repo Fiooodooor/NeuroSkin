@@ -255,14 +255,40 @@ def _preview_genome(candidate, piezo_count_override:int|None, piezo_wiring_overr
   genome['piezo_wiring']=piezo_wiring_override
  return genome
 
+def _live_run_id():
+ with EVO.lock:return str(EVO.state['id'])
+
+
+def _guarded_candidate(kind,index,family,run_id=None,generation=None,expected_live_run_id=None,expected_candidate_id=None):
+ def check_run():
+  if expected_live_run_id is not None and _live_run_id()!=expected_live_run_id:
+   raise HTTPException(409,'Live experiment changed; reselect the candidate')
+ check_run()
+ c=select_candidate(kind,index,family,run_id,generation)
+ check_run()
+ if c is None:raise HTTPException(404,'Candidate not found')
+ if expected_candidate_id is not None and str(c['id'])!=expected_candidate_id:
+  raise HTTPException(409,'Candidate changed; reselect the candidate')
+ return c
+
+
+class SelectionExpectation(BaseModel):
+ expected_live_run_id:str|None=None
+ expected_candidate_id:str|None=None
+
+
+def _request_candidate(req):
+ return _guarded_candidate(req.selection,req.index,req.family,req.run_id,req.generation,
+                           req.expected_live_run_id,req.expected_candidate_id)
+
+
 from neuroskin_v30.integration import build_router
-app.include_router(build_router(select_candidate,_preview_genome,lambda:EVO.snapshot()['id']))
+app.include_router(build_router(select_candidate,_preview_genome,_live_run_id))
 
 @app.get('/api/mesh')
-def mesh(kind:str='best',index:str="0",family:str='crown',quality:int=10,run_id:str|None=None,generation:int|None=None,piezo_count_override:int|None=None,piezo_wiring_override:int|None=None):
+def mesh(kind:str='best',index:str="0",family:str='crown',quality:int=10,run_id:str|None=None,generation:int|None=None,piezo_count_override:int|None=None,piezo_wiring_override:int|None=None,expected_live_run_id:str|None=None,expected_candidate_id:str|None=None):
  if quality<5 or quality>20:raise HTTPException(400,'Quality must be 5..20')
- candidate=select_candidate(kind,index,family,run_id,generation)
- if candidate is None:raise HTTPException(404,'Candidate not found')
+ candidate=_guarded_candidate(kind,index,family,run_id,generation,expected_live_run_id,expected_candidate_id)
  g=_preview_genome(candidate,piezo_count_override,piezo_wiring_override)
  from pvdf_array import choose_film_members,layout_metrics
  layout=layout_metrics(structural_struts(candidate['family'],g),g)
@@ -272,7 +298,7 @@ def mesh(kind:str='best',index:str="0",family:str='crown',quality:int=10,run_id:
          'pvdf_warning':'Preview override is not saved and does not update archived scores. Re-run Evaluate All for the modified configuration; bonded PVDF reinforcement is modeled approximately in FEM.',
          'strut_paths':[pts.round(4).tolist() for pts,_,_ in structural_struts(candidate['family'],g)]}
 
-class Characterize(BaseModel):
+class Characterize(SelectionExpectation):
  selection:str='best'
  index:str='0'
  family:str='crown'
@@ -285,7 +311,7 @@ class Characterize(BaseModel):
  generation:int|None=None
 
 
-class FEMRequest(BaseModel):
+class FEMRequest(SelectionExpectation):
  piezo_count_override:int|None=None
  piezo_wiring_override:int|None=None
  compute_device:str='cpu'
@@ -304,8 +330,7 @@ class FEMRequest(BaseModel):
 @app.post('/api/fem/simulate')
 def simulate_fem(req:FEMRequest):
  """Actual continuum HEX8 solution; browser receives the solver's FE surface nodes."""
- c=select_candidate(req.selection,req.index,req.family,req.run_id,req.generation)
- if c is None:raise HTTPException(404,'Candidate not found')
+ c=_request_candidate(req)
  from physical_fem import voxel_mesh, HexElasticSolver, FEMConfig, _serialize_mesh_fields, InvalidGeometry
  family,g=c['family'],_preview_genome(c,req.piezo_count_override,req.piezo_wiring_override)
  cfg=FEMConfig(pitch_mm=req.pitch_mm,young_MPa=float(g.get('material_E',1.)))
@@ -351,7 +376,7 @@ def simulate_fem(req:FEMRequest):
  except (InvalidGeometry,ValueError,RuntimeError,MemoryError) as exc:
   raise HTTPException(422, f'FEM geometry/solver rejected candidate: {exc}')
 
-class EvaluateAllRequest(BaseModel):
+class EvaluateAllRequest(SelectionExpectation):
  fem_inspection_case:str='press_center'
  fem_inspection_force_n:float=Field(default=.1,gt=0,le=.5)
  fem_inspection_offset_x:float=Field(default=0.,ge=-2,le=2)
@@ -378,8 +403,7 @@ def evaluate_all(req:EvaluateAllRequest):
  """
  from full_evaluation import audit_candidate
  from recovery_sim import recovery_for_candidate
- candidate=select_candidate(req.selection,req.index,req.family,req.run_id,req.generation)
- if candidate is None:raise HTTPException(404,'Candidate not found')
+ candidate=_request_candidate(req)
  g=_preview_genome(candidate,req.piezo_count_override,req.piezo_wiring_override)
  try:
   audit=audit_candidate(candidate['family'],g,req.objective,req.audit_grid)
@@ -440,8 +464,7 @@ def physics_info():return {'cases':{k:v[0] for k,v in CASES.items()},'objective_
 
 @app.post('/api/characterize')
 def characterize(req:Characterize):
- c=select_candidate(req.selection,req.index,req.family,req.run_id,req.generation)
- if c is None:raise HTTPException(404,'Candidate not found')
+ c=_request_candidate(req)
  if req.case not in CASES:raise HTTPException(400,'Unknown case')
  g=_preview_genome(c,req.piezo_count_override,req.piezo_wiring_override)
  _,F,mz,off,mx=CASES[req.case]
@@ -452,7 +475,7 @@ def characterize(req:Characterize):
          'piezo_preview_override':req.piezo_count_override is not None or req.piezo_wiring_override is not None,
          'result':r,'sweep':sweep(c['family'],g,req.case)}
 
-class SpatialTest(BaseModel):
+class SpatialTest(SelectionExpectation):
  piezo_count_override:int|None=None
  piezo_wiring_override:int|None=None
  selection:str='best'
@@ -465,8 +488,7 @@ class SpatialTest(BaseModel):
 
 @app.post('/api/spatial_pressure')
 def spatial_pressure(req:SpatialTest):
- c=select_candidate(req.selection,req.index,req.family,req.run_id,req.generation)
- if c is None:raise HTTPException(404,'Candidate not found')
+ c=_request_candidate(req)
  try:
   data=spatial_pressure_test(c['family'],_preview_genome(c,req.piezo_count_override,req.piezo_wiring_override),force_n=req.force_n,grid_size=req.grid_size)
  except (ValueError,np.linalg.LinAlgError) as exc:
@@ -474,23 +496,21 @@ def spatial_pressure(req:SpatialTest):
  return {'candidate_id':c['id'],'family':c['family'],'spatial':data}
 
 @app.get('/api/export/{kind}')
-def export(kind:str, selection:str='best',index:str="0",family:str='crown',run_id:str|None=None,generation:int|None=None,piezo_count_override:int|None=None,piezo_wiring_override:int|None=None):
+def export(kind:str, selection:str='best',index:str="0",family:str='crown',run_id:str|None=None,generation:int|None=None,piezo_count_override:int|None=None,piezo_wiring_override:int|None=None,expected_live_run_id:str|None=None,expected_candidate_id:str|None=None):
  s=ARCHIVES.load(run_id) if run_id else EVO.snapshot()
  if kind=='json':return Response(json.dumps(s,indent=2),media_type='application/json',headers={'Content-Disposition':'attachment; filename="neuroskin_evolution_v07.json"'})
  if kind=='csv':
   buf=io.StringIO();w=csv.DictWriter(buf,['generation','elapsed','best','median','diversity']);w.writeheader();w.writerows(s['history'])
   return Response(buf.getvalue(),media_type='text/csv',headers={'Content-Disposition':'attachment; filename="neuroskin_history_v07.csv"'})
  if kind=='genome':
-  c=select_candidate(selection,index,family,run_id,generation)
-  if c is None:raise HTTPException(404,'Candidate not found')
+  c=_guarded_candidate(selection,index,family,run_id,generation,expected_live_run_id,expected_candidate_id)
   g=_preview_genome(c,piezo_count_override,piezo_wiring_override)
   # Flat genome JSON matches fem_cli.py --genome. The historical score is NOT exported.
   return Response(json.dumps(g,indent=2),media_type='application/json',headers={
       'Content-Disposition':f'attachment; filename="neuroskin_{c["family"]}_genome_pvdf_{g.get("piezo_count",1)}.json"',
       'X-NeuroSkin-Fitness-Invalidated':'true' if piezo_count_override is not None or piezo_wiring_override is not None else 'false'})
  if kind=='stl':
-  c=select_candidate(selection,index,family,run_id,generation)
-  if c is None:raise HTTPException(404,'Candidate not found')
+  c=_guarded_candidate(selection,index,family,run_id,generation,expected_live_run_id,expected_candidate_id)
   components=detail_mesh(c['family'],_preview_genome(c,piezo_count_override,piezo_wiring_override));data=trimesh.util.concatenate(list(components.values())).export(file_type='stl')
   return Response(data,media_type='model/stl',headers={'Content-Disposition':f'attachment; filename="neuroskin_{c["family"]}_{c["id"]}_concept.stl"'})
  raise HTTPException(404,'Unknown export type')

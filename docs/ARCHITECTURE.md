@@ -89,6 +89,8 @@ Rekomendacja wybiera najlepszy obliczony wariant osobno dla każdej siatki: najp
 
 ## Wykonanie i trwałość
 
+`evolution_continuation.plan` jest wspólnym źródłem planu dziedziczenia dla readonly preview i inicjalizacji kontrolera. Endpoint `POST .../continuation/preview` waliduje kontrolki i zwraca różnice bez rozpoczynania ewolucji. GUI wiąże zaakceptowany podgląd z dokładnym zestawem kontrolek i rewizją żądania, więc opóźniona odpowiedź nie odblokowuje nieaktualnego startu. Pierwszy zgodny odziedziczony genotyp zajmuje jeden ze slotów audytu pierwszej generacji; później obowiązuje zwykła nominacja. Uszkodzone typy kolekcji, konfiguracji i PRNG są odrzucane przed startem.
+
 `evolution_continuation.py` odczytuje wybrany snapshot przez bezpieczny `ArchiveStore`, sprawdza checksum checkpointu i przygotowuje genotypy bez historycznych ocen. API continuation wiąże przygotowane źródło z jego digestem; compute start guard zachowuje wyłączność aktywnej ewolucji. `EvolutionEngine.start(..., continuation=...)` odtwarza zgodne genotypy i opcjonalnie PRNG, nadaje nowy run ID oraz lineage i uruchamia zwykłe oceny. QD/novelty/audit cache zaczynają się od nowa. Numeracja kandydata, etapu i GUI jest zgodna i zaczyna się od generacji rodzica +1.
 
 Po przygotowaniu kolejnej populacji silnik atomowo zapisuje `stages/population_NNNNNN.json`, a następnie odkrywalny `results.json`. Zapisy running/paused/stopping nie dodają modeli do User bests. Szczegóły: [CONTINUATION.md](CONTINUATION.md). Semantyka kolorowanych części i rzeczywisty zakres modeli elektrycznych: [SENSING_MODEL.md](SENSING_MODEL.md).

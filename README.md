@@ -34,6 +34,8 @@ Rekomendacja oznacza najlepszy z obliczonych wariantów danego rozmiaru. Wyniki 
 
 ## Eksperymenty i eksport
 
+Panel kontynuacji automatycznie porównuje załadowane i wybrane kontrolki, sprawdza zgodność zapisanych geometrii ze scope i pokazuje odtwarzanie strumienia losowego. Uruchomienie wymaga aktualnego poprawnego podglądu ustawień. W pierwszej generacji zgodny odziedziczony wzorzec — champion, gdy pasuje do scope — otrzymuje świeży pełny audyt, także przy słabej ocenie proxy; limit finalistów pozostaje równy trzem.
+
 **Kontynuacja wcześniejszej sesji:** w Runs otwórz zapisany eksperyment, wybierz generację lub wynik końcowy i kliknij **Load selected snapshot for evolution**. W Overview zmień załadowane ustawienia i użyj **Continue with these controls**. Powstaje osobny run z numeracją od wybranej generacji +1; źródłowy eksperyment pozostaje niezmienny. Nowe zapisy mają checkpoint populacji i PRNG, a starsze korzystają z zapisanych najlepszych geometrii i jawnych domyślnych wartości brakujących kontrolek. Dziedziczone geometrie otrzymują nowe oceny i audyty finalistów. [Szczegóły i ograniczenia kontynuacji](docs/CONTINUATION.md).
 
 W podglądzie 3D rozwiń **How this button senses touch** lub wybierz część w drzewie. Opisy rozróżniają rzeczywiste role mechaniczne, placeholdery sensorów i koncepcyjny hub. Kolory legendy odpowiadają geometrii. [Jak działają części i kanały pomiarowe](docs/SENSING_MODEL.md).

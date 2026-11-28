@@ -4,6 +4,10 @@ Open **Runs**, select an experiment, and click **Open**. Select a saved generati
 
 Edit the controls and click **Continue with these controls**. This creates a separate run; the source run and its results remain unchanged. Cancel continuation discards the preparation without starting a run. A normal Evolve starts a fresh experiment.
 
+The continuation panel checks edited controls automatically. It shows how many saved geometries fit the chosen search scope, which controls differ from the loaded configuration, whether the saved random stream will be restored, and which inherited geometry receives the first full audit. Older archives may load documented defaults; the comparison therefore uses **Loaded** and **Selected** columns. The source champion's birth generation is displayed separately from the chosen snapshot's generation.
+
+Continue is enabled only after the preview for the current controls succeeds. Incompatible scopes or invalid parameters leave the source untouched and do not start a run. Delayed responses from older control selections are ignored. This is a configuration/compatibility preview, not a FEM simulation or prediction of the resulting fitness.
+
 ## What carries forward
 
 - The chosen snapshot's generation number. A snapshot at generation 40 continues with generation 41, even if its best candidate was discovered in generation 12.
@@ -11,7 +15,9 @@ Edit the controls and click **Continue with these controls**. This creates a sep
 - Saved controls: search scope, objective, population, exploration, precision, seed, CPU budget, FEM settings and validation grids. The duration is an additional search budget, not the parent's cumulative elapsed time.
 - Population checkpoints also preserve the random-generator state. This is restored when the requested seed matches the saved seed; changing the seed starts a new random stream.
 
-Every inherited genome is scored under the new controls. Finalists receive the ordinary full-audit policy. Old fitness, audited champions, novelty/QD archives and audit caches are not reused as current evidence. Changing the objective or FEM settings cannot silently retain a historical high score as the new incumbent.
+Every inherited genome is scored under the new controls. In the first branch generation, the first compatible inherited geometry is guaranteed one full-audit slot, even when its fast proxy score is poor. This is the saved champion when it fits the selected scope. Other slots follow the existing nomination policy; the total remains at most three distinct finalists. Later generations use ordinary nomination and promotion. Receiving an audit slot does not guarantee feasibility, promotion or a retained historical score.
+
+Old fitness, audited champions, novelty/QD archives and audit caches are not reused as current evidence. Changing the objective or FEM settings cannot silently retain a historical high score as the new incumbent.
 
 An incompatible search scope excludes incompatible source genomes. If no saved geometry fits, starting is rejected before replacing the live state. The original genomes are not silently converted into another architecture.
 
@@ -38,7 +44,10 @@ The existing User bests rule applies independently to the child run: only its fi
 ## API
 
 - `GET /api/archives/{run_id}/continuation?generation=G`: prepare a selected stage; omit `generation` for the final/latest published snapshot. Returns controls, source kind, warnings and `source_digest`.
+- `POST /api/archives/{run_id}/continuation/preview`: validate the selected controls and report inheritance counts, excluded geometries, first audit seed, PRNG restoration and settings changes. Accepts the same body fields as continuation; it does not create an evolution instance or acquire a heavy-compute slot.
 - `POST /api/archives/{run_id}/continue`: start a child. Body accepts `generation`, `source_digest` and ordinary Start controls. Omitted controls inherit saved values. A mismatched digest returns 409, preventing a prepared source from silently changing before execution.
 - Invalid controls, unsupported source data or an incompatible scope return 422. Missing source files return 404. An active evolution/analysis retains the existing compute reservation and rejects a conflicting start with 409.
+
+Malformed JSON collections/settings are rejected with descriptive 422 responses. Optional legacy null collections are treated as absent. Invalid PRNG state is rejected before a branch replaces the live state; no pickled executable state is loaded.
 
 Related: [architecture](ARCHITECTURE.md), [sensing model](SENSING_MODEL.md), [verification](VERIFICATION.md).

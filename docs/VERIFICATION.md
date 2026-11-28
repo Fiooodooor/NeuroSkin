@@ -1,5 +1,15 @@
 # Weryfikacja bieżącej iteracji NeuroSkin 3
 
+## Podgląd kontynuacji i gwarantowany audyt wzorca
+
+Rozszerzono poprzednią implementację o bieżący plan Loaded/Selected, liczbę zgodnych/wykluczonych genotypów, informację o PRNG i wieku źródłowego championa. Podgląd nie rozpoczyna ewolucji ani nie uruchamia FEM; start wymaga zaakceptowania aktualnego zestawu kontrolek. Rewizje chronią przed opóźnionymi odpowiedziami. Pierwszy zgodny odziedziczony wzorzec otrzymuje świeży pełny audyt w pierwszej generacji, zachowując limit trzech różnych finalistów i zwykłe kryteria promocji.
+
+Skupiona regresja: **20 passed** — plan i zgodność scope, niezmienność źródeł, błędne typy JSON, opcjonalne null, uszkodzony PRNG, API/digest, brak uruchamiania kontrolera przez preview oraz wymuszona niska ocena proxy odziedziczonego championa przy lepszym świeżym audycie. Wyniki audytów w teście nominacji są kontrolowane i nie potwierdzają nowej jakości fizycznej.
+
+Chromium: **1 passed** — porównanie zmienionych kontrolek, niezgodny scope blokujący start, poprawna regeneracja podglądu oraz celowo opóźniona starsza odpowiedź z błędem, która nie zastępuje nowszego poprawnego planu. Test kończy się rzeczywistą kontynuacją wybranego etapu i ponownym otwarciem jego checkpointu.
+
+Odczyt istniejących lokalnych archiwów bez ich modyfikacji: przygotowano 19 poprawnych planów dziedziczenia; dwa puste zapisy bez geometrii zostały odrzucone. Dowód lokalny: `artifacts/continuation-preview-existing-archives.json`. Skorygowano też tabelę powodów nominacji po dodaniu odziedziczonego wzorca: zawiera dokładnie identyfikatory audytowanych finalistów, bez wypchniętego czwartego kandydata.
+
 ## Kontynuacja sesji i semantyka części
 
 Dodano jawny workflow Runs → wybrany snapshot → Load selected snapshot for evolution → edycja kontrolek → Continue with these controls. Nowy run zachowuje rodzica, wybraną generację, źródłowy digest i zmiany ustawień, ale nie przejmuje historycznych ocen. Numery nowych kandydatów i zapisanych etapów są zgodne: G+1 względem snapshotu, nie względem wieku championa.
@@ -12,7 +22,7 @@ Chromium: **1 passed** — wybór wcześniejszego etapu, załadowanie kontrolek,
 
 Kontrola istniejących lokalnych archiwów, bez ich modyfikacji: z 17 zapisów 16 zawierało zgodne genotypy i dało się przygotować do kontynuacji; jeden pusty zapis bez geometrii został prawidłowo odrzucony. Dowód: `artifacts/continuation-existing-archives.json`.
 
-Data: 2026-11-28. Aktualna implementacja kontynuacji i semantyki komponentow: `8edab0d` na `develop/v3`. Poprzednie funkcje User bests i podgladu skory pozostaja objete pelna regresja.
+Data: 2026-11-28. Implementacja bieżącej iteracji: `bf33233` na `develop/v3`, baza `c018ae0`. Poprzednie funkcje User bests, podglądu skóry i kontynuacji sesji pozostają objęte pełną regresją.
 
 ## User bests — automatyczna biblioteka końcowych championów
 
@@ -45,13 +55,13 @@ Dodano obsługę 7×7 do modeli scalar, Q1 i nieliniowej membrany z podatnym pod
 - Testy rzeczywistej geometrii, n² pozycji, hasha, prześwitów, wyboru wierności, API oraz rezerwacji zasobów: **16 passed**. Nie obniżono progów fizycznych; niepowodzenie refinement pozostaje widoczne w wyniku, a podgląd jawnie korzysta wtedy ze screeningu.
 - Node: geometria 3×3 / 5×5 / 7×7, indeksy złączonych mesh, warstwy, wybór czujnika, odrzucenie niezgodnego hasha i zapis raportu bez dużych siatek przeszły.
 - Chromium: rzeczywiste obliczenie, przełączanie trzech rozmiarów bez kolejnych żądań optymalizacji, 49 czujników, geometria flexure, warstwy, wybór czujnika i zwalnianie wykresów po zmianie zakładki: **1 passed**.
-- **Końcowy pełny runner: 345 passed, 1 skipped, 106 subtests passed; wszystkie 18 kontroli przeszło.** Obejmuje siedem rzeczywistych scenariuszy Chromium, pięć zestawów Node, deformację oraz składnię skryptów zewnętrznych i inline. Pytest trwał 553,24 s. Wynik: `artifacts/continuation-release-verification.json`; `software_checks_pass=true`, `browser_checks_enabled=true`, `release_ready=true`. Pominięto wyłącznie opcjonalną kosztowną siatkę 8×; istniejąca deprecjacja TestClient/HTTPX pozostała ostrzeżeniem.
+- **Końcowy pełny runner: 354 passed, 1 skipped, 106 subtests passed; wszystkie 18 kontroli przeszło.** Obejmuje siedem rzeczywistych scenariuszy Chromium, pięć zestawów Node, deformację oraz składnię skryptów zewnętrznych i inline. Pytest trwał 559,83 s. Wynik: `artifacts/continuation-preview-release-verification.json`; `software_checks_pass=true`, `browser_checks_enabled=true`, `release_ready=true`. Pominięto wyłącznie opcjonalną kosztowną siatkę 8×; istniejąca deprecjacja TestClient/HTTPX pozostała ostrzeżeniem.
 - AST wszystkich 149 aktywnych plików Python oraz `git diff --check`: bez błędów. Lokalne linki dokumentacji: bez brakujących celów.
-- Ponowny skan 189 niepustych aktywnych plików z pominięciem `.git`, `.tools`, `runs`, `artifacts` i cache: brak identycznych plików. Dowód lokalny: `artifacts/continuation-repository-check.json`.
+- Ponowny skan 189 niepustych aktywnych plików z pominięciem `.git`, `.tools`, `runs`, `artifacts` i cache: brak identycznych plików. Dowód lokalny: `artifacts/continuation-preview-repository-check.json`.
 
 ## Dowody lokalne i CI
 
-Artefakty lokalne są celowo ignorowane w Git: `artifacts/continuation-release-verification.json`, powiązany JUnit XML, `artifacts/continuation-workspace.png`, kontrola istniejących archiwów i logi skupionych regresji. Zachowano również wcześniejsze raporty i zrzuty User bests, podglądu skóry oraz porządkowania. CI publikuje artefakty Windows i Linux także przy porażce. Pełny job Windows korzysta z tego samego runnera; Linux sprawdza instalację i kontrakty CPU.
+Artefakty lokalne są celowo ignorowane w Git: `artifacts/continuation-preview-release-verification.json`, powiązany JUnit XML, `artifacts/continuation-workspace.png`, kontrola istniejących archiwów i logi skupionych regresji. Zachowano również wcześniejsze raporty i zrzuty kontynuacji, User bests, podglądu skóry oraz porządkowania. CI publikuje artefakty Windows i Linux także przy porażce. Pełny job Windows korzysta z tego samego runnera; Linux sprawdza instalację i kontrakty CPU.
 
 W tej sesji doinstalowano lokalne, ignorowane narzędzia testowe: Node z oficjalnego archiwum ze sprawdzoną sumą SHA-256 oraz Playwright/Chromium. Zależności numeryczne aplikacji nie były aktualizowane. Kopia sprzed zatwierdzonego porządkowania: `.tools/backups/v3-cleanup.zip`, 362 sprawdzone pliki; jej hash jest w manifeście.
 

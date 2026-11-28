@@ -82,6 +82,17 @@ def test_workspace_modes_context_and_multiscale(app_url):
         page.locator('#workspaceLabSync').click()
         expect(page.locator('#workspaceLabFrame')).to_have_attribute('src',re.compile('run_id=browser_archive'))
         expect(frame.locator('#labTabs')).to_be_visible(timeout=20000)
+        # Rebinding creates a bounded inspection session; it does not reload
+        # the previous frame or discard completed analysis.
+        expect(page.locator('.workspace-labframe')).to_have_count(2)
+        page.locator('#workspaceLabSessions').select_option(index=0)
+        expect(page.locator('#workspaceLabFrame')).not_to_have_attribute('src',re.compile('run_id=browser_archive'))
+        assert json.loads(frame.locator('#tileResult').text_content())==result
+        page.locator('#workspaceLabSessions').select_option(index=1)
+        expect(page.locator('#workspaceLabFrame')).to_have_attribute('src',re.compile('run_id=browser_archive'))
+        page.locator('#workspaceLabClose').click()
+        expect(page.locator('.workspace-labframe')).to_have_count(1)
+        assert json.loads(frame.locator('#tileResult').text_content())==result
         page.locator('#workspaceLive').click()
         expect(page.locator('#workspaceRun')).to_have_text('Live session',timeout=20000)
         expect(page.locator('#workspaceCandidate')).to_have_text('No candidate selected')

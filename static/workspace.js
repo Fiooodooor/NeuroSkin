@@ -22,7 +22,7 @@
   const actions=make('div','workspace-actions');
   for(const id of ['start','pause','stop','evaluateAll'])actions.append(el(id));
   commands.append(context,actions);
-  header.after(commands,nav);
+  const toolbar=make('div','workspace-toolbar');header.before(toolbar);toolbar.append(header,commands,nav);
   // Empty legacy action rows are removed, not cloned. Existing handlers stay attached.
   for(const n of [...left.querySelectorAll('.row')])if(!n.children.length)n.remove();
   const summary=make('small','workspace-summary');summary.id='workspaceSettingsSummary';
@@ -45,6 +45,7 @@
   // Audit grid had a label in the old pipeline header. Its empty wrapper is harmless.
   const overview=make('section','workspace-overview');main.append(overview);overview.append(left,stage,right);
   stage.querySelector('.bar').classList.add('workspace-modelbar');
+  const empty=make('div','workspace-empty');empty.append(make('strong','','Start with a design'),make('p','','Run evolution or choose a reference architecture to inspect its geometry and sensor response.'),button('workspaceBrowse','Browse reference designs',()=>show('library')));el('model').before(empty);
   for(const id of ['piezoOverride','piezoWiring'])el(id).parentElement.classList.add('advanced-only');
   const results=make('section','workspace-stack');tests[0].classList.add('workspace-result');
   const evaluationCards=make('div','workspace-metrics');evaluationCards.id='workspaceEvaluationCards';evaluationCards.setAttribute('aria-live','polite');
@@ -63,10 +64,13 @@
   const labBar=make('div','workspace-labbar');const labContext=make('span','','Select a candidate in Overview or Library.');labContext.id='workspaceLabContext';
   const sync=button('workspaceLabSync','Use current candidate',()=>bindLab(true));
   const standalone=make('a','workspace-button','Open separately');standalone.target='_blank';standalone.rel='noopener';standalone.href='/v30';
-  const frame=make('iframe','workspace-labframe');frame.title='Multiscale engineering lab';frame.id='workspaceLabFrame';frame.hidden=true;
-  labBar.append(labContext,sync,standalone);lab.append(labBar,frame);
+  const sessions=make('select','workspace-run-select');sessions.id='workspaceLabSessions';sessions.setAttribute('aria-label','Open Multiscale inspection sessions');
+  const close=button('workspaceLabClose','Close session',()=>closeSession());
+  const frames=make('div','workspace-lab-sessions');
+  labBar.append(labContext,sync,sessions,close,standalone);lab.append(labBar,frames);
   const views=[['overview','Overview',overview,false],['results','Results',results,false],['fem','FEM',femPanel,true],['signals','Signals',signals,true],['multiscale','Multiscale',lab,true],['library','Library',library,false],['runs','Runs',archive,false],['history','History',history,true]];
-  let active='overview',bound=null,advanced=false,labBusy=false;
+  let active='overview',bound=null,advanced=false,labBusy=false,frame=null;
+  const openLabs=new Map(),labLimit=3;
   const panels=new Map(),tabs=new Map();
   for(const [id,title,node,expert] of views){
     const pane=make('section','workspace-pane');pane.id='workspace-panel-'+id;pane.setAttribute('role','tabpanel');pane.setAttribute('aria-labelledby','workspace-tab-'+id);pane.append(node);main.append(pane);panels.set(id,pane);
@@ -84,14 +88,36 @@
   function current(){const p=selectedPayload(),c=findCandidate(currentSelection);if(!p||!c)return null;
     const libraryKind=['seed','hybrid'].includes(p.selection);return {selection:p.selection,index:p.index,family:c.family,run_id:p.run_id,generation:p.generation,piezo_count_override:p.piezo_count_override,piezo_wiring_override:p.piezo_wiring_override,expected_live_run_id:!p.run_id&&!libraryKind?state?.id:null,expected_candidate_id:String(c.id)};}
   function labUrl(p,embedded){const q=new URLSearchParams();for(const [k,v] of Object.entries(p))if(v!=null)q.set(k,v);if(embedded)q.set('embedded','1');return '/v30?'+q;}
-  function bindLab(force){const p=current();if(!p||labBusy)return;if(bound&&JSON.stringify(bound)===JSON.stringify(p)&&!force)return;bound=p;frame.hidden=false;frame.src=labUrl(p,true);standalone.href=labUrl(p,false);update();}
+  function activateSession(key){
+    const item=openLabs.get(key);if(!item||labBusy)return;
+    for(const entry of openLabs.values()){entry.frame.hidden=true;entry.frame.removeAttribute('id');}
+    bound=item.context;frame=item.frame;frame.id='workspaceLabFrame';frame.hidden=false;
+    standalone.href=labUrl(bound,false);labBusy=item.busy;update();
+  }
+  function bindLab(force){const p=current();if(!p||labBusy)return;const key=JSON.stringify(p);
+    if(openLabs.has(key)){activateSession(key);return;}
+    if(openLabs.size>=labLimit){update();return;}
+    const f=make('iframe','workspace-labframe');f.title='Multiscale engineering lab';f.hidden=true;f.src=labUrl(p,true);
+    openLabs.set(key,{context:p,frame:f,busy:false});frames.append(f);activateSession(key);
+  }
+  function closeSession(){if(!bound||labBusy)return;const key=JSON.stringify(bound),item=openLabs.get(key);if(!item)return;
+    item.frame.remove();openLabs.delete(key);bound=null;frame=null;labBusy=false;standalone.href='/v30';
+    if(openLabs.size)activateSession(openLabs.keys().next().value);else update();
+  }
+  sessions.onchange=()=>activateSession(sessions.value);
+  function updateSessions(p){const opts=[...openLabs].map(([key,item])=>new Option(`${item.context.expected_candidate_id} · ${item.context.run_id||'live / library'}${item.context.generation!=null?' / gen '+item.context.generation:''} · PVDF ${item.context.piezo_count_override??'saved'} / wiring ${item.context.piezo_wiring_override??'saved'}`,key));
+    const sig=JSON.stringify(opts.map(o=>[o.value,o.textContent]));if(sessions.dataset.options!==sig){sessions.replaceChildren(...opts);sessions.dataset.options=sig;}
+    sessions.hidden=!openLabs.size;sessions.disabled=labBusy;sessions.value=bound?JSON.stringify(bound):'';close.hidden=!bound;close.disabled=labBusy;
+    const full=openLabs.size>=labLimit&&p&&!openLabs.has(JSON.stringify(p));sync.disabled=!p||labBusy||!!full;sync.textContent=full?'Close a session first':p&&openLabs.has(JSON.stringify(p))?'Switch to current candidate':'Use current candidate';
+  }
   function updateRuns(){const opts=[new Option('Live experiment',''),...[...el('archiveSelect').options].filter(o=>o.value).map(o=>new Option(o.textContent,o.value))];const key=JSON.stringify(opts.map(o=>[o.value,o.textContent]));if(runSwitch.dataset.options!==key){runSwitch.replaceChildren(...opts);runSwitch.dataset.options=key;}runSwitch.value=archiveRunId||'';}
   runSwitch.onchange=()=>{if(runSwitch.value){el('archiveSelect').value=runSwitch.value;el('openArchive').click();}else el('returnLive').click();show('overview');};
   function update(){const p=current();updateRuns();runLabel.textContent=archiveRunId?`Archive ${archiveRunId}${archiveGeneration!=null?' · generation '+archiveGeneration:''}`:(p&&['seed','hybrid'].includes(p.selection)?'Library preview':'Live session');live.hidden=!archiveRunId;
     const c=findCandidate(currentSelection);candidateLabel.textContent=p?`${p.family} / ${c.genome.topology} · ${p.expected_candidate_id}`:'No candidate selected';
+    empty.hidden=!!p;el('model').classList.toggle('workspace-model-empty',!p);
     if(archiveRunId)el('start').disabled=true;
     summary.textContent=`${el('cores').value} CPU · population ${el('population').value} · ${el('enable_fem').checked?`${el('fem_backend').value.toUpperCase()} ${el('fem_pitch').value} mm`:'FEM off'} · ${el('physical_gate').checked?'gate on':'gate off'}`;
-    sync.disabled=!p||labBusy;const mismatch=bound&&JSON.stringify(bound)!==JSON.stringify(p);labContext.textContent=bound?`${bound.run_id?'Archive '+bound.run_id:'Live / library'} · ${bound.family} · ${bound.expected_candidate_id}${mismatch?' — selection changed; use current candidate to rebind':''}${labBusy?' · computing':''}`:'Select a candidate in Overview or Library.';labContext.classList.toggle('workspace-stale',Boolean(mismatch));
+    updateSessions(p);const mismatch=bound&&JSON.stringify(bound)!==JSON.stringify(p);labContext.textContent=bound?`${bound.run_id?'Archive '+bound.run_id:'Live / library'} · ${bound.family} · ${bound.expected_candidate_id}${mismatch?' — selection changed; use current candidate to rebind':''}${labBusy?' · computing':''}`:'Select a candidate in Overview or Library.';labContext.classList.toggle('workspace-stale',Boolean(mismatch));
   }
   function renderEvaluation(data){evaluationCards.replaceChildren();if(!data)return;
     const a=data.audit||{},v=data.validation_v30||{},m=v.metrics||{},d=m.decoder_holdout||{},f=data.fem;
@@ -109,13 +135,15 @@
   new MutationObserver(update).observe(el('archiveNotice'),{childList:true,characterData:true,subtree:true});
   new MutationObserver(updateRuns).observe(el('archiveSelect'),{childList:true,subtree:true});
   new MutationObserver(updateLabels).observe(el('mode'),{childList:true,subtree:true});
-  document.addEventListener('change',update);document.addEventListener('input',update);
+  // Native selects emit input before change; don't reset a pending context choice.
+  const onControlChange=e=>{if(e.target!==runSwitch&&e.target!==sessions)update();};
+  document.addEventListener('change',onControlChange);document.addEventListener('input',onControlChange);
   el('multiscaleLab').onclick=()=>{setView('advanced');advanced=true;show('multiscale');};
   el('multiscaleLab').classList.add('advanced-only');
   // Preview actions in the library should return directly to the 3D workspace.
   library.addEventListener('click',e=>{if(e.target.closest('[data-hybrid],[data-preview-seed]'))show('overview');});
   archive.addEventListener('click',e=>{if(e.target.closest('#openArchive,#openStage,#returnLive'))show('overview');});
-  window.addEventListener('message',e=>{if(e.origin!==location.origin||e.source!==frame.contentWindow)return;if(e.data?.type==='neuroskin:lab-height'&&Number.isFinite(e.data.height))frame.style.height=Math.max(500,Math.min(18000,e.data.height+12))+'px';else if(e.data?.type==='neuroskin:lab-busy'&&typeof e.data.busy==='boolean'){labBusy=e.data.busy;update();}});
+  window.addEventListener('message',e=>{if(e.origin!==location.origin)return;const item=[...openLabs.values()].find(x=>x.frame.contentWindow===e.source);if(!item)return;if(e.data?.type==='neuroskin:lab-height'&&Number.isFinite(e.data.height))item.frame.style.height=Math.max(500,Math.min(18000,e.data.height+12))+'px';else if(e.data?.type==='neuroskin:lab-busy'&&typeof e.data.busy==='boolean'){item.busy=e.data.busy;if(item.frame===frame){labBusy=item.busy;update();}}});
   window.NeuroWorkspace={show,update,resize,renderEvaluation};
   mode();show('overview');
 })();

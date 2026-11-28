@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 
 from advanced import EvolutionEngine, new_genome
 from archive_store import ArchiveStore
-from evolution_continuation import load_source, initialize, save_population
+from evolution_continuation import load_source, initialize, save_population, plan
 from search_space import SearchScope
 from server import Start
 
@@ -165,3 +165,115 @@ def test_part_functions_match_single_and_hybrid_roles():
     hybrid = webmesh(spec.upper_family, genome_for(spec), 6)['component_tree']['nodes']
     plate = next(n for n in hybrid if n['part'] == 'inner')
     assert plate['stage'] == 'interface' and 'coupling plate' in plate['function']
+
+
+@pytest.mark.parametrize('field,value', [
+    ('run_settings', []), ('audited_champion', 'broken'), ('audit_top3', {}),
+    ('champions', []), ('gallery', {}),
+])
+def test_malformed_archive_shapes_return_client_errors(tmp_path, monkeypatch, field, value):
+    import server
+    store, _, _ = source_run(tmp_path)
+    path = store.path('parent')/'results.json'
+    saved = json.loads(path.read_text(encoding='utf-8'));saved[field] = value
+    path.write_text(json.dumps(saved), encoding='utf-8')
+    monkeypatch.setattr(server, 'ARCHIVES', store)
+    with TestClient(server.app) as client:
+        response = client.get('/api/archives/parent/continuation')
+        assert response.status_code == 422, response.text
+        assert 'must be a JSON' in response.json()['detail']
+
+
+def test_optional_null_collections_are_supported(tmp_path):
+    store, _, _ = source_run(tmp_path)
+    path = store.path('parent')/'results.json'
+    saved = json.loads(path.read_text(encoding='utf-8'))
+    for name in ('audit_top3', 'champions', 'gallery', 'run_settings'):
+        saved[name] = None
+    path.write_text(json.dumps(saved), encoding='utf-8')
+    assert load_source(store, 'parent', None, Start().model_dump())['metadata']['seed_count'] == 1
+
+
+def test_plan_detects_exclusions_changes_and_random_stream(tmp_path):
+    store, best, settings = source_run(tmp_path, checkpoint=True)
+    source = load_source(store, 'parent', None, Start().model_dump())
+    source['seeds'].append({'family': 'chiral', 'genome': SearchScope.parse('single:all').repair(
+        'chiral', new_genome('chiral', random.Random(24)), random.Random(24))})
+    selected = {**settings, 'objective': 'electronics', 'population': 24}
+    before = deepcopy(source)
+    preview = plan(source, SearchScope.parse('quadrant'), 24, selected)
+    assert preview['excluded_seed_count'] == 1 and preview['source_champion_eligible']
+    assert preview['source_candidate_generation'] == 12 and preview['parent_generation'] == 40
+    assert preview['random_state_restored']
+    assert preview['settings_changes']['objective'] == {'from': 'balanced', 'to': 'electronics'}
+    assert source == before
+    selected['seed'] += 1
+    assert not plan(source, SearchScope.parse('quadrant'), 24, selected)['random_state_restored']
+    assert not plan(source, SearchScope.parse('chiral'), 24, selected)['source_champion_eligible']
+    source['rng_state'] = []
+    with pytest.raises(ValueError, match='random-generator'):
+        plan(source, SearchScope.parse('quadrant'), 24, settings)
+
+
+def test_preview_api_has_no_start_side_effects_and_checks_source(tmp_path, monkeypatch):
+    import server
+    store, _, _ = source_run(tmp_path)
+    engine = EvolutionEngine(store.root)
+    monkeypatch.setattr(server, 'EVO', engine);monkeypatch.setattr(server, 'ARCHIVES', store)
+    with TestClient(server.app) as client:
+        metadata = client.get('/api/archives/parent/continuation').json()
+        before = engine.snapshot()
+        req = {'objective': 'touch', 'source_digest': metadata['source_digest']}
+        response = client.post('/api/archives/parent/continuation/preview', json=req)
+        assert response.status_code == 200, response.text
+        assert response.json()['source_champion_eligible'] and response.json()['inherited_count'] == 1
+        assert engine.snapshot() == before and engine.thread is None
+        assert client.post('/api/archives/parent/continuation/preview', json={**req, 'mode': 'chiral'}).status_code == 422
+        for bad in ({'audit_grid': 4}, {'objective': 'unknown'}, {'fem_backend': 'unknown'}, {'search_strategy': 'unknown'}):
+            assert client.post('/api/archives/parent/continuation/preview', json=bad).status_code == 422
+        assert client.post('/api/archives/parent/continuation/preview', json={'source_digest': '0'*64}).status_code == 409
+        assert engine.snapshot() == before
+
+
+def test_inherited_champion_receives_first_full_audit_despite_low_proxy(tmp_path, monkeypatch):
+    import advanced
+    import finalist_selection
+    store, best, _ = source_run(tmp_path)
+    source = load_source(store, 'parent', None, Start().model_dump())
+    engine = EvolutionEngine(store.root)
+    clock = {'now': 0.}
+    monkeypatch.setattr(advanced, 'time', SimpleNamespace(monotonic=lambda: clock['now'], sleep=lambda _: None))
+    original_evaluate = advanced.evaluate_job
+    def evaluate(job):
+        _, metrics, descriptor = original_evaluate(job)
+        return (-100. if job[1] == best['genome'] else 100., metrics, descriptor)
+    monkeypatch.setattr(advanced, 'evaluate_job', evaluate)
+    def high_proxy_only(candidates, *args):
+        selected = sorted(candidates, key=lambda c: c['fitness'], reverse=True)[:3]
+        assert all(c['genome'] != best['genome'] for c in selected)
+        return selected, {c['id']: 'high_proxy' for c in selected}
+    monkeypatch.setattr(finalist_selection, 'nominate', high_proxy_only)
+    audited = []
+    def audits(pool, fn, jobs, plan, **kwargs):
+        audited.extend(deepcopy(jobs))
+        return [{'audit_score': 90. if job[1] == best['genome'] else 10., 'feasible': True} for job in jobs]
+    monkeypatch.setattr(advanced, 'run_audit_batch', audits)
+    original_stage = engine._save_stage
+    def save(*args):
+        original_stage(*args);clock['now'] = 4.
+    monkeypatch.setattr(engine, '_save_stage', save)
+    try:
+        engine.start('single:all', 3, 32, 12, .5, cores=1, audit_grid=3, fem=False, continuation=source)
+        engine.thread.join(timeout=30)
+        result = engine.snapshot()
+        assert result['status'] == 'completed', result.get('error')
+        assert len(audited) == 3 and audited[0][1] == best['genome']
+        assert result['best']['audit']['audit_score'] == 90. and result['best']['genome'] == best['genome']
+        assert result['best']['generation'] == 41
+        decision = result['stage_decisions'][0]
+        assert decision['finalist_nomination']['41-0'] == 'inherited_seed_revalidation'
+        assert set(decision['finalist_nomination']) == {c['id'] for c in decision['top3']}
+        assert decision['inherited_seed_audit']['genome_hash'] == source['metadata']['source_genome_hash']
+        assert not engine.user_bests.list_entries()
+    finally:
+        assert engine.shutdown(timeout=5.)

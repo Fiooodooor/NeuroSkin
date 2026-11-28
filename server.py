@@ -79,15 +79,34 @@ def continuation_source(run_id, generation):
 def prepare_continuation(run_id:str,generation:int|None=None):
  return continuation_source(run_id,generation)['metadata']
 
+def continuation_request(run_id, req):
+ source=continuation_source(run_id,req.generation)
+ if req.source_digest is not None and req.source_digest!=source['metadata']['source_digest']:
+  raise HTTPException(409,'Saved source changed; load continuation settings again')
+ overrides={key:value for key,value in req.model_dump().items() if key in Start.model_fields and key in req.model_fields_set}
+ settings=Start.model_validate({**source['metadata']['settings'],**overrides})
+ return source,settings
+
+@app.post('/api/archives/{run_id}/continuation/preview')
+def preview_continuation(run_id:str,req:Continue):
+ from evolution_continuation import plan
+ from search_space import SearchScope, SEARCH_STRATEGIES
+ try:
+  source,settings=continuation_request(run_id,req)
+  workers=settings.cores or getattr(app.state,'default_cores',1)
+  if not 1<=workers<=min(256,available_cores()):raise ValueError('CPU workers exceed available hardware')
+  if settings.objective not in PRESETS:raise ValueError('Unknown objective')
+  if settings.search_strategy not in SEARCH_STRATEGIES:raise ValueError('Unknown search strategy')
+  if settings.gate_grid not in (3,5,7) or settings.audit_grid not in (3,5,7):raise ValueError('Validation grids must be 3, 5 or 7')
+  if settings.fem_backend not in ('hex8','beam','auto'):raise ValueError('Invalid FEM backend')
+  return plan(source,SearchScope.parse(settings.mode),settings.population,settings.model_dump())
+ except ValueError as exc:raise HTTPException(422,str(exc))
+
 @app.post('/api/archives/{run_id}/continue')
 def continue_evolution(run_id:str,req:Continue):
  try:
   with COMPUTE.start_guard():
-   source=continuation_source(run_id,req.generation)
-   if req.source_digest is not None and req.source_digest!=source['metadata']['source_digest']:
-    raise HTTPException(409,'Saved source changed; load continuation settings again')
-   overrides={key:value for key,value in req.model_dump().items() if key in Start.model_fields and key in req.model_fields_set}
-   settings=Start.model_validate({**source['metadata']['settings'],**overrides})
+   source,settings=continuation_request(run_id,req)
    seed=settings.seed if settings.seed is not None else secrets.randbits(31)
    return EVO.start(settings.mode,settings.seconds,seed,settings.population,settings.exploration,settings.objective,
       settings.physical_gate,settings.gate_grid,settings.cores or getattr(app.state,'default_cores',1),settings.audit_grid,

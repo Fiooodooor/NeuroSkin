@@ -10,6 +10,22 @@ SETTINGS = ('mode', 'seconds', 'seed', 'population', 'exploration', 'objective',
             'fem_pitch_mm', 'fem_backend', 'search_strategy', 'search_precision')
 
 
+def _object(value, label):
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise ValueError(label+' must be a JSON object')
+    return value
+
+
+def _list(value, label):
+    if value is None:
+        return []
+    if not isinstance(value, list):
+        raise ValueError(label+' must be a JSON array')
+    return value
+
+
 def load_source(store, run_id, generation, defaults):
     saved = store.load(run_id)
     stage = store.load_stage(run_id, generation) if generation is not None else None
@@ -18,15 +34,18 @@ def load_source(store, run_id, generation, defaults):
         raise ValueError('Source generation must be 0..999998')
     settings = dict(defaults)
     recorded = {**saved, 'seconds': saved.get('duration', defaults['seconds']),
-                **saved.get('run_settings', {}), **((stage or {}).get('run_settings') or {})}
+                **_object(saved.get('run_settings'), 'Run settings'),
+                **_object((stage or {}).get('run_settings'), 'Stage settings')}
     missing = [key for key in SETTINGS if recorded.get(key) is None]
     settings.update({key: recorded[key] for key in SETTINGS if recorded.get(key) is not None})
     warnings = []
     if missing:
         warnings.append('Old archive did not record '+', '.join(missing)+'. Defaults loaded; review before starting.')
     champion = (stage.get('champion') if stage is not None else saved.get('audited_champion') or saved.get('best'))
-    elites = ([champion] + (stage.get('top3', []) if stage is not None else
-              saved.get('audit_top3', []) + list(saved.get('champions', {}).values()) + saved.get('gallery', [])))
+    champion = _object(champion, 'Saved champion')
+    elites = ([champion] + (_list(stage.get('top3'), 'Stage finalists') if stage is not None else
+              _list(saved.get('audit_top3'), 'Run finalists') + list(_object(saved.get('champions'), 'Family champions').values())
+              + _list(saved.get('gallery'), 'Saved gallery')))
     checkpoint = None
     if boundary:
         try:
@@ -51,6 +70,7 @@ def load_source(store, run_id, generation, defaults):
     seeds.extend(c for c in elites if c)
     unique = {}
     for candidate in seeds:
+        candidate = _object(candidate, 'Saved candidate')
         if not isinstance(candidate.get('genome'), dict) or not isinstance(candidate.get('family'), str):
             raise ValueError('Saved source contains an invalid genome')
         key = digest({'family': candidate['family'], 'genome': candidate['genome']})
@@ -60,7 +80,9 @@ def load_source(store, run_id, generation, defaults):
     metadata = {'parent_run_id': run_id, 'parent_generation': boundary,
                 'source_kind': 'population_checkpoint' if checkpoint else 'saved_elites',
                 'source_candidate_id': (champion or {}).get('id'),
-                'source_score': ((champion or {}).get('audit') or {}).get('audit_score'),
+                'source_candidate_generation': champion.get('generation'),
+                'source_genome_hash': digest({'family': champion['family'], 'genome': champion['genome']}) if champion else None,
+                'source_score': _object(champion.get('audit'), 'Champion audit').get('audit_score'),
                 'source_provenance': saved.get('provenance'),
                 'seed_count': len(unique), 'settings': settings, 'warnings': warnings,
                 'policy': 'New branch; fresh scoring and audits. Population/PRNG can be restored; novelty, QD and audit caches restart. Not exact process replay.'}
@@ -70,22 +92,51 @@ def load_source(store, run_id, generation, defaults):
             'rng_state': checkpoint.get('rng_state') if checkpoint else None}
 
 
+def compatible_seeds(source, scope):
+    from advanced import KINDS
+    return [c for c in source['seeds'] if c['family'] in KINDS
+                and c['genome'].get('topology') in KINDS[c['family']] and scope.accepts(c['family'], c['genome'])]
+
+
+def random_state(value):
+    """Validate JSON PRNG data without executing serialized Python objects."""
+    import random
+    def tuples(item):
+        return tuple(tuples(v) for v in item) if isinstance(item, list) else item
+    try:
+        state = tuples(value)
+        random.Random(0).setstate(state)
+        return state
+    except (TypeError, ValueError, OverflowError, IndexError) as exc:
+        raise ValueError('Invalid saved random-generator state') from exc
+
+
+def plan(source, scope, population, settings):
+    eligible = compatible_seeds(source, scope)
+    if not eligible:
+        raise ValueError('No saved geometry fits the selected search scope; choose a compatible scope')
+    restored = (source.get('rng_state') is not None and settings['seed'] is not None
+                and settings['seed'] == source['metadata']['settings'].get('seed'))
+    if restored:
+        random_state(source['rng_state'])
+    hashes = [digest(c) for c in eligible]
+    lineage = {key: deepcopy(value) for key, value in source['metadata'].items() if key != 'settings'}
+    lineage.update(eligible_seed_count=len(eligible), excluded_seed_count=len(source['seeds'])-len(eligible),
+                   inherited_count=min(population, len(eligible)), random_state_restored=restored,
+                   source_champion_eligible=source['metadata'].get('source_genome_hash') in hashes,
+                   initial_audit_genome_hash=hashes[0], initial_audit_family=eligible[0]['family'],
+                   settings_changes={key: {'from': source['metadata']['settings'].get(key), 'to': value}
+                                     for key, value in settings.items() if value != source['metadata']['settings'].get(key)})
+    return lineage
+
+
 def initialize(source, scope, population, rng, settings):
     """Keep original compatible elites unchanged, then make diverse offspring."""
     from search_space import local_refinement
-    from advanced import KINDS
-    eligible = [c for c in source['seeds'] if c['family'] in KINDS
-                and c['genome'].get('topology') in KINDS[c['family']] and scope.accepts(c['family'], c['genome'])]
-    if not eligible:
-        raise ValueError('No saved geometry fits the selected search scope; choose a compatible scope')
-    restored = source.get('rng_state') is not None and settings['seed'] == source['metadata']['settings'].get('seed')
-    if restored:
-        def tuples(value):
-            return tuple(tuples(v) for v in value) if isinstance(value, list) else value
-        try:
-            rng.setstate(tuples(source['rng_state']))
-        except (TypeError, ValueError) as exc:
-            raise ValueError('Invalid saved random-generator state') from exc
+    lineage = plan(source, scope, population, settings)
+    eligible = compatible_seeds(source, scope)
+    if lineage['random_state_restored']:
+        rng.setstate(random_state(source['rng_state']))
     pop = [(c['family'], deepcopy(c['genome'])) for c in eligible[:population]]
     while len(pop) < population:
         if rng.random() < .75:
@@ -95,11 +146,6 @@ def initialize(source, scope, population, rng, settings):
             pop.append((family, scope.repair(family, genome, rng)))
         else:
             pop.append(scope.generate(rng))
-    lineage = {key: deepcopy(value) for key, value in source['metadata'].items() if key != 'settings'}
-    lineage.update(eligible_seed_count=len(eligible), excluded_seed_count=len(source['seeds'])-len(eligible),
-                   inherited_count=min(population, len(eligible)), random_state_restored=restored,
-                   settings_changes={key: {'from': source['metadata']['settings'].get(key), 'to': value}
-                                     for key, value in settings.items() if value != source['metadata']['settings'].get(key)})
     return pop, lineage
 
 

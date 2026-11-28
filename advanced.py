@@ -727,9 +727,18 @@ class EvolutionEngine:
     self._check_stop()
     # Stage 2: identical full audit, with cache-aware allocation of slots.
     from full_evaluation import promote
-    from finalist_selection import nominate
+    from finalist_selection import nominate, genome_key
     top,nomination=nominate([q[1] for q in scored],audits_by_fingerprint,
          (objective,audit_grid,fem_enabled,fem_pitch,fem_backend),physical_gate)
+    inherited_audit=None
+    if continuation and gen==base_generation:
+     anchor=next(c for _,c,_ in scored if c['id']==f'{gen+1}-0')
+     if not any(genome_key(c)==genome_key(anchor) for c in top):
+      top=[anchor]+[c for c in top if genome_key(c)!=genome_key(anchor)][:2]
+      nomination[anchor['id']]='inherited_seed_revalidation'
+      nomination={c['id']:nomination[c['id']] for c in top}
+     inherited_audit={'genome_hash':continuation['lineage']['initial_audit_genome_hash'],
+                      'family':anchor['family'],'policy':'First compatible inherited geometry receives a fresh full audit in the first branch generation; at most three finalists.'}
     if not top:raise RuntimeError('Population has no candidates for audit')
     with self.lock:self.state['phase']='top3_full_audit'
     audit_jobs=[];audit_indices=[];finalists=[None]*len(top)
@@ -798,6 +807,7 @@ class EvolutionEngine:
                       {'force_rmse_N':'min','position_mae_mm':'min',
                        'robust_signal_p10':'max'})] if pareto_items else []
     decision['pareto_status']='synthetic_surrogate_only'
+    if inherited_audit is not None:decision['inherited_seed_audit']=inherited_audit
     decision['finalist_nomination']=nomination
     decision['distinct_finalists']=len(top)
     decision['screening_pareto_front_T0']=population_front

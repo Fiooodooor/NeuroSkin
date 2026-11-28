@@ -356,12 +356,37 @@ def test_continue_saved_stage_with_edited_controls_and_checkpoint(app_url, monke
         page.locator('#loadContinuation').click()
         expect(page.locator('#continuationStatus')).to_contain_text('generation 1 -> 2', timeout=20000)
         expect(page.locator('#continuationStatus')).to_contain_text('older archive')
+        expect(page.locator('#continuationStatus')).to_contain_text('champion born in generation 0')
+        expect(page.locator('#continuationPreview')).to_contain_text('Saved champion receives a fresh full audit', timeout=20000)
+        expect(page.locator('#continueEvolution')).to_be_enabled()
+        page.locator('#mode').select_option('single:all')
+        expect(page.locator('#continuationPreview')).to_contain_text('choose a compatible scope')
+        expect(page.locator('#continueEvolution')).to_be_disabled()
+        assert engine.thread is None
+        page.locator('#mode').select_option('all')
+        expect(page.locator('#continueEvolution')).to_be_enabled()
+        # Hold an obsolete invalid-scope response until a newer valid preview is accepted.
+        page.evaluate("""()=>{const original=window.fetch;window.fetch=async(input,init)=>{
+          const response=await original(input,init);
+          if(String(input).endsWith('/continuation/preview')&&JSON.parse(init.body).mode==='single:all'){
+            window.stalePreviewPending=true;await new Promise(resolve=>window.releaseStalePreview=resolve);
+          }return response;
+        };}""")
+        page.locator('#mode').select_option('single:all')
+        page.wait_for_function('window.stalePreviewPending===true')
+        page.locator('#mode').select_option('all')
+        expect(page.locator('#continueEvolution')).to_be_enabled()
+        page.evaluate('window.releaseStalePreview()')
+        expect(page.locator('#continuationPreview')).to_contain_text('Saved champion receives a fresh full audit')
+        expect(page.locator('#continueEvolution')).to_be_enabled()
         page.locator('#seconds').fill('3')
         page.locator('#cores').fill('1')
         page.locator('#population').select_option('24')
         page.locator('#objective').select_option('electronics')
         page.locator('#enable_fem').uncheck()
         page.locator('#explore').evaluate("n=>{n.value='75';n.dispatchEvent(new Event('input',{bubbles:true}));}")
+        expect(page.locator('#continuationPreview')).to_contain_text('electronics')
+        expect(page.locator('#continuationPreview')).to_contain_text('0.75')
         page.locator('#continueEvolution').click()
         page.wait_for_function('state?.status==="completed"&&!archiveRunId&&state?.lineage?.parent_run_id==="browser_archive"', timeout=60000)
         assert len(requests) == 1 and requests[0]['generation'] == 1

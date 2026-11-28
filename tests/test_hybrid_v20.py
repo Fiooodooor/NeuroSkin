@@ -58,7 +58,11 @@ class HybridLibraryTests(unittest.TestCase):
             with self.subTest(spec=spec.id):
                 g=genome_for(spec)
                 stages=stage_stiffnesses(spec.upper_family,g,_single_stage_curve_stiffness)
-                reference=np.linalg.inv(sum(np.linalg.inv(K) for stage,K in stages))
+                # Independent work-conjugate transport: top force induces
+                # a lever-arm moment at the intermediate plate.
+                h=g['height']-mid_height(g)
+                T=np.eye(6); T[0,4]=h; T[1,3]=-h
+                reference=np.linalg.inv(T@np.linalg.inv(stages[0][1])@T.T+np.linalg.inv(stages[1][1]))
                 actual=curve_stiffness(spec.upper_family,g)
                 np.testing.assert_allclose(actual,reference,rtol=1e-9,atol=1e-9)
                 chosen=choose_film_members(structural_struts(spec.upper_family,g),g)
@@ -69,6 +73,21 @@ class HybridLibraryTests(unittest.TestCase):
                 labels=[c['stage'] for c in pvdf['channels']]
                 self.assertIn('upper',labels)
                 self.assertIn('lower',labels)
+
+    def test_stacked_wrench_transport_and_substrate_motion(self):
+        for spec in ranked():
+            with self.subTest(spec=spec.id):
+                g=genome_for(spec)
+                m=raw_mechanics(spec.upper_family,g,'shear_x')
+                top=np.asarray(m['stage_loads_N_Nmm']['upper'])
+                low=np.asarray(m['stage_loads_N_Nmm']['lower'])
+                np.testing.assert_allclose(low[:3],top[:3],atol=1e-12)
+                self.assertAlmostEqual(low[4]-top[4],.03*(g['height']-mid_height(g)),places=12)
+                u=np.r_[m['displacement_mm'],m['rotation_rad']]
+                np.testing.assert_allclose(curve_stiffness(spec.upper_family,g)@u,top,atol=1e-9)
+                stretch=raw_mechanics(spec.upper_family,g,'stretch_x')
+                np.testing.assert_allclose(stretch['stage_displacements_mm']['upper'],0.,atol=1e-12)
+                np.testing.assert_allclose(stretch['stage_rotations_rad']['upper'],0.,atol=1e-12)
 
     def test_upper_rotation_and_stage_scale_are_not_inert_genes(self):
         spec=ranked()[0];g=genome_for(spec)

@@ -41,14 +41,17 @@ def _hybrid_raw_mechanics(family, genome, case='normal', force=None, moment=None
  lower_stage=stages[0]
  _,subfam,sg,_=lower_stage
  members=stage_member_local_matrices(subfam,sg,E=genome.get('material_E',1.))
+ from neuroskin_multiscale import transport
+ T=transport([0.,0.,genome['height']-mid_height(genome)])
+ lower_load=T.T@load
  if abs(strain)>0:
   for pts,kl,B in members:
    a=pts[0]
    moved=np.array([a[0]*strain,0.,0.])
-   load+=B.T@kl@moved
- u_lower=np.linalg.solve(K['lower'],load)
+   lower_load+=B.T@kl@moved
+ u_lower=np.linalg.solve(K['lower'],lower_load)
  u_upper=np.linalg.solve(K['upper'],load)
- total=u_lower+u_upper
+ total=T@u_lower+u_upper
  foot=[]
  for pts,kl,B in members:
   moved=np.array([pts[0][0]*strain,0.,0.])
@@ -61,8 +64,9 @@ def _hybrid_raw_mechanics(family, genome, case='normal', force=None, moment=None
          'foot_reactions_N':foot,'applied_force_N':F.tolist(),
          'applied_moment_Nmm':M.tolist(),'offset_mm':list(off),
          'substrate_strain':strain,'hybrid_id':genome.get('hybrid_id'),
-         'K_N_per_mm_proxy':np.linalg.inv(np.linalg.inv(K['lower'])+np.linalg.inv(K['upper'])).tolist(),
-         'model':'two_rigid_stage_6DOF_series_proxy'}
+         'K_N_per_mm_proxy':np.linalg.solve(T@np.linalg.solve(K['lower'],T.T)+np.linalg.solve(K['upper'],np.eye(6)),np.eye(6)).tolist(),
+         'stage_loads_N_Nmm':{'lower':(T.T@load).tolist(),'upper':load.tolist()},
+         'model':'two_rigid_stage_6DOF_transported_series_proxy'}
 
 def raw_mechanics(family, genome, case='normal', force=None, moment=None, offset=None, strain=None):
  if case not in CASES:raise ValueError('Unknown load case')

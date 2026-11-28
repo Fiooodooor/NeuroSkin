@@ -1,6 +1,6 @@
-# NeuroSkin 3.0 — release gates (revision 1)
-Baseline: v2.2 archive + integrated 3.0-alpha.2 working copy; GitHub main is 1.9.1. Do not merge until the complete baseline has been imported.
-- [ ] R01 Import exact v2.2 sources and alpha changes; manifest, provenance, Windows/Linux installation, historical scores explicitly historical.
+# NeuroSkin 3.0 — release gates (revision 2)
+Baseline: user-uploaded GitHub main at ae9c0104a351441231b265259284a9fb113c461c (VERSION 2.2.0, 268 tracked files). Active development branch: develop/v3-integrated. Previous develop/v3 is preserved. Alpha 2 changes must be integrated and tested against this baseline before release.
+- [ ] R01 Verify uploaded v2.2 sources and integrate remaining alpha changes; manifest, provenance, Windows/Linux installation, historical scores explicitly historical.
 - [ ] R02 Physics: electrode-area PVDF, charge signs, mass/capacitance consistency, force and moment equilibrium, no undisclosed mesh inflation. Analytic/regression tests.
 - [ ] R03 Symmetry: geometry orbits C1/C2/C3/C4/C6/C8 and Dn, preserve orbits in mutations; separate per-stage material/electrode symmetry. Use normalized stiffness residual and field/channel permutations; Cn chirality allowed.
 - [ ] R04 Stack: independently parameterized 1–3 stages, physical interface and sensors, transformed wrench and stiffness, energy balance, geometry and FEM. Compare matched height, channel and power budgets.
@@ -18,10 +18,12 @@ Baseline: v2.2 archive + integrated 3.0-alpha.2 working copy; GitHub main is 1.9
 - [x] T0 normalized stiffness symmetry reference (polar/axial vectors).
 - [x] T0 finite tile spring-network equilibrium reference.
 - [x] Six focused tests pass locally (Python 3.13).
+- [x] Actual two-stage wrench transport in advanced.py and electromechanics.py, with tests across all ten reference hybrids; 22 focused local tests passed, five heavier FEM/API cases deselected, 30 subtests passed.
 These milestones do not complete R03/R04/R09. Do not confuse software release with T1/T2/T3 qualification of individual candidates.
 
 ## Decision log
 - D001: share reference math before coupling it to procedural geometry; do not score reference tile as real skin.
 - D002: T3 is optional; numerical T2 requires independent numerical verification, not physical measurements. Hardware-calibrated claims remain separate.
 - D003: corrected physics changes historical fitness; re-evaluation required.
-- D004: direct Git from working container is blocked by DNS. Connector commits can store text, but full source snapshot is not yet synced. Keep main unchanged; no release tag until baseline and gates are complete.
+- D004: direct Git from working container remains blocked by DNS. The user uploaded v2.2 to main; new development now uses that commit. Keep main unchanged until tests and release gates are complete.
+- D005: transfer corrected source files directly, not the historical migration script; that script targets the original pristine v2.2 and must not be rerun on partially integrated revisions.

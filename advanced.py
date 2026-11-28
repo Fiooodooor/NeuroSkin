@@ -300,9 +300,11 @@ def curve_stiffness(family,p,E=1.0):
   stages=stage_stiffnesses(family,p,_single_stage_curve_stiffness)
   # Two compliant stages are in SERIES, not parallel. The middle plate is
   # modeled as a rigid 6-DOF coupler in the fast screening model.
-  compliances=[np.linalg.inv(K) for _,K in stages]
-  C=compliances[0]+compliances[1]
-  return np.linalg.inv(C)
+  from hybrid_geometry import mid_height
+  from neuroskin_multiscale import transport
+  T=transport([0.,0.,p['height']-mid_height(p)])
+  C=T@np.linalg.solve(stages[0][1],T.T)+np.linalg.solve(stages[1][1],np.eye(6))
+  return np.linalg.solve(C,np.eye(6))
  return _single_stage_curve_stiffness(family,p,E)
 
 def proxy(family,p):

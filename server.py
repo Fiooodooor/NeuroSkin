@@ -3,7 +3,8 @@ from pathlib import Path
 import os
 for _v in ('OPENBLAS_NUM_THREADS','OMP_NUM_THREADS','MKL_NUM_THREADS'):
  os.environ[_v]='1'
-import argparse, csv, io, json, threading, webbrowser, zipfile, time, secrets, random
+import argparse, csv, io, json, threading, webbrowser, zipfile, time, secrets, random, asyncio, logging
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -19,11 +20,23 @@ from archive_store import ArchiveStore, ArchiveError
 ROOT=Path(__file__).resolve().parent
 EVO=EvolutionV5(ROOT/'runs_v05')
 ARCHIVES=ArchiveStore(EVO.folder)
-app=FastAPI(title='NeuroSkin Evolution Lab',version='1.6')
+@asynccontextmanager
+async def application_lifespan(app):
+ try:
+  yield
+ finally:
+  # Stop evolution before Uvicorn tears down background threads.
+  if not await asyncio.to_thread(EVO.shutdown,8.0):
+   logging.getLogger('neuroskin.shutdown').warning(
+    'Evolution still stopping; latest completed stage snapshots remain saved.')
+
+app=FastAPI(title='NeuroSkin Evolution Lab',version='2.2.0',lifespan=application_lifespan)
 app.mount('/static',StaticFiles(directory=ROOT/'static'),name='static')
 
 class Start(BaseModel):
  mode:str='all'
+ search_strategy:str='adaptive'
+ search_precision:float=Field(default=.8,ge=0,le=1)
  seconds:float=Field(default=60,ge=3,le=3600)
  population:int=Field(default=48,ge=12,le=256)
  seed:int|None=None
@@ -66,6 +79,26 @@ def get_seed_candidate(seed_id:str):
  if c is None:raise HTTPException(404,'Seed model not found')
  return c
 
+@app.get('/api/search_spaces')
+def search_spaces_api():
+ from search_space import mode_options, SEARCH_STRATEGIES
+ return {'modes':mode_options(),'strategies':[{'id':x,'label':{'adaptive':'Adaptive · global + quality-diversity + local',
+      'explore':'Global exploration · broader topology jumps',
+      'precision':'Precision · trust-region refinement of elite designs'}[x]} for x in SEARCH_STRATEGIES],
+      'default_strategy':'adaptive','default_precision':0.8,
+      'note':'All modes share identical FEM, spatial gate, Top-3 and score promotion policy.'}
+
+@app.get('/api/hybrid_library')
+def hybrid_library_api():
+ from hybrid_library import library_json
+ return library_json()
+
+@app.get('/api/hybrids/{hybrid_id}')
+def hybrid_candidate_api(hybrid_id: str):
+ c=select_candidate('hybrid',hybrid_id,'quadrant')
+ if c is None:raise HTTPException(404,'Hybrid not found')
+ return c
+
 @app.get('/api/archives')
 def archive_list(limit:int=100):
  try:return {'runs':ARCHIVES.list_runs(limit)}
@@ -85,15 +118,21 @@ def archive_compare(left:str,right:str):
           'audit_grid':state.get('audit_grid'),'source_hash':provenance.get('sha256'),
           'audited_score':audit.get('audit_score'),'audited_feasible':audit.get('feasible'),
           'family':champ.get('family'),'champion_id':champ.get('id'),
+          'validation_protocol_hash':(audit.get('validation_v30') or {}).get('protocol_hash'),
+          'validation_tier':(audit.get('validation_v30') or {}).get('tier'),
+          'validation_noise_source':((audit.get('validation_v30') or {}).get('evidence') or {}).get('noise_provenance'),
           'evaluated':state.get('evaluated'),'generation':state.get('generation')}
  l,r=summary(first),summary(second)
  same_version=bool(l['source_hash']) and l['source_hash']==r['source_hash']
- comparable=same_version and l['objective']==r['objective'] and l['audit_grid']==r['audit_grid']
+ comparable=(same_version and l['objective']==r['objective'] and l['audit_grid']==r['audit_grid']
+             and bool(l['validation_protocol_hash']) and l['validation_protocol_hash']==r['validation_protocol_hash']
+             and l['validation_tier']==r['validation_tier']
+             and l['validation_noise_source']==r['validation_noise_source'])
  delta=(round(float(r['audited_score'])-float(l['audited_score']),5) if comparable and
         l['audited_score'] is not None and r['audited_score'] is not None else None)
  return {'left':l,'right':r,'comparable':comparable,'score_delta_right_minus_left':delta,
          'warning':None if comparable else
-         'Scores are NOT comparable: source hash, objective or audit protocol differs or is unknown.'}
+         'Scores are NOT comparable: source hash, objective, validation protocol hash, fidelity tier or noise provenance differs or is unknown.'}
 
 @app.get('/api/archives/{run_id}')
 def archive_load(run_id:str):
@@ -138,6 +177,16 @@ def archive_download(run_id:str):
  return Response(file.getvalue(),media_type='application/zip',headers={'Content-Disposition':f'attachment; filename="neuroskin_run_{run_id}.zip"'})
 
 def select_candidate(kind:str,index:str,family:str,run_id:str|None=None,generation:int|None=None):
+ if kind=='hybrid' and not run_id:
+  from hybrid_library import BY_ID, genome_for
+  from advanced import proxy
+  spec=BY_ID.get(str(index))
+  if spec is None:return None
+  g=genome_for(spec,random.Random(1701))
+  score,met,_=proxy(spec.upper_family,g)
+  return {'id':'hybrid-'+spec.id,'family':spec.upper_family,'genome':g,
+          'metrics':met,'fitness':float(score),'generation':0,'novelty':0.,
+          'origin':'hybrid_expert_prior','expert_prior_score':sum(spec.scores)}
  if kind=='seed' and not run_id:
   from seed_library import SEEDS, seed_genome
   from advanced import proxy
@@ -165,7 +214,7 @@ def select_candidate(kind:str,index:str,family:str,run_id:str|None=None,generati
 def state():return EVO.snapshot()
 @app.post('/api/start')
 def start(req:Start):
- try:return EVO.start(req.mode,req.seconds,req.seed if req.seed is not None else secrets.randbits(31),req.population,req.exploration,req.objective,req.physical_gate,req.gate_grid,req.cores or getattr(app.state,'default_cores',1),req.audit_grid,req.fem_enabled,req.fem_pitch_mm,req.fem_backend)
+ try:return EVO.start(req.mode,req.seconds,req.seed if req.seed is not None else secrets.randbits(31),req.population,req.exploration,req.objective,req.physical_gate,req.gate_grid,req.cores or getattr(app.state,'default_cores',1),req.audit_grid,req.fem_enabled,req.fem_pitch_mm,req.fem_backend,req.search_strategy,req.search_precision)
  except (ValueError,RuntimeError) as e:raise HTTPException(409,str(e))
 @app.get('/api/audit')
 def audit_state():
@@ -205,6 +254,9 @@ def _preview_genome(candidate, piezo_count_override:int|None, piezo_wiring_overr
    raise HTTPException(422,'PVDF wiring override must be 0..4')
   genome['piezo_wiring']=piezo_wiring_override
  return genome
+
+from neuroskin_v30.integration import build_router
+app.include_router(build_router(select_candidate,_preview_genome))
 
 @app.get('/api/mesh')
 def mesh(kind:str='best',index:str="0",family:str='crown',quality:int=10,run_id:str|None=None,generation:int|None=None,piezo_count_override:int|None=None,piezo_wiring_override:int|None=None):
@@ -338,44 +390,50 @@ def evaluate_all(req:EvaluateAllRequest):
     fem=fem_sweep(candidate['family'],g,pitch_mm=req.fem_pitch_mm,backend=req.fem_backend,include_fields=True,
                   inspector_case=req.fem_inspection_case,inspector_force_N=req.fem_inspection_force_n,
                   inspector_offset=(req.fem_inspection_offset_x,req.fem_inspection_offset_y),compute_device=req.fem_compute_device)
-    audit['fem']=dict(fem,fields=None)
-    audit['audited_surrogate_score']=audit['audit_score']
-    audit['audit_score']=round(.4*audit['audit_score_before_feasibility_band']+.6*fem['fem_score'],5)
-    audit['feasible']=bool(audit['feasible'] and fem['feasible_linear'])
-    bas=fem.get('load_cases',{}).get('press_center',{})
-    if bas.get('mean_down_mm') is not None:
-     recovery=recovery_for_candidate(candidate['family'],g,
-                  fem_max_strain=fem.get('max_abs_principal_strain'),
-                  fem_displacement_mm=bas['mean_down_mm'])
-     audit['unloading_recovery']=recovery
-     audit['audit_score']=round(.93*audit['audit_score']+.07*recovery['recovery_score_0_100_assumed'],5)
-     audit['feasible']=bool(audit['feasible'] and recovery['strain_screen_passed'])
-    shell=fem.get('laminate_shell') if fem else None
-    if isinstance(shell,dict) and not shell.get('failed'):
-     audit['laminate_shell']=shell
-     audit['audit_score']=round(.88*audit['audit_score']+.12*shell['shell_score'],5)
-     audit['feasible']=bool(audit['feasible'] and shell['feasible_shell_screen'])
-     audit.setdefault('decision_basis',{})['laminate_shell_score']=float(shell['shell_score'])
-     audit['decision_basis']['laminate_shell_feasible']=bool(shell['feasible_shell_screen'])
-     audit['decision_basis']['laminate_shell_max_eq_stress_MPa']=float(shell['max_eq_stress_MPa'])
-     audit['decision_basis']['laminate_shell_max_interfacial_shear_MPa']=float(shell['max_interfacial_shear_MPa'])
-     audit['decision_basis']['laminate_shell_max_top_strain_abs']=float(shell['max_top_fiber_strain_abs'])
+    from audit_combine import merge_fem_into_audit
+    merge_fem_into_audit(audit,fem,candidate['family'],g,fem_backend=req.fem_backend,include_fields=False)
    except (ValueError,RuntimeError,MemoryError) as exc:
-    audit['fem']={'failed':True,'message':str(exc)}
-    audit['feasible']=False
-    audit['audit_score']=0
-   shell=fem.get('laminate_shell') if isinstance(fem,dict) else None
-   if req.fem_backend=='hex8' and (not isinstance(shell,dict) or shell.get('failed')):
-    audit['feasible']=False
-    audit.setdefault('screening_failure_reasons',[]).append('laminate_shell_stage_missing_or_failed')
+    from audit_combine import mark_fem_failure
+    mark_fem_failure(audit,exc,fem_backend=req.fem_backend)
+  # The same standardized decision function is used in GUI and Top-3.
+  from evaluation_v30 import safe_evaluate_protocol
+  report=safe_evaluate_protocol(candidate['family'],g,candidate_id=candidate['id'],seed=3322,
+                           monte_carlo_samples=8,fem=fem)
+  audit['validation_v30']=report
+  audit['decision_basis']['validation_protocol_hash']=report['protocol_hash']
+  audit['decision_basis']['validation_level']='T0'
+  audit['decision_basis']['validation_t0_pass']=report['pass_current_tier']
+  audit['feasible']=bool(audit['feasible'] and report['pass_current_tier'])
+  if not report['pass_current_tier']:
+   audit.setdefault('screening_failure_reasons',[]).append('validation_v30_t0_failed')
   from selection_refinement import enforce_score_band
   enforce_score_band(audit)
+  orientation=None
+  if g.get('hybrid_id','none') not in ('none',None,''):
+   from orientation_study import scan_rotations
+   orientation=scan_rotations(candidate['family'],g,grid=3,force_n=req.fem_inspection_force_n)
   return {'candidate_id':candidate['id'],'family':candidate['family'],
-          'audit':audit,'fem':fem,'recovery':audit['unloading_recovery'],
+          'orientation_study':orientation,
+          'audit':audit,'validation_v30':report,'fem':fem,'recovery':audit['unloading_recovery'],
           'historical_fitness_invalidated':bool(req.piezo_count_override is not None or req.piezo_wiring_override is not None),
           'warning':'Linear mechanics with approximate bonded PVDF/adhesive reinforcement (HEX8 or beam); assumed SLS recovery, synthetic electronics, uncalibrated PVDF and fatigue. FEM may not be converged.'}
  except (ValueError,RuntimeError,MemoryError,np.linalg.LinAlgError) as exc:
   raise HTTPException(422,f'Full evaluation failed: {exc}')
+
+@app.get('/api/validation/protocol')
+def validation_protocol():
+ from validation_contract import load_protocol, digest
+ p=load_protocol()
+ return {'protocol':p.model_dump(mode='json'),'sha256':digest(p.model_dump(mode='json')),
+         'description':'Validated and versioned protocol, synthetic inputs remain T0 only'}
+
+@app.get('/api/validation/status')
+def validation_status():
+ s=EVO.snapshot()
+ incumbent=s.get('audited_champion') or {}
+ report=(incumbent.get('audit') or {}).get('validation_v30')
+ return {'current_incumbent_id':incumbent.get('id'),'report':report,
+         'warning':'No laboratory sensor calibration supplied; T0 synthetic validation only'}
 
 @app.get('/api/physics_info')
 def physics_info():return {'cases':{k:v[0] for k,v in CASES.items()},'objective_presets':PRESETS,'note':'Electrical and mechanics results are synthetic surrogate predictions, not FEM/experimental validation.'}

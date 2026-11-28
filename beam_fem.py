@@ -18,6 +18,7 @@ from scipy.sparse import coo_matrix
 from scipy.sparse.linalg import splu
 from advanced import structural_struts, _profile_radius
 from pvdf_array import choose_film_members
+from pvdf_physics import charge_pc
 from laminate_fem import film_interval, effective_film_properties
 
 
@@ -94,6 +95,8 @@ class BeamFEM:
     def __init__(self,family,genome,pitch_mm=.15625,poisson=.35,max_nodes=12000):
         t0=time.monotonic()
         if family not in ('crown','chiral','quadrant'):raise ValueError('unknown family')
+        if genome.get('hybrid_id','none') not in ('none',None,''):
+            raise BeamFEMError('Beam FEM does not support coupled hybrid stage interfaces; use HEX8')
         if not .05<=pitch_mm<=2.5:raise ValueError('beam pitch must be in 0.05..2.5 mm')
         self.family=family;self.genome=dict(genome);self.pitch_mm=float(pitch_mm)
         self.E=float(genome.get('material_E',1.))
@@ -245,7 +248,7 @@ class BeamFEM:
             props=self.pvdf_properties[i];x=per_member.get(member_id,{})
             length=x.get('length_mm',0.)
             avg=x.get('sum_strain_L',0.)/max(length,1.e-12)
-            charge=-23.0*props['axial_EA_N']*avg
+            charge=charge_pc(props,props['shear_lag_transfer']*avg) if length>0 else 0.0
             film_response.append({'film_index':i,'member_index':member_id,'effective_strain':float(avg),
                'max_abs_effective_film_strain':float(x.get('max_abs_effective_strain',0.)),
                'estimated_charge_pC':float(charge),'charge_amp_V_assumed':float(charge/props['piezo_feedback_pf']),

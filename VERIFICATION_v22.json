@@ -1,0 +1,35 @@
+{
+  "release": "2.2.0",
+  "verification_date": "2026-11-28",
+  "environment": "Local Linux / Python 3.13, not the user's HP Z840 Windows 11 / Python 3.14",
+  "completed_test_runs": [
+    {"suite": "validation_v22 + pipeline_v10 + archive_api_v11 + laminate_v18 + laminate_shell_v19 + physical_fem", "passed": 42, "subtests_passed": 3, "status": "completed"},
+    {"suite": "search_v21 + shutdown_v211 + engine + electromechanics (without 1 slow live hybrid test)", "passed": 29, "subtests_passed": 31, "deselected": 1, "status": "completed"}
+  ],
+  "integration_smoke": {
+    "status": "completed",
+    "generations": 2,
+    "candidate_evaluations": 24,
+    "saved_stage_count": 2,
+    "top3_reports_per_stage": 3,
+    "same_protocol_hash_for_finalists": true,
+    "synthetic_only": true,
+    "fem_enabled": false
+  },
+  "mechanical_smoke": {
+    "backend": "hex8",
+    "pitch_mm": 1.25,
+    "bonded_pvdf_and_laminate_shell": true,
+    "solver_failed": false,
+    "tier": "T0",
+    "t0_pass": false,
+    "warning": "Standalone continuum solve, not mesh converged or hardware calibrated"
+  },
+  "javascript_syntax": "passed_node_check",
+  "full_legacy_test_suite": "timed_out_after_68_early_tests_without_failure_reported; NOT classified as passed",
+  "pip_check": "failed_only_due_to_installed_unrelated_moviepy_pillow_conflict_in_shared_runtime; clean Windows venv not tested",
+  "windows_11_python_314": "not_run",
+  "gpu_cuda_pascal": "not_run_in_current_environment; user's earlier CuPy smoke test passed on P1000",
+  "nonlinear_contact": "not_implemented",
+  "physical_measurements": "not_available"
+}

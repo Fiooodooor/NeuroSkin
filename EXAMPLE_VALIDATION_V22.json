@@ -1,0 +1,287 @@
+{
+  "schema_version": "neuroskin.validation_report.v1",
+  "candidate_id": "example_42",
+  "family": "quadrant",
+  "protocol_hash": "07be7044992ca713eb97567c5703f92370c6984d7cac29b6c141d6f03c55ea80",
+  "genome_hash": "7b35b4f1750c2c2e12df3f29bc9cb92434428f86bbac52ceddce1ab437acefff",
+  "evidence": {
+    "solver": "six_dof_composite_surrogate",
+    "solver_hash": "875780522d7a385606a1492bcde106dafa5f7feb058f3c016ec19d3fad535543",
+    "material_hash": "8f540123e5bc24ae5127a77be21e0d6724776262b7f06a2f4d1924351522ef1d",
+    "seed": 3322,
+    "noise_provenance": "assumed",
+    "calibration_specimen": null,
+    "measured_data_sha256": null,
+    "mesh_convergence_verified": false,
+    "independent_validation_verified": false,
+    "nonlinear_contact_verified": false,
+    "environment_versions": {
+      "python": "3.13.5",
+      "platform": "Linux-6.18.57-x86_64-with-glibc2.41",
+      "numpy": "2.3.5",
+      "scipy": "1.17.0",
+      "numba": "0.65.1",
+      "trimesh": "4.11.1",
+      "pydantic": "2.13.5",
+      "fastapi": "0.128.2"
+    }
+  },
+  "tier": "T0",
+  "source": "synthetic_surrogate",
+  "tests": [
+    {
+      "id": "contact_load",
+      "status": "fail",
+      "source": "synthetic_surrogate",
+      "metric": 1.5000616094754982,
+      "limit": 3.0,
+      "reason": "Whitened vector amplitude under assumed per-channel RMS noise"
+    },
+    {
+      "id": "no_contact",
+      "status": "pass",
+      "source": "synthetic_surrogate",
+      "metric": 0.0,
+      "limit": 0.001,
+      "reason": "No contact should produce an approximately zero incremental signal"
+    },
+    {
+      "id": "independent_holdout",
+      "status": "fail",
+      "source": "synthetic_surrogate",
+      "metric": 0.2188041602185564,
+      "limit": 0.08,
+      "reason": "Contact-position-disjoint holdout; assumed acceptance targets: norm force RMSE<=0.08N, position MAE<=2.5mm"
+    },
+    {
+      "id": "sensor_covariance",
+      "status": "pass",
+      "source": "synthetic_surrogate",
+      "metric": 0.0003,
+      "limit": null,
+      "reason": "Positive declared assumed independent-channel covariance, NOT measured noise"
+    },
+    {
+      "id": "geometry_screen",
+      "status": "fail",
+      "source": "synthetic_surrogate",
+      "metric": 0.46,
+      "limit": null,
+      "reason": "Heuristic slenderness and manufacturing warnings"
+    },
+    {
+      "id": "continuum_fem",
+      "status": "not_run",
+      "source": "linear_fem",
+      "metric": null,
+      "limit": null,
+      "reason": "Requires independent mesh-convergence evidence; a single HEX8 mesh does not qualify as converged"
+    },
+    {
+      "id": "mesh_convergence",
+      "status": "not_run",
+      "source": "linear_fem",
+      "metric": null,
+      "limit": null,
+      "reason": "Mesh-refinement tolerance not yet verified by same-protocol study"
+    },
+    {
+      "id": "nonlinear_contact",
+      "status": "unsupported",
+      "source": "nonlinear_fem",
+      "metric": null,
+      "limit": null,
+      "reason": "No geometrically nonlinear contact solve in this release"
+    },
+    {
+      "id": "hardware_test",
+      "status": "not_run",
+      "source": "hardware_measurement",
+      "metric": null,
+      "limit": null,
+      "reason": "No physically measured calibration data supplied"
+    },
+    {
+      "id": "indenter_variation",
+      "status": "unsupported",
+      "source": "synthetic_surrogate",
+      "metric": null,
+      "limit": null,
+      "reason": "Indenter geometry is not included in the surrogate"
+    },
+    {
+      "id": "temperature_variation",
+      "status": "unsupported",
+      "source": "synthetic_surrogate",
+      "metric": null,
+      "limit": null,
+      "reason": "Temperature does not enter the current constitutive or circuit equations"
+    }
+  ],
+  "metrics": {
+    "decoder_holdout": {
+      "train_count": 70,
+      "validation_count": 20,
+      "test_count": 40,
+      "split_policy": "disjoint_contact_positions",
+      "split_seed": 3322,
+      "training": "ridge_with_train_only_scaling_and_assumed_gaussian_channel_noise",
+      "source": "synthetic_surrogate",
+      "force_rmse_N": [
+        0.012323592708343236,
+        0.012323592708343236,
+        0.2181089605093414
+      ],
+      "force_rmse_norm_N": 0.2188041602185564,
+      "force_error_p95_N": 0.47141730188839814,
+      "position_mae_mm": 1.2426785724809186,
+      "position_p95_mm": 2.1618822096432053,
+      "validation_rmse_mixed_units": 0.4669924039421218,
+      "no_contact_false_positive_rate_assumed": 0.9,
+      "assumed_noise_std_channels": [
+        0.001,
+        0.001,
+        0.001,
+        0.001,
+        0.0003,
+        0.0003,
+        0.002
+      ],
+      "independent_test_groups": 4,
+      "notes": "Held-out positions are synthetic, NOT independent mechanical or experimental ground truth. Flat/sphere/edge indenters are not modeled."
+    },
+    "observability": {
+      "rank_5_unknowns": 5,
+      "singular_values": [
+        20.715431623124683,
+        8.302372690424548,
+        4.285044737371633,
+        0.11106981184886676,
+        0.10057154736006507
+      ],
+      "condition_number": 205.97705978371337,
+      "min_singular_value": 0.10057154736006507,
+      "covariance_origin": "assumed_independent_noise_per_channel",
+      "is_hardware_identifiable": false
+    },
+    "robustness_monte_carlo": {
+      "source": "synthetic_surrogate",
+      "samples": 8,
+      "seed": 3323,
+      "nominal_whitened_signal": 1.5000616094754982,
+      "assumed_snr_p10": 1.2188300215494507,
+      "assumed_snr_p50": 1.459999735392473,
+      "assumed_snr_p90": 1.889826999867598,
+      "assumed_snr_below_3_fraction": 1.0,
+      "assumptions": {
+        "material_E_relative_log_sigma": 0.12,
+        "gap_relative_log_sigma": 0.06,
+        "bond_relative_log_sigma": 0.07,
+        "noise_relative_log_sigma": 0.15
+      },
+      "unsupported_axes": [
+        "temperature",
+        "actual_indenter_shape",
+        "bond_peel",
+        "electrode_parasitics",
+        "material_hysteresis"
+      ],
+      "warning": "Synthetic variation of model parameters, not measurement-derived tolerances"
+    },
+    "readout_budget": {
+      "source": "engineering_assumptions_not_component_specs",
+      "channel_count": 11,
+      "power_estimated_mW": 8.6,
+      "energy_per_sample_mJ": 0.0172,
+      "sample_latency_estimated_ms": 4.5,
+      "link_throughput_bytes_s": 8000,
+      "link_capacity_pass": true,
+      "cost_status": "unknown_no_verified_component_prices",
+      "limitations": [
+        "Uncalibrated current draw, no actual ADC/CDC choices, no hardware measured energy"
+      ],
+      "assumptions": {
+        "channels": 11,
+        "samples_per_second": 500,
+        "afe_power_mW_per_channel": 0.7,
+        "mcu_active_power_mW": 9.0,
+        "mcu_duty_cycle": 0.1,
+        "transmission_bytes_per_sample": 16,
+        "link_bytes_per_second": 100000,
+        "sensing_latency_ms": 2.0,
+        "serial_latency_ms": 0.5,
+        "voltage_V": 3.3
+      }
+    },
+    "normal_snr_assumed": 1.5000616094754982,
+    "zero_force_response_norm": 0.0,
+    "geometry": {
+      "member_count": 8,
+      "minimum_member_diameter_mm": 0.46,
+      "longest_slenderness_ratio": 25.002,
+      "max_lateral_extent_mm": 5.672,
+      "max_turn_sine": 0.03241,
+      "flags": [
+        "thin_feature_below_0.6_mm"
+      ],
+      "passed": false
+    },
+    "recovery_assumed": {
+      "model": "linear_SLS_creep_superposition_assumed",
+      "hold_s": 1.0,
+      "tau_s_assumed": 0.8,
+      "relaxed_to_initial_modulus_ratio_assumed": 0.55,
+      "loaded_deflection_mm_input": 0.026462669910360982,
+      "peak_creep_deflection_mm_estimate": 0.04191075103670941,
+      "strain_estimate": 0.004424474552442486,
+      "strain_screen_passed": true,
+      "times_after_release_s": [
+        0.0,
+        0.1,
+        0.25,
+        0.5,
+        1.0,
+        2.0,
+        5.0,
+        10.0
+      ],
+      "residual_mm_after_release": [
+        0.015448081126348427,
+        0.013632883744878034,
+        0.011302057589272147,
+        0.008268761971566512,
+        0.004425949344984191,
+        0.001268055717998185,
+        2.9821812107139763e-05,
+        5.7569640534491385e-08
+      ],
+      "residual_fraction_after_5s": 0.0007115551826074173,
+      "recovery_5s_passed_assumed": true,
+      "recovery_score_0_100_assumed": 99.92884448173925,
+      "fully_recovered_at_infinite_time_in_model": true,
+      "warning": "No permanent set, debonding, fatigue or hysteresis modeled; calibrate tau, moduli and strain range using real load/unload tests."
+    },
+    "spatial_positions": 13,
+    "cases": 130,
+    "force_levels_N": [
+      0.025,
+      0.05,
+      0.1,
+      0.2,
+      0.4
+    ],
+    "excluded_from_prediction": [
+      "indenter shape",
+      "ambient temperature"
+    ],
+    "fem_available_but_unconverged": false
+  },
+  "warnings": [
+    "T0: Synthetic readouts and assumed noise, not measured sensor accuracy.",
+    "A single FEM run does not establish mesh convergence.",
+    "No nonlinear contact, no calibrated viscoelasticity or measured hysteresis.",
+    "No unmodeled load/temperature/indenter case is silently scored as passed."
+  ],
+  "eligible_for_same_tier_promotion": false,
+  "pass_current_tier": false
+}

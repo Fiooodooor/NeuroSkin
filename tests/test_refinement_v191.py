@@ -82,9 +82,9 @@ class RefinementPolicyTests(unittest.TestCase):
 
     def test_partial_margins_provide_gradient_on_failed_screen(self):
         g=new_genome('quadrant',random.Random(52))
-        g.update(topology='orthogonal',asymmetry=0.,pad_offset_x=0.,pad_offset_y=0.,wave_amp=0.,strut_gradient=0.)
+        g.update(hybrid_id='none',topology='orthogonal',asymmetry=0.,pad_offset_x=0.,pad_offset_y=0.,wave_amp=0.,strut_gradient=0.)
         weak=dict(g,electrode_area_mm2=4.,dielectric_gap_mm=.6,mount_compliance_mm_N=.1)
-        middle=dict(g,electrode_area_mm2=8.,dielectric_gap_mm=.28,mount_compliance_mm_N=.27)
+        middle=dict(g,electrode_area_mm2=4.2,dielectric_gap_mm=.58,mount_compliance_mm_N=.11)
         a,ma,_=evaluate('quadrant',weak,'balanced',True,3)
         b,mb,_=evaluate('quadrant',middle,'balanced',True,3)
         self.assertLess(a,15.)
@@ -144,7 +144,7 @@ class RefinementPolicyTests(unittest.TestCase):
 
     def test_provenance_changes_after_policy_update(self):
         provenance=engine_provenance()
-        self.assertEqual(provenance['release'],'1.9.1')
+        self.assertEqual(provenance['release'],(Path(__file__).parents[1]/'VERSION').read_text().strip())
         self.assertEqual(len(provenance['sha256']),64)
 
 

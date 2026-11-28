@@ -21,8 +21,57 @@ CASES={
  'compression': ('Substrate compression 5% (proxy)',[0,0,0],0,(0,0),0),
 }
 
+def _hybrid_raw_mechanics(family, genome, case='normal', force=None, moment=None, offset=None, strain=None):
+ """Two rigid-body stage DOFs linked in SERIES; returns bottom-only reactions.
+
+ The 6DOF stage stiffnesses are approximate beam models; they are not a
+ replacement for HEX8. Intermediate plate displacement and channel groups
+ are available for piezoelectric/optical-electrical transfer calculations.
+ """
+ from hybrid_geometry import stage_models,stage_stiffnesses,mid_height
+ from advanced import _single_stage_curve_stiffness,_single_stage_struts,stage_member_local_matrices
+ _,base_force,mz,off,mx=CASES[case]
+ F=np.asarray(base_force if force is None else force,dtype=float)
+ off=off if offset is None else offset
+ strain=(.05 if case=='stretch_x' else -.05 if case=='compression' else 0.) if strain is None else float(strain)
+ M=np.array([mx,0,mz],float) if moment is None else np.asarray(moment,float)
+ load=np.array([*F,M[0]+off[1]*F[2],M[1]-off[0]*F[2],M[2]+off[0]*F[1]-off[1]*F[0]])
+ stages=list(stage_models(family,genome))
+ K=dict(stage_stiffnesses(family,genome,_single_stage_curve_stiffness,models=stages))
+ lower_stage=stages[0]
+ _,subfam,sg,_=lower_stage
+ members=stage_member_local_matrices(subfam,sg,E=genome.get('material_E',1.))
+ from neuroskin_multiscale import transport
+ T=transport([0.,0.,genome['height']-mid_height(genome)])
+ lower_load=T.T@load
+ if abs(strain)>0:
+  for pts,kl,B in members:
+   a=pts[0]
+   moved=np.array([a[0]*strain,0.,0.])
+   lower_load+=B.T@kl@moved
+ u_lower=np.linalg.solve(K['lower'],lower_load)
+ u_upper=np.linalg.solve(K['upper'],load)
+ total=T@u_lower+u_upper
+ foot=[]
+ for pts,kl,B in members:
+  moved=np.array([pts[0][0]*strain,0.,0.])
+  reaction=kl@(B@u_lower-moved)
+  foot.append([float(x) for x in reaction])
+ return {'displacement_mm':total[:3].tolist(),'rotation_rad':total[3:].tolist(),
+         'stage_displacements_mm':{'upper':u_upper[:3].tolist(),'lower':u_lower[:3].tolist()},
+         'stage_rotations_rad':{'upper':u_upper[3:].tolist(),'lower':u_lower[3:].tolist()},
+         'interface_displacement_mm':u_lower[:3].tolist(),
+         'foot_reactions_N':foot,'foot_positions_mm':[pts[0].tolist() for pts,_,_ in members],'applied_force_N':F.tolist(),
+         'applied_moment_Nmm':M.tolist(),'offset_mm':list(off),
+         'substrate_strain':strain,'hybrid_id':genome.get('hybrid_id'),
+         'K_N_per_mm_proxy':np.linalg.solve(T@np.linalg.solve(K['lower'],T.T)+np.linalg.solve(K['upper'],np.eye(6)),np.eye(6)).tolist(),
+         'stage_loads_N_Nmm':{'lower':(T.T@load).tolist(),'upper':load.tolist()},
+         'model':'two_rigid_stage_6DOF_transported_series_proxy'}
+
 def raw_mechanics(family, genome, case='normal', force=None, moment=None, offset=None, strain=None):
  if case not in CASES:raise ValueError('Unknown load case')
+ if genome.get('hybrid_id','none') not in ('none',None,''):
+  return _hybrid_raw_mechanics(family,genome,case,force,moment,offset,strain)
  _,base_force,mz,off,mx=CASES[case]
  F=np.asarray(base_force if force is None else force,dtype=float)
  off=off if offset is None else offset
@@ -32,28 +81,19 @@ def raw_mechanics(family, genome, case='normal', force=None, moment=None, offset
  load=np.array([*F,M[0]+off[1]*F[2],M[1]-off[0]*F[2],M[2]+off[0]*F[1]-off[1]*F[0]])
  # Very simplified substrate stretch: prescribed affine movement at strut foot.
  # Solve equivalent nodal load on rigid pad induced by moving the bases.
- paths=structural_struts(family,genome)
+ from advanced import stage_member_local_matrices
+ members=stage_member_local_matrices(family,genome,E=genome.get('material_E',1.0))
  if abs(strain)>0:
-  for pts,r,_ in paths:
-   a,b=pts[0],pts[-1]; d=b-a;L=np.linalg.norm(d);n=d/L
-   arc=sum(np.linalg.norm(y-x) for x,y in zip(pts[:-1],pts[1:]));r=float(r)
-   A=np.pi*r*r;I=np.pi*r**4/4; E=genome.get('material_E',1.0)
-   kl=(E*A/arc*(L/arc)**2)*np.outer(n,n)+(12*E*I/arc**3)*(np.eye(3)-np.outer(n,n))
-   rp=b-np.array([0,0,genome['height']]); B=np.column_stack((np.eye(3),-skew(rp)))
-   moved=np.array([a[0]*strain,0.,0.])
+  for pts,kl,B in members:
+   moved=np.array([pts[0][0]*strain,0.,0.])
    load+=B.T@kl@moved
  u=np.linalg.solve(K,load)
  foot=[]
- for pts,r,_ in paths:
-  a,b=pts[0],pts[-1];d=b-a;L=np.linalg.norm(d);n=d/L
-  arc=sum(np.linalg.norm(y-x) for x,y in zip(pts[:-1],pts[1:]));r=float(r)
-  A=np.pi*r*r;I=np.pi*r**4/4;E=genome.get('material_E',1.0)
-  kl=(E*A/arc*(L/arc)**2)*np.outer(n,n)+(12*E*I/arc**3)*(np.eye(3)-np.outer(n,n))
-  rp=b-np.array([0,0,genome['height']]);B=np.column_stack((np.eye(3),-skew(rp)))
-  moved=np.array([a[0]*strain,0,0])
+ for pts,kl,B in members:
+  moved=np.array([pts[0][0]*strain,0.,0.])
   reaction=kl@(B@u-moved)
   foot.append([float(x) for x in reaction])
- return {'displacement_mm':u[:3].tolist(),'rotation_rad':u[3:].tolist(),'foot_reactions_N':foot,'applied_force_N':F.tolist(),'applied_moment_Nmm':M.tolist(),'offset_mm':list(off),'substrate_strain':strain,'K_N_per_mm_proxy':K.tolist()}
+ return {'displacement_mm':u[:3].tolist(),'rotation_rad':u[3:].tolist(),'foot_reactions_N':foot,'foot_positions_mm':[pts[0].tolist() for pts,_,_ in members],'applied_force_N':F.tolist(),'applied_moment_Nmm':M.tolist(),'offset_mm':list(off),'substrate_strain':strain,'K_N_per_mm_proxy':K.tolist()}
 
 def signals(family,genome,mechanics,readout='capacitive'):
  """Explicit synthetic circuit transfer. Not measured: default dielectric 2.8, 0.45 mm gap.
@@ -61,13 +101,14 @@ def signals(family,genome,mechanics,readout='capacitive'):
  """
  u=np.array(mechanics['displacement_mm']);rot=np.array(mechanics['rotation_rad'])
  f=np.array(mechanics['foot_reactions_N']);fzs=f[:,2]
- if len(fzs)!=4:
-  # group radial legs by quadrant to yield common 4-channel interface
-  pts=structural_struts(family,genome)
-  q=np.zeros(4)
-  for (xyz,_,_),fz in zip(pts,fzs):
-   foot=xyz[0];ix=(0 if foot[0]<0 else 1)+2*(0 if foot[1]<0 else 1);q[ix]+=fz
-  fzs=q
+ # Map reactions to physical quadrants even when exactly four legs exist.
+ positions=mechanics.get('foot_positions_mm')
+ if positions is None:positions=[xyz[0] for xyz,_,_ in structural_struts(family,genome)][:len(fzs)]
+ if len(positions)!=len(fzs):raise ValueError('Foot reaction/position count mismatch')
+ q=np.zeros(4)
+ for foot,fz in zip(positions,fzs):
+  ix=(0 if foot[0]<0 else 1)+2*(0 if foot[1]<0 else 1);q[ix]+=fz
+ fzs=q
  # Measurable geometry choices, with fixed assumed electronic noise: the
  # optimiser cannot cheat by arbitrarily lowering the input noise floor.
  gap=float(genome.get('dielectric_gap_mm',.45))
@@ -97,6 +138,29 @@ def signals(family,genome,mechanics,readout='capacitive'):
       'pressure_sensor_geometry':{'electrode_area_mm2':area,'dielectric_gap_mm':gap,'dielectric_epsilon_r_assumed':epsr,
                                   'mount_compliance_mm_per_N_assumed':compliance},
       'noise_assumptions':{'pressure_rms_pF':.001,'lateral_rms_pF':.0003,'hall_rms_mT':.002}}
+ if genome.get('hybrid_id','none') not in ('none',None,'') and 'stage_displacements_mm' in mechanics:
+  stage=mechanics['stage_displacements_mm']
+  def capacitance(d):
+   # Separate assumed electrode gaps at midplate and top; no solved electric field.
+   delta=np.clip(.20*max(0.,-float(d[2])),0.,.75*gap)
+   return float(EPS0_PF_MM*epsr*area/max(gap-delta,.05)-C0)
+  upper_c=capacitance(stage['upper']);lower_c=capacitance(stage['lower'])
+  sensor_mode=int(genome.get('hybrid_sensor_mode',0))
+  if sensor_mode not in (0,1,2):raise ValueError('Invalid hybrid sensor wiring mode')
+  options={0:('independent',(upper_c,lower_c)),
+           1:('common_plus_difference',(upper_c+lower_c,upper_c-lower_c)),
+           2:('common_only',(upper_c+lower_c,))}
+  mode_name,active_outputs=options[sensor_mode]
+  out['hybrid_stage_channels']={
+    'upper_capacitance_delta_pF_assumed':upper_c,
+    'lower_capacitance_delta_pF_assumed':lower_c,
+    'readout_mode':mode_name,
+    'readout_vector_pF_assumed':list(active_outputs),
+    'sum_pF_assumed':upper_c+lower_c,
+    'difference_pF_assumed':upper_c-lower_c,
+    'upper_displacement_mm':stage['upper'],
+    'lower_displacement_mm':stage['lower'],
+    'source':'Two-series-6DOF stage displacement + assumed parallel-plate readouts; no calibrated field solve'}
  if readout=='resistive':
   # illustration of *relative* piezoresistance; no absolute resistance or pressure calibration
   out['resistive_delta_percent']=np.round(100*(np.exp(-normal_deflection/0.18)-1),4).tolist()

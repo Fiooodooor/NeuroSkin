@@ -1,0 +1,79 @@
+{
+  "hybrid_id": "h01_serpentine_quadrant",
+  "family": "quadrant",
+  "tested_angles_deg": [
+    0.0,
+    22.5,
+    45.0,
+    67.5,
+    90.0
+  ],
+  "force_n": 0.1,
+  "grid": 3,
+  "rows": [
+    {
+      "angle_deg": 0.0,
+      "phase_rad": 0.0,
+      "proxy_score_0_100": 85.0103380855045,
+      "coverage_fraction": 1.0,
+      "min_snr_assumed": 3.7264,
+      "max_tilt_rad": 0.084444,
+      "mean_point_quality": 1.0,
+      "screen_pass": true,
+      "failure_reasons": [],
+      "min_strut_radius_mm": 0.6644
+    },
+    {
+      "angle_deg": 22.5,
+      "phase_rad": 0.39269908169872414,
+      "proxy_score_0_100": 84.1821658858689,
+      "coverage_fraction": 1.0,
+      "min_snr_assumed": 3.7264,
+      "max_tilt_rad": 0.103673,
+      "mean_point_quality": 1.0,
+      "screen_pass": true,
+      "failure_reasons": [],
+      "min_strut_radius_mm": 0.6644
+    },
+    {
+      "angle_deg": 45.0,
+      "phase_rad": 0.7853981633974483,
+      "proxy_score_0_100": 82.94829472181743,
+      "coverage_fraction": 1.0,
+      "min_snr_assumed": 3.7264,
+      "max_tilt_rad": 0.107763,
+      "mean_point_quality": 1.0,
+      "screen_pass": true,
+      "failure_reasons": [],
+      "min_strut_radius_mm": 0.6644
+    },
+    {
+      "angle_deg": 67.5,
+      "phase_rad": 1.1780972450961724,
+      "proxy_score_0_100": 84.17817450768355,
+      "coverage_fraction": 1.0,
+      "min_snr_assumed": 3.7264,
+      "max_tilt_rad": 0.095997,
+      "mean_point_quality": 1.0,
+      "screen_pass": true,
+      "failure_reasons": [],
+      "min_strut_radius_mm": 0.6644
+    },
+    {
+      "angle_deg": 90.0,
+      "phase_rad": 1.5707963267948966,
+      "proxy_score_0_100": 85.01218494211133,
+      "coverage_fraction": 1.0,
+      "min_snr_assumed": 3.7264,
+      "max_tilt_rad": 0.070667,
+      "mean_point_quality": 1.0,
+      "screen_pass": true,
+      "failure_reasons": [],
+      "min_strut_radius_mm": 0.6644
+    }
+  ],
+  "best_screened_angle_deg": 90.0,
+  "recommended_only_as_screening_hypothesis": true,
+  "physics": "Six-DOF series-compliance proxy and synthetic capacitive response; optional coarse HEX8.",
+  "warning": "Rotation changes relative upper-stage azimuth, not helix handedness. 90\u00b0 may be symmetry-equivalent to 0\u00b0 for ideal fourfold cells; voxel and PVDF asymmetries may break this equivalence. The best proxy angle must be re-evaluated using identical high-resolution FEM and experimental load cases."
+}

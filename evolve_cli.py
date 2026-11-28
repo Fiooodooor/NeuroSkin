@@ -10,7 +10,10 @@ def main():
  ap.add_argument('--cores',default='1',help='Logical CPU workers or auto (hardware-aware physical-core recommendation)')
  ap.add_argument('--seconds',type=float,default=60)
  ap.add_argument('--population',type=int,default=96)
- ap.add_argument('--mode',choices=['all','crown','chiral','quadrant'],default='all')
+ from search_space import MODES, SEARCH_STRATEGIES
+ ap.add_argument('--mode',choices=MODES,default='all',help='Search scope, including hybrid:all or hybrid:<id>')
+ ap.add_argument('--search-strategy',choices=SEARCH_STRATEGIES,default='adaptive')
+ ap.add_argument('--search-precision',type=float,default=.8,help='Trust-region precision 0..1; higher means smaller local steps')
  ap.add_argument('--objective',choices=['balanced','touch','robust','dynamic'],default='balanced')
  ap.add_argument('--seed',type=int,default=None,help='Optional reproducible override; default is randomized for each run')
  ap.add_argument('--exploration',type=float,default=.75)
@@ -32,7 +35,7 @@ def main():
  if args.seed is None: args.seed=secrets.randbits(31)
  print(f'Run random seed: {args.seed}',flush=True)
  e=EvolutionV5(Path(args.out))
- e.start(args.mode,args.seconds,args.seed,args.population,args.exploration,args.objective,args.gate,args.grid,args.cores,args.audit_grid,args.fem,args.fem_pitch,args.fem_backend)
+ e.start(args.mode,args.seconds,args.seed,args.population,args.exploration,args.objective,args.gate,args.grid,args.cores,args.audit_grid,args.fem,args.fem_pitch,args.fem_backend,args.search_strategy,args.search_precision)
  last=-1
  try:
   while True:

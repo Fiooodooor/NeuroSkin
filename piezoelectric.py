@@ -10,7 +10,7 @@ import math
 import numpy as np
 from pvdf_array import choose_film_members, layout_metrics
 
-D31_PC_PER_N=-23.0
+from pvdf_physics import D31_PC_PER_N, charge_pc, capacitance_pf, electrode_area_mm2
 D33_PC_PER_N=33.0
 EPS0_PF_MM=.0088541878128
 EPSR=12.0
@@ -45,29 +45,42 @@ def transduction(family,genome,mechanics):
         arc=max(.1,float(np.linalg.norm(np.diff(path,axis=0),axis=1).sum()))
         chord=path[-1]-path[0]
         chord/=max(.001,np.linalg.norm(chord))
-        anchor=path[-1]-np.array([p('pad_offset_x',0.),p('pad_offset_y',0.),h])
-        displacement=u+np.cross(rot,anchor)
+        if 'stage_displacements_mm' in mechanics:
+            from hybrid_geometry import mid_height
+            mid=mid_height(genome)
+            stage='upper' if path[0,2]>mid-.25 else 'lower'
+            uv=np.asarray(mechanics['stage_displacements_mm'][stage],float)
+            rv=np.asarray(mechanics['stage_rotations_rad'][stage],float)
+            target_h=h if stage=='upper' else mid
+            anchor=path[-1]-np.array([0.,0.,target_h])
+            displacement=uv+np.cross(rv,anchor)
+            stage_rot=rv
+        else:
+            stage='single'
+            anchor=path[-1]-np.array([0.,0.,h])
+            displacement=u+np.cross(rot,anchor)
+            stage_rot=rot
+        if stage!='upper':
+            displacement=displacement-np.array([path[0,0]*float(mechanics.get('substrate_strain',0.)),0.,0.])
         axial=float(np.dot(displacement,chord)/arc)
         transverse=float(np.linalg.norm(displacement-np.dot(displacement,chord)*chord))
         bending=2.0*transverse*thickness/(arc*arc)
         local_strain=axial*math.cos(orientation)+bending*math.sin(orientation)
-        local_strain+=(rot[1]*math.cos(orientation)-rot[0]*math.sin(orientation))*(thickness/arc)*(.2+.6*pos)
-        local_strain+=float(mechanics.get('substrate_strain',0.))*math.cos(orientation)**2
+        local_strain+=(stage_rot[1]*math.cos(orientation)-stage_rot[0]*math.sin(orientation))*(thickness/arc)*(.2+.6*pos)
         _,_,film_lo,film_hi=film_interval(path,genome)
         bond=effective_film_properties(genome,film_hi-film_lo,float(paths[idx][1]))
         strain=local_strain*p('piezo_strain_transfer',.40)*bond['shear_lag_transfer']
         stress=bond['pvdf_E_MPa']*strain
-        axial_force=stress*bond['effective_width_mm']*thickness
-        dcoeff=D33_PC_PER_N if int(genome.get('piezo_mode',0))==1 else D31_PC_PER_N
-        charge=dcoeff*axial_force
-        capacitance=EPS0_PF_MM*EPSR*width*length/max(thickness,.001)
+        charge=charge_pc(bond,strain)
+        capacitance=capacitance_pf(bond,EPSR)
         feedback=p('piezo_feedback_pf',100.)
         initial=charge/feedback
-        channels.append({'member_index':int(idx),'base_xy_mm':path[0,:2].round(5).tolist(),
+        channels.append({'member_index':int(idx),'stage':stage,'base_xy_mm':path[0,:2].round(5).tolist(),
             'strain_proxy':float(strain),'strain_over_2_percent':bool(abs(strain)>.02),
             'charge_pC':float(charge),'capacitance_pF':float(capacitance),
             'initial_charge_amplifier_V':float(initial),
-            'arc_length_mm':float(arc),'film_length_mm':min(length,arc*.82),
+            'arc_length_mm':float(arc),'film_length_mm':bond['effective_span_mm'],
+            'active_electrode_area_mm2':electrode_area_mm2(bond),'film_mass_g':bond['film_mass_g'],
             'adhesive_shear_lag_transfer':bond['shear_lag_transfer'],
             'adhesive_G_MPa_assumed':bond['adhesive_G_MPa'],
             'pvdf_E_MPa_assumed':bond['pvdf_E_MPa']})
@@ -113,12 +126,14 @@ def transduction(family,genome,mechanics):
       'charge_pC':effective_q,'capacitance_pF':effective_c,
       'initial_charge_amplifier_V':effective_v,
       'leak_tau_s':p('piezo_leak_tau_s',.75),'noise_rms_V_assumed':NOISE_V_RMS,
-      'd_coefficient_pC_per_N_assumed':float(D33_PC_PER_N if int(genome.get('piezo_mode',0)) else D31_PC_PER_N),
+      'd_coefficient_pC_per_N_assumed':D31_PC_PER_N,
+      'requested_piezo_mode':int(genome.get('piezo_mode',0)),
+      'transduction_mode':'d31_uniaxial_broad_face','d33_supported':False,
       'piezo_position':pos,'film_count':count,'layout':layout,'channels':channels,
       'wiring':mode_name,'wiring_matrix':weights,
       'differential_charge_x_pC_proxy':float(np.dot(xsign,charges)),
       'differential_charge_y_pC_proxy':float(np.dot(ysign,charges)),
-      'total_pvdf_mass_g_estimate':count*width*min(length,4.0)*thickness*.00178,
+      'total_pvdf_mass_g_estimate':float(sum(c['film_mass_g'] for c in channels)),
       'note':'Fast readout uses composite-augmented 6DOF mechanics and adhesive shear-lag. Finalist FEM computes local embedded-film strain; not coupled field FEM.'}
 
 
@@ -179,4 +194,4 @@ def screen(family,genome):
       'piezo_overstrain_factor':round(safe,5),
       'piezo_channels':n,'piezo_layout_imbalance':round(imbalance,5),
       'piezo_wiring':normal['wiring'],
-      'piezo_model':'PVDF multi-channel d31/d33 + RC highpass, small-displacement beam strain surrogate, assumed noise'}
+      'piezo_model':'PVDF multi-channel d31 + RC highpass, small-displacement beam strain surrogate, assumed noise'}

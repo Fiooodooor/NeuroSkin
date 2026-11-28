@@ -55,6 +55,21 @@ def choose_film_members(paths, genome):
     if len(candidates)<n:
         raise ValueError(f'{n} PVDF films requested, only {len(candidates)} primary beams')
     phase=round(float(genome.get('piezo_azimuth_rad',0.)),6)
+    if genome.get('hybrid_id','none') not in ('none',None,''):
+        from hybrid_geometry import mid_height
+        zmid=mid_height(genome)
+        upper=[x for x in candidates if paths[x[0]][0][0,2]>zmid-0.25]
+        lower=[x for x in candidates if paths[x[0]][0][0,2]<=zmid-0.25]
+        # Reserve independent sensors in BOTH physical stages; this is not a
+        # single azimuthal array spanning different Z planes.
+        upper_n=(n+1)//2
+        lower_n=n-upper_n
+        if len(upper)<upper_n or len(lower)<lower_n:
+            raise ValueError('Hybrid lacks sufficient upper/lower PVDF support members')
+        selected=[]
+        if upper_n:selected.extend(_cached_member_selection(tuple(upper),upper_n,phase))
+        if lower_n:selected.extend(_cached_member_selection(tuple(lower),lower_n,phase))
+        return selected
     return list(_cached_member_selection(tuple(candidates),n,phase))
 
 def layout_metrics(paths, genome, selected=None):
@@ -64,7 +79,21 @@ def layout_metrics(paths, genome, selected=None):
     center=np.mean(all_leg,axis=0)
     imbalance=float(np.linalg.norm(np.mean(pts,axis=0)-center))
     radius=max(float(np.mean(np.linalg.norm(all_leg-center,axis=1))),1e-7)
+    per_stage={}
+    if genome.get('hybrid_id','none') not in ('none',None,''):
+        from hybrid_geometry import mid_height
+        mid=mid_height(genome)-.25
+        for stage,upper in (('lower',False),('upper',True)):
+            ids=[i for i,(p,_,tag) in enumerate(paths) if tag=='leg' and bool(p[0,2]>mid)==upper]
+            films=[i for i in selected if i in ids]
+            base=np.asarray([paths[i][0][0,:2] for i in ids])
+            c=base.mean(axis=0)
+            rad=max(float(np.mean(np.linalg.norm(base-c,axis=1))),1e-7)
+            off=float(np.linalg.norm(np.asarray([paths[i][0][0,:2] for i in films]).mean(axis=0)-c)) if films else None
+            per_stage[stage]={'film_count':len(films),'strut_indices':films,'centroid_offset_mm':off,
+                              'normalized_imbalance':off/rad if off is not None else None}
+    worst=max([imbalance/radius]+[v['normalized_imbalance'] for v in per_stage.values() if v['normalized_imbalance'] is not None])
     return dict(film_count=len(selected),strut_indices=[int(x) for x in selected],
-                centroid_offset_mm=imbalance,normalized_imbalance=imbalance/radius,
+                centroid_offset_mm=imbalance,normalized_imbalance=worst,per_stage=per_stage,
                 layout='single_legacy' if len(selected)==1 else f'balanced_{len(selected)}',
                 legacy=('piezo_count' not in genome))

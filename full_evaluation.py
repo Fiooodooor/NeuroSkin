@@ -13,7 +13,7 @@ from electromechanics import examine, CASES
 from spatial_validation import spatial_pressure_test
 from optimization import PRESETS
 
-AUDIT_VERSION='1.9.1-operating-band-guided-screen-plus-SLS'
+AUDIT_VERSION='3.0-alpha-d31-rank5-screen'
 PRESSURE_FORCES_N=(.025,.10,.40)
 FREQUENCIES_HZ=(2.,25.,150.)
 NUISANCE_STRAINS=(-.05,.05)
@@ -145,6 +145,8 @@ def audit_candidate(family,g,objective='balanced',grid_size=5):
     unload=recovery_for_candidate(family,g)
     # Explicitly preserve individual tests, not merely their weighted averages.
     observability=condition_metrics(family,g)
+    from symmetry_geometry import symmetry_report
+    symmetry=symmetry_report(family,g)
     recovery=force_recovery(family,g)
     from selection_refinement import spatial_operating_summary, enforce_score_band
     summary=spatial_operating_summary(spatial)
@@ -157,7 +159,7 @@ def audit_candidate(family,g,objective='balanced',grid_size=5):
     strain=max(abs(cases[n]['piezo_strain_proxy']) for n in cases)
     # Hard engineering screening, not physical certification.
     feasible=bool(summary['screen_feasible'] and geom['passed'] and
-                  observability['rank_5_unknowns']>=3 and
+                  observability['rank_5_unknowns']==5 and
                   strain<=.08 and np.isfinite(quick) and unload['strain_screen_passed'])
     signal_component=min(1.,max(0.,min_snr)/8.)
     low_force_component=min(1.,max(0.,summary['low_force_min_snr_assumed'])/3.)
@@ -172,7 +174,7 @@ def audit_candidate(family,g,objective='balanced',grid_size=5):
         utility=min(49.99,utility*.5*(.40+.60*margin_quality))
     rejection_reasons=list(summary['failing_conditions'])
     if not geom['passed']:rejection_reasons.extend(f'manufacturing_{f}' for f in geom['flags'])
-    if observability['rank_5_unknowns']<3:rejection_reasons.append('underidentified_force_and_contact')
+    if observability['rank_5_unknowns']<5:rejection_reasons.append('underidentified_force_and_contact')
     if strain>.08:rejection_reasons.append('piezo_strain_proxy_excessive')
     if not unload['strain_screen_passed']:rejection_reasons.append('unloading_strain_limit')
     rejection_reasons=sorted(set(rejection_reasons))
@@ -193,7 +195,7 @@ def audit_candidate(family,g,objective='balanced',grid_size=5):
                              'manufacturing_flags':geom['flags']},
            'pressure_spatial':spatial,'spatial_operating_summary':summary,'screening_failure_reasons':rejection_reasons,
            'load_cases':cases,'piezo_frequency_sweep':frequency,'unloading_recovery':unload,
-           'observability':observability,'force_reconstruction':recovery,'manufacturability':geom,
+           'observability':observability,'symmetry':symmetry,'force_reconstruction':recovery,'manufacturability':geom,
            'screening_metrics':original,
            'limitations':['6-DOF beam proxy; no hyperelasticity or real contact FEM',
                            'synthetic electrical response and assumed noise (not measured)',
@@ -213,10 +215,34 @@ def promote(incumbent, finalists):
     if not pool:return None,{'reason':'no_finalist'}
     for x in pool:
         if not x.get('audit'):raise ValueError('Promotion requires completed audit for every candidate')
-    def rank(x):return (int(bool(x['audit']['feasible'])),float(x['audit']['audit_score']))
+    reports=[x['audit'].get('validation_v30') for x in pool]
+    if any(reports):
+        # Never compare legacy fitness to a newly validated report. An older
+        # incumbent remains in place until explicitly revalidated.
+        if not all(reports):
+            if incumbent is not None:
+                return incumbent,{'reason':'incompatible_legacy_validation_protocol',
+                                  'previous':incumbent['id'],'selected':incumbent['id'],
+                                  'replaced':False,'requires_revalidation':True}
+            raise ValueError('Partial Top-3 validation: a finalist lacks a report')
+        from validation_contract import ValidationReport, candidate_comparable
+        for report in reports:ValidationReport.model_validate(report)
+        anchor=reports[0]
+        if any(not candidate_comparable(anchor,x)[0] for x in reports[1:]):
+            if incumbent is not None:
+                return incumbent,{'reason':'incomparable_fidelity_or_protocol',
+                                  'previous':incumbent['id'],'selected':incumbent['id'],
+                                  'replaced':False,'requires_revalidation':True}
+            raise ValueError('Top-3 validation protocol or fidelity differs')
+    def rank(x):return (int(bool(x['audit']['feasible']) and
+                            (not reports[0] or x['audit']['validation_v30']['pass_current_tier'])),
+                        float(x['audit']['audit_score']))
     candidate=max(pool,key=rank)
     previous=incumbent['id'] if incumbent else None
     if incumbent is not None and rank(candidate)<=rank(incumbent):candidate=incumbent
+    validated=bool(candidate['audit'].get('validation_v30',{}).get('pass_current_tier'))
     return candidate,{'previous':previous,'selected':candidate['id'],
                       'replaced':previous is not None and candidate['id']!=previous,
-                      'rule':'feasible first → audit score; incumbent retained on ties'}
+                      'validated_T0':validated,
+                      'status':'T0_synthetic_screen_pass' if validated else 'provisional_not_validated',
+                      'rule':'same fidelity and protocol → T0 screen → audit score; incumbent retained on ties'}

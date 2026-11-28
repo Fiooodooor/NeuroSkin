@@ -27,10 +27,10 @@
     let traces=[taxels],title='Discrete taxel displacement and reaction';
     if(d.membrane_surface){
       const s=d.membrane_surface;
-      traces=[{type:'surface',name:'Membrane',x:s.axis_mm,y:s.axis_mm,z:s.displacement_mm.map(row=>row.map(v=>-v)),surfacecolor:s.displacement_mm,colorscale:'Viridis',showscale:false,opacity:.8,hovertemplate:'x %{x:.3g} mm<br>y %{y:.3g} mm<br>z %{z:.4g} mm<extra>Membrane</extra>'},taxels];
+      traces=[{type:'surface',name:'Membrane',x:s.inplane_x_mm?s.inplane_x_mm.map(row=>row.map((v,i)=>s.axis_mm[i]+v)):s.axis_mm,y:s.inplane_y_mm?s.inplane_y_mm.map((row,j)=>row.map(v=>s.axis_mm[j]+v)):s.axis_mm,z:s.displacement_mm.map(row=>row.map(v=>-v)),surfacecolor:s.displacement_mm,colorscale:'Viridis',showscale:false,opacity:.8,hovertemplate:'x %{x:.3g} mm<br>y %{y:.3g} mm<br>z %{z:.4g} mm<extra>Membrane</extra>'},taxels];
       title='Solved membrane surface · undeformed XY coordinates';
     }
-    if(d.substrate){const s=d.substrate.surface;traces.push({type:'surface',name:'3D substrate top',x:s.axis_mm,y:s.axis_mm,z:s.displacement_mm.map(row=>row.map(v=>s.reference_z_mm-v)),colorscale:'Cividis',showscale:false,opacity:.8});title='Nonlinear membrane and elastic substrate (schematic vertical separation)';}
+    if(d.substrate){const s=d.substrate.surface;traces.push({type:'surface',name:'3D substrate top',x:s.axis_mm,y:s.axis_mm,z:s.displacement_mm.map(row=>row.map(v=>s.reference_z_mm-v)),colorscale:'Cividis',showscale:false,opacity:.8});title='Membrane and substrate · nominal receptor height separation';}
     const contact=d.input_contacts||[];
     if(contact.length)traces.push({type:'scatter3d',mode:'markers',name:'Applied contact XY (reference z=0)',x:contact.map(c=>c.x_mm),y:contact.map(c=>c.y_mm),z:contact.map(()=>0),marker:{symbol:'diamond',color:'#f1bd6d',size:6},text:contact.map(c=>c.force_N.toPrecision(4)+' N'),hovertemplate:'Applied %{text}<extra></extra>'});
     return {traces,layout:{...base,title,scene:{...scene,aspectmode:'auto',zaxis:{...scene.zaxis,title:'− compression [mm]'}},margin:{l:0,r:65,t:38,b:0},uirevision:'tile'}};

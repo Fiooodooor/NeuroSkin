@@ -32,6 +32,8 @@ def compute_capacity():
 
 from hardware_profile import discover_gpu
 COMPUTE=ComputeAdmission(evolution_alive,compute_capacity,gpu_probe=discover_gpu)
+from resource_telemetry import ProcessTreeSampler
+RESOURCE_TELEMETRY=ProcessTreeSampler()
 @asynccontextmanager
 async def application_lifespan(app):
  try:
@@ -232,7 +234,7 @@ def start(req:Start):
 @app.get('/api/compute/status')
 def compute_status():
  from audit_scheduler import available_ram_mb
- return {**COMPUTE.snapshot(),'available_cpu':available_cores(),'available_ram_mb':available_ram_mb()}
+ return {**COMPUTE.snapshot(),'available_cpu':available_cores(),'available_ram_mb':available_ram_mb(),'observed':RESOURCE_TELEMETRY.snapshot()}
 
 @app.get('/api/audit')
 def audit_state():

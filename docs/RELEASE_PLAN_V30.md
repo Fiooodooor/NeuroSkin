@@ -249,3 +249,6 @@ Canonical development branch: `develop/v3`. Consolidate the full v2.2-derived in
 
 ## Revision 49 — independent synthetic holdout cases for refined tiles
 - Keep common design scenarios for cross-fidelity comparison. After shortlist, report separate predeclared contact locations, loads and noise realizations on the same refined solver with cached transfer. Holdout metrics never change shortlist or refined Pareto membership. GUI shows separate held-out centroid and force errors. Not independent experimental validation. Previous revisions 42–44 passed full CI; revision 45 dimension regression fixed in 48, exact head pending.
+
+## Revision 50 — observed resource telemetry and geometric display
+- On-demand process-tree CPU time delta and RSS sum in compute status; distinguish measured logical CPU equivalents (lower estimate) from reservations. No background sampler, no new GPU polling. Handle nvidia-smi N/A memory fields. Plot actual relaxed membrane XY displacement and substrate top at nominal receptor base height instead of arbitrary substrate thickness offset. Tests for process matching and missing GPU telemetry.

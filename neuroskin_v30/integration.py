@@ -308,6 +308,10 @@ def build_router(select_candidate, preview_genome, current_run_id=None, compute=
             k=curve_stiffness(c['family'],g,E=float(g.get('material_E',1.)))
             kz=1./np.linalg.solve(k,np.array([0.,0.,1.,0.,0.,0.]))[2]
             out=tile_report(kz,req)
+            if out.get('substrate'):
+                # Reference membrane is at nominal receptor top, substrate
+                # top is at receptor base; substrate thickness is below that.
+                out['substrate']['surface']['reference_z_mm']=-float(g['height'])
             out.update(candidate_id=c['id'],family=c['family'])
             return diagnostic_context(out,'tile',req,c,g)
         except (ValueError,RuntimeError,np.linalg.LinAlgError) as exc:raise HTTPException(422,str(exc)) from exc

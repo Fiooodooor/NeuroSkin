@@ -67,7 +67,7 @@ def _parse_gpu_line(line: str) -> dict | None:
         return {"name": fields[0], "total_vram_mb": int(float(re.search(r"[0-9]+(?:\.[0-9]+)?", fields[1]).group())),
                 "free_vram_mb": int(float(re.search(r"[0-9]+(?:\.[0-9]+)?", fields[2]).group())), "driver": fields[3],
                 "compute_capability": fields[4] if len(fields) >= 5 else None}
-    except ValueError:
+    except (ValueError,AttributeError):
         return None
 
 

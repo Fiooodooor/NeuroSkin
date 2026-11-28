@@ -95,3 +95,25 @@ def test_fem_sweep_preserves_load_protocol_and_score(monkeypatch,force_matrixfre
     for k in a['load_cases']:
         for f in ('energy_Nmm','mean_down_mm','max_von_mises_MPa','cg_iterations'):
             assert a['load_cases'][k][f]==pytest.approx(b['load_cases'][k][f],abs=1e-8)
+
+
+def test_laminate_block_jacobi_matches_free_principal_blocks():
+    from scipy.sparse import csr_matrix
+    from matrixfree_fem import MatrixFreeElasticity
+    from reference_fem import ke_hex
+    # One HEX8, artificial positive semidefinite reinforcement. Fix one full
+    # node and one component at a second node to exercise partial constraints.
+    ke=ke_hex(2.,.35,1.)
+    v=np.zeros(24);v[[3,4,5,6,7,8]]=[1.,2.,3.,-1.,-2.,-3.]
+    extra=np.outer(v,v)*.7
+    free=np.setdiff1d(np.arange(24),[0,1,2,4])
+    m=MatrixFreeElasticity(np.arange(24).reshape(1,24),ke,free,24,extra_stiffness=csr_matrix(extra))
+    if not m.accelerated:pytest.skip('Numba unavailable')
+    assert m.block_inv is not None
+    K=ke+extra;expected=np.zeros((len(free),len(free)))
+    for node in range(8):
+        ids=np.flatnonzero(free//3==node)
+        if len(ids):expected[np.ix_(ids,ids)]=np.linalg.inv(K[np.ix_(free[ids],free[ids])])
+    actual=np.column_stack([m._precondition(e) for e in np.eye(len(free))])
+    np.testing.assert_allclose(actual,expected,rtol=1e-12,atol=1e-12)
+    assert np.min(np.linalg.eigvalsh(actual))>0

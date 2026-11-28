@@ -89,9 +89,24 @@ class MatrixFreeElasticity:
         n=len(self.free)
         self.A=LinearOperator((n,n),matvec=self._free_matvec,dtype=np.float64)
         self.block_inv=None
-        if self.accelerated and self.extra_stiffness is None:
+        if self.accelerated:
             blocks=_element_blocks_fast(self.edof,self.ke,self.ndofs//3)
+            if self.extra_stiffness is not None:
+                # Extract the exact three-DOF nodal diagonal blocks of the
+                # embedded laminate, without assembling global substrate K.
+                extra=self.extra_stiffness.tocsr()
+                base=3*np.arange(self.ndofs//3)
+                for a in range(3):
+                    for b in range(3):
+                        blocks[:,a,b]+=np.asarray(extra[base+a,base+b]).reshape(-1)
             try:
+                # SPD is required for CG preconditioning. A partially fixed
+                # node must invert the FREE principal subblock, not the full block.
+                free_mask=np.zeros(self.ndofs,dtype=bool);free_mask[self.free]=True
+                mask=free_mask.reshape(-1,3)
+                blocks*=mask[:,:,None]*mask[:,None,:]
+                blocks[:,range(3),range(3)]+=~mask
+                np.linalg.cholesky(blocks)
                 self.block_inv=np.linalg.inv(blocks)
             except np.linalg.LinAlgError:
                 self.block_inv=None

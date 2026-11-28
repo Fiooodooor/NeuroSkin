@@ -33,7 +33,7 @@ def solver_source_hash():
     root=Path(__file__).resolve().parent
     for name in ('electromechanics.py','advanced.py','sensor_metrics.py',
                  'evaluation_v30.py','laminate_fem.py','physical_fem.py','laminate_shell.py','piezoelectric.py','hybrid_geometry.py','pvdf_array.py','pvdf_physics.py','beam_fem.py','neuroskin_multiscale.py','symmetry_geometry.py',
-                 'electronics_budget.py','validation_contract.py','recovery_sim.py','full_evaluation.py'):
+                 'electronics_budget.py','validation_contract.py','recovery_sim.py','full_evaluation.py','matrixfree_fem.py','audit_scheduler.py'):
         h.update(name.encode('utf-8')+b'\0')
         h.update((root/name).read_bytes())
     return h.hexdigest()

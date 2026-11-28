@@ -42,7 +42,12 @@ def main():
             summary=[{'id':s.id,'score':r['audit_score'],'feasible':r['feasible'],
                       'fem_failed':bool(r.get('fem',{}).get('failed')),
                       'fem_error':r.get('fem',{}).get('error'),
-                      'actual_case_workers':r.get('fem',{}).get('load_case_workers',1)} for s,r in zip(specs,results)]
+                      'actual_case_workers':r.get('fem',{}).get('load_case_workers',1),
+                      'solver':r.get('fem',{}).get('fem_linear_solver'),
+                      'setup_s':r.get('fem',{}).get('setup_time_s'),
+                      'cases_s':r.get('fem',{}).get('load_cases_wall_s'),
+                      'factor_nnz':r.get('fem',{}).get('direct_factor_nnz'),
+                      'cg_preconditioner':r.get('fem',{}).get('cg_preconditioner')} for s,r in zip(specs,results)]
             comparison=[(r['score'],r['feasible'],r['fem_failed']) for r in summary]
             if reference is None:reference=comparison
             match=all(abs(a[0]-b[0])<1e-5 and a[1:]==b[1:] for a,b in zip(reference,comparison))

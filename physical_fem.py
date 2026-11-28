@@ -394,6 +394,7 @@ def fem_sweep(family,g,pitch_mm=1.25,include_fields=False,backend='auto',
        'shear_y':dict(force=(0.,.03,-.04)),
        'torsion_z':dict(force=(0.,0.,-.04),torque_z_Nmm=.02)
     }
+    cases_started=time.monotonic()
     # Shared read-only mesh and stiffness; do not clone large FEM objects.
     # GPU and unaccelerated Python matvec remain serial. Direct sparse solves
     # serialize only the SuperLU call; their field recovery can overlap.
@@ -405,6 +406,7 @@ def fem_sweep(family,g,pitch_mm=1.25,include_fields=False,backend='auto',
         results=dict(zip(cases,solved))
     else:
         results={name:fem.solve(**params) for name,params in cases.items()}
+    cases_wall_s=time.monotonic()-cases_started
     baseline=results['press_center']
     hybrid_stages=None
     if g.get('hybrid_id','none') not in ('none',None,''):
@@ -544,6 +546,8 @@ def fem_sweep(family,g,pitch_mm=1.25,include_fields=False,backend='auto',
     report={'fem_backend':'actual_hex8_linear_3d','fem_linear_solver':fem.solver_mode,'mesh_pitch_mm':pitch_mm,'elements':mesh.voxels,'nodes':len(mesh.nodes),'volume_mm3':round(mesh.volume_mm3,2),
             'inflated_features':mesh.inflated_features,'geometry_fidelity_pass':mesh.inflated_features==0,'mesh_warning':mesh.geometry_warning,'elastic_E_MPa':config.young_MPa,
             'poisson':config.poisson,'setup_time_s':round(fem.setup_s,4),'load_case_workers':used_workers,
+            'load_cases_wall_s':round(cases_wall_s,4),'direct_factor_nnz':int(fem.factor.nnz) if fem.factor is not None else None,
+            'cg_preconditioner':('nodal_block_jacobi' if fem.matrixfree.block_inv is not None else 'scalar_jacobi') if fem.matrixfree is not None else None,
             'load_cases':{k:{kk:(round(float(vv),7) if isinstance(vv,(float,np.floating)) else vv) for kk,vv in value.items() if kk not in ('displacement','element_strain','element_stress','von_mises_MPa','principal_strain')} for k,value in results.items()},
             'capacitance_delta_pF_assumed':signals,
             'fem_capacitor_assumption':{'electrode_area_mm2':area_mm2,'dielectric_gap_mm':gap_mm,

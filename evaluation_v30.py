@@ -22,9 +22,9 @@ from sensor_metrics import (
     NOISE_SIGMA, response_vector, decoder_holdout,
     finite_difference_jacobian, whitened_identifiability,
 )
-from electronics_budget import estimate_budget, ElectronicsAssumptions
+from electronics_budget import budget_for_response
 
-ENGINE_SIGNATURE = 'neuroskin-v3-d31-rank5-screen'
+ENGINE_SIGNATURE = 'neuroskin-v3-d31-rank5-readout'
 
 
 def solver_source_hash():
@@ -32,7 +32,8 @@ def solver_source_hash():
     h=sha256()
     root=Path(__file__).resolve().parent
     for name in ('electromechanics.py','advanced.py','sensor_metrics.py',
-                 'evaluation_v30.py','laminate_fem.py','physical_fem.py','laminate_shell.py','piezoelectric.py','hybrid_geometry.py','pvdf_array.py','pvdf_physics.py','beam_fem.py','neuroskin_multiscale.py','symmetry_geometry.py'):
+                 'evaluation_v30.py','laminate_fem.py','physical_fem.py','laminate_shell.py','piezoelectric.py','hybrid_geometry.py','pvdf_array.py','pvdf_physics.py','beam_fem.py','neuroskin_multiscale.py','symmetry_geometry.py',
+                 'electronics_budget.py','validation_contract.py','recovery_sim.py','full_evaluation.py'):
         h.update(name.encode('utf-8')+b'\0')
         h.update((root/name).read_bytes())
     return h.hexdigest()
@@ -170,9 +171,8 @@ def evaluate_protocol(family: str, genome: dict, *, candidate_id: str = 'adhoc',
     from recovery_sim import recovery_for_candidate
     recovery = recovery_for_candidate(family, genome)
     robustness = robust_screen(family, genome, seed=seed + 1, samples=monte_carlo_samples)
-    budget = estimate_budget(ElectronicsAssumptions(
-        channels=7+max(0,int(genome.get('piezo_count',0)))))
     contact_vec, contact_result = _respond(family, genome, 0.0, 0.0, -0.1, 0.0, 0.0)
+    budget = budget_for_response(contact_result)
     zero_vec, _ = _respond(family, genome, 0.0, 0.0, 0.0, 0.0, 0.0)
     contact_snr = float(np.linalg.norm((contact_vec-zero_vec) / NOISE_SIGMA))
     # Do not silently interpret an unconverged FEM as independent proof.
@@ -200,7 +200,7 @@ def evaluate_protocol(family: str, genome: dict, *, candidate_id: str = 'adhoc',
         TestResult(id='mesh_convergence', status='pass' if convergence else 'not_run', source='linear_fem',
                    reason='Mesh-refinement tolerance not yet verified by same-protocol study'),
         TestResult(id='nonlinear_contact', status='unsupported', source='nonlinear_fem',
-                   reason='No geometrically nonlinear contact solve in this release'),
+                   reason='Nonlinear diagnostic solver exists; no independently qualified candidate nonlinear result in this report'),
         TestResult(id='hardware_test', status='not_run', source='hardware_measurement',
                    reason='Optional T3: no physically measured calibration data supplied; does not block software release or evolution'),
         TestResult(id='indenter_variation', status='unsupported', source='synthetic_surrogate',

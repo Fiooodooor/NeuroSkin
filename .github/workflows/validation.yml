@@ -19,6 +19,6 @@ jobs:
       - name: Compile Python
         run: python -m compileall -q .
       - name: Validation, API, FEM and archive regressions
-        run: python -m pytest -q tests/test_validation_v22.py tests/test_pipeline_v10.py tests/test_archive_api_v11.py tests/test_laminate_shell_v19.py tests/test_laminate_v18.py tests/test_physical_fem.py tests/test_multiscale_v30.py tests/test_physics_v30.py tests/test_symmetry_v30.py tests/test_nonlinear_v30.py tests/test_multiscale_api_v30.py tests/test_topology_v30.py
+        run: python -m pytest -q tests/test_validation_v22.py tests/test_pipeline_v10.py tests/test_archive_api_v11.py tests/test_laminate_shell_v19.py tests/test_laminate_v18.py tests/test_physical_fem.py tests/test_multiscale_v30.py tests/test_physics_v30.py tests/test_symmetry_v30.py tests/test_nonlinear_v30.py tests/test_multiscale_api_v30.py tests/test_topology_v30.py tests/test_readout_v30.py
       - name: Import safety check
         run: python -c "from validation_contract import load_protocol; assert load_protocol().schema_version == 'neuroskin.validation_protocol.v0.1'"

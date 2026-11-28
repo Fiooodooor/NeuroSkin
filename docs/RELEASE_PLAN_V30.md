@@ -59,3 +59,8 @@ These milestones do not complete R03/R04/R09. Do not confuse software release wi
 - Initial full suite (before topology fix): 203 passed, 3 failed, 1 skipped, 106 subtests passed. The topology regression is repaired in revision 6.
 - D011: provenance reads the exact VERSION instead of hard-coding the release. The old refinement fixture's middle candidate now passes the corrected physical screen; use two explicitly single-stage candidates that actually fail the unchanged weak-pressure criterion to test the gradient. Scores 6.1000 and 6.5880, both below 15. No qualification threshold was relaxed.
 - 16 focused tests passed, 2 lifecycle cases deselected; rerun of full suite required.
+
+## Revision 8 — candidate readout accounting and report comparability
+- [x] Logical wired PVDF and intermediate-stage output counts drive packet size, power, scan capacity and ADC noise estimates. Signed wiring maps film output and capacitance to readout channels. Saturation is explicitly reported for the modeled excitation, not used as a physical circuit qualification.
+- [x] Same-tier report comparison now requires identical solver source hash and random seed as well as protocol/noise/fidelity. Missing solver provenance requires revalidation. Expanded source hash includes electronics, contract and full audit.
+- 17 targeted tests passed (readout and validation). Real component selection, CDC/AFE circuit simulation, static/dynamic decoder fusion and hardware evidence remain open. No real BOM price or measured noise implied.

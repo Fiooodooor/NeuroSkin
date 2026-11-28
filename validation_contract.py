@@ -153,10 +153,13 @@ def candidate_comparable(a: dict, b: dict) -> tuple[bool, str]:
         return False, 'different_protocol_hash'
     if a.get('tier') != b.get('tier'):
         return False, 'different_fidelity_tier'
-    for key in ('noise_provenance', 'mesh_convergence_verified'):
-        if a.get('evidence', {}).get(key) != b.get('evidence', {}).get(key):
+    ea,eb=a.get('evidence',{}),b.get('evidence',{})
+    if not ea.get('solver_hash') or not eb.get('solver_hash'):
+        return False, 'missing_solver_hash'
+    for key in ('solver_hash', 'seed', 'noise_provenance', 'mesh_convergence_verified'):
+        if ea.get(key) != eb.get(key):
             return False, f'different_{key}'
-    return True, 'same_protocol_fidelity_noise_basis'
+    return True, 'same_protocol_fidelity_solver_seed_noise_basis'
 
 
 def choose_validated_champion(incumbent: dict | None, contenders: list[dict]):

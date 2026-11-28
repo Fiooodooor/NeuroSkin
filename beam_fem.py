@@ -348,7 +348,8 @@ def pi_circle_area(radius):return pi*radius*radius
 
 
 def beam_sweep(family,g,pitch_mm=.25,include_fields=False,inspector_case='press_center',
-               inspector_force_N=.1,inspector_offset=(0.,0.)):
+               inspector_force_N=.1,inspector_offset=(0.,0.),include_previews=False):
+    from fem_preview import PREVIEW_CASES, pack_previews
     fem=BeamFEM(family,g,pitch_mm)
     cases={
       'press_center':dict(force=(0.,0.,-.1)),
@@ -359,7 +360,7 @@ def beam_sweep(family,g,pitch_mm=.25,include_fields=False,inspector_case='press_
       'shear_x':dict(force=(.03,0.,-.04)),
       'shear_y':dict(force=(0.,.03,-.04)),
       'torsion_z':dict(force=(0.,0.,-.04),torque_z_Nmm=.02)}
-    results={name:fem.solve(**kwargs,include_fields=(include_fields and name=='press_center')) for name,kwargs in cases.items()}
+    results={name:fem.solve(**kwargs,include_fields=((include_fields and name=='press_center') or (include_previews and name in PREVIEW_CASES))) for name,kwargs in cases.items()}
     baseline=results['press_center']
     extrema=max(v['max_abs_principal_strain'] for v in results.values())
     central=baseline['mean_down_mm']
@@ -414,4 +415,6 @@ def beam_sweep(family,g,pitch_mm=.25,include_fields=False,inspector_case='press_
         report['fields']=inspection['fields']
         report['inspection_case']=inspector_case
         report['inspection_metrics']={k:v for k,v in inspection.items() if k!='fields'}
+    if include_previews:
+        report['preview_fields']=pack_previews({name:results[name]['fields'] for name in PREVIEW_CASES},reports)
     return report

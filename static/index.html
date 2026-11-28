@@ -64,7 +64,7 @@ body.basic .audit-results{display:none}
 <span class="note" style="max-width:210px">Run using <b>Evaluate All</b> · configurable FEM parameters above.</span><small style="max-width:310px">For HEX8, 4× and 8× mean refinement in all three axes (up to ~512× elements); requires memory, Numba and potentially minutes. </small>
 </div>
 <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><label>Color by <select id="femColor"><option value="stress_vm_MPa">von Mises stress [MPa]</option><option value="principal_strain">Principal strain</option><option value="displacement_mm">Displacement magnitude [mm]</option></select></label><label>Visual scale: <b id="femScaleText">5×</b><input type="range" id="femScale" min="1" max="30" value="5"></label><label><input type="checkbox" id="femReference" checked> Reference ghost</label></div>
-<div id="femPlot" style="height:490px"></div><div id="femStatus" class="note">Choose a model in the gallery, then compute. Mechanical field is not guessed or interpolated from the 6-DOF proxy.</div>
+<div id="femPreviewGrid"></div><details id="femCustomInspector"><summary>Custom load inspector · detailed field</summary><div id="femPlot" style="height:490px"></div></details><div id="femStatus" class="note">Choose a model in the gallery, then compute. Mechanical field is not guessed or interpolated from the 6-DOF proxy.</div>
 <pre id="femMetrics" class="resultpre" style="max-height:210px">No 3D FEM run yet.</pre><small>FEM: explicitly selected HEX8 remains a solid solver at fine pitch; beam is a different approximation. CUDA is optional and limited to small assembled HEX8 systems. Beam pitch is along slender members, not through their cross-section. Small strains only; HEX8 includes an embedded PVDF membrane + adhesive shear-lag approximation. It does not resolve peel, delamination, nonlinear contact, hyperelasticity or coupled piezoelectric fields. The beam backend has limited laminate fidelity.</small>
 <div style="margin-top:16px"><h2 style="font-size:13px;margin-bottom:8px">Final laminate shell — resolved PVDF ribbons</h2><small>Last stage: reduced ribbon-shell post-process driven by the solved substrate displacement field. This is a visualization and screening step, not a fully coupled shell-solid multiphysics solve.</small></div>
 <div id="laminatePlot" style="height:360px"></div><div id="laminateShellStatus" class="note">Run Evaluate All to compute the final laminate shell on the current PVDF layout.</div>
@@ -124,7 +124,7 @@ function piezoWiringOverrideValue(){return $('piezoWiring').value!==''?Number($(
 function metricBox(k,v){return `<div class="metric"><small>${k.replace(/_/g,' ')}</small><b>${typeof v==='number'?v.toLocaleString('en-US',{maximumFractionDigits:5}):String(v)}</b></div>`}
 let lastSelectionIdentity='',meshRequest=0,responseRequest=0,spatialRequest=0,selectionRevision=0,contextRevision=0,startPending=false;
 function selectionIdentity(){const c=findCandidate(currentSelection);return JSON.stringify([archiveRunId,archiveGeneration,archiveRunId||(['seed','hybrid'].includes(currentSelection.kind)?null:state?.id),c?.id,c?.family,piezoOverrideValue(),piezoWiringOverrideValue()]);}
-function invalidateInspectors(){selectionRevision++;window.NeuroWorkspace?.renderEvaluation(null);currentResponse=null;lastSpatial=null;solvedFEM=null;laminateShell=null;responseRequest++;spatialRequest++;$('exportspatial').disabled=true;for(const id of ['electricalmetrics','piezoMetrics','spatialmetrics'])$(id).replaceChildren();for(const id of ['modeldisplacement','spatialflags','femMetrics','laminateShellMetrics','validationMetrics','allEvalResult'])$(id).textContent='Selection changed — run the inspector again.';$('femStatus').textContent='No FEM result for this selection.';$('laminateShellStatus').textContent='No laminate result for this selection.';$('validationStatus').textContent='No validation result for this selection.';$('orientationPanel').style.display='none';$('orientationStudy').textContent='No orientation result for this selection.';for(const id of ['responsegraph','piezoGraph','spatialmap','femPlot','laminatePlot']){const p=$(id);if(p?._fullLayout)Plotly.react(p,[],p.layout||{}, {responsive:true,displaylogo:false});}markEvaluationStale();}
+function invalidateInspectors(){selectionRevision++;window.NeuroWorkspace?.renderEvaluation(null);currentResponse=null;lastSpatial=null;solvedFEM=null;femPreviewFields=null;window.NeuroWorkspace?.renderFEMPreviews();laminateShell=null;responseRequest++;spatialRequest++;$('exportspatial').disabled=true;for(const id of ['electricalmetrics','piezoMetrics','spatialmetrics'])$(id).replaceChildren();for(const id of ['modeldisplacement','spatialflags','femMetrics','laminateShellMetrics','validationMetrics','allEvalResult'])$(id).textContent='Selection changed — run the inspector again.';$('femStatus').textContent='No FEM result for this selection.';$('laminateShellStatus').textContent='No laminate result for this selection.';$('validationStatus').textContent='No validation result for this selection.';$('orientationPanel').style.display='none';$('orientationStudy').textContent='No orientation result for this selection.';for(const id of ['responsegraph','piezoGraph','spatialmap','femPlot','laminatePlot']){const p=$(id);if(p?._fullLayout)Plotly.react(p,[],p.layout||{}, {responsive:true,displaylogo:false});}markEvaluationStale();}
 function selectedUI(){
  const c=findCandidate(currentSelection);if(!c){if(lastSelectionIdentity){lastSelectionIdentity='';invalidateInspectors();$('viewtitle').textContent='No candidate selected';$('fitness').textContent='—';$('gateStatus').textContent='No screening result';$('metricgrid').replaceChildren();$('parameters').textContent='—';$('stl').disabled=true;$('genome').disabled=true;meshSignature='';meshRequest++;Plotly.react('model',[],baseLayout,{responsive:true,displaylogo:false});}return;}
  if(c.family==='quadrant'&&(!c.genome.hybrid_id||c.genome.hybrid_id==='none')&&piezoOverrideValue()>4)$('piezoOverride').value='';
@@ -234,9 +234,10 @@ Plotly.newPlot('spatialmap',[],{paper_bgcolor:'#101e2b',plot_bgcolor:'#101e2b',f
 
 
 // ACTUAL FEM VIEWER — plots the exact surface FE nodes and numerical displacements.
-let solvedFEM=null;let laminateShell=null;
+let solvedFEM=null;let laminateShell=null;let femPreviewFields=null;
 function renderSolvedFEM(){
- if(!solvedFEM)return;
+ window.NeuroWorkspace?.renderFEMPreviews();
+ if(!solvedFEM||!$('femCustomInspector').open)return;
  const m=solvedFEM.mesh,scale=Number($('femScale').value),v=m.vertices_mm,d=m.displacement_mm;
  $('femScaleText').textContent=scale+'×';
  const x=v.map((p,i)=>p[0]+scale*d[i][0]),y=v.map((p,i)=>p[1]+scale*d[i][1]),z=v.map((p,i)=>p[2]+scale*d[i][2]);
@@ -260,6 +261,7 @@ function renderLaminateShell(){
 }
 // FEM fields are computed through the single Evaluate All action.
 // Previous standalone FEM run button was removed to avoid inconsistent audits.
+$('femCustomInspector').addEventListener('toggle',()=>{if($('femCustomInspector').open)renderSolvedFEM();else if($('femPlot')._fullLayout)Plotly.purge('femPlot');});
 $('femScale').oninput=()=>{renderSolvedFEM();renderLaminateShell();};$('femColor').onchange=renderSolvedFEM;$('femReference').onchange=()=>{renderSolvedFEM();renderLaminateShell();};
 
 // UI is a pure projection of the same state; Basic never skips tests or changes fitness.
@@ -393,6 +395,7 @@ async function loadSeedLibrary(){
 function evaluationIdentity(){return JSON.stringify([selectionIdentity(),selectionRevision,...['audit_grid','objective','femViewBackend','femViewPitch','femDevice','femCase','femForce','femOffsetX','femOffsetY'].map(id=>$(id).value),$('enable_fem').checked]);}
 function markEvaluationStale(){
  window.NeuroWorkspace?.renderEvaluation(null);
+ window.NeuroWorkspace?.markFEMStale();
  const status=$('allEvalStatus');
  if(status&&!status.textContent.startsWith('Evaluating')) status.textContent='Parameters changed. Press Evaluate All to refresh mechanical, electrical and spatial results.';
 }
@@ -407,7 +410,7 @@ $('evaluateAll').onclick=async()=>{
    audit_grid:Number($('audit_grid').value),objective:$('objective').value,
    fem_enabled:$('enable_fem').checked,fem_backend:$('femViewBackend').value,
    fem_pitch_mm:Number($('femViewPitch').value),
-   fem_compute_device:$('femDevice').value,fem_inspection_case:$('femCase').value,
+   fem_include_previews:true,fem_compute_device:$('femDevice').value,fem_inspection_case:$('femCase').value,
    fem_inspection_force_n:Number($('femForce').value),
    fem_inspection_offset_x:Number($('femOffsetX').value),fem_inspection_offset_y:Number($('femOffsetY').value)};
   const data=await api('POST','/evaluate_all',req);if(identity!==evaluationIdentity()||String(data.candidate_id)!==String(cand.id)){$('allEvalStatus').textContent='Completed result discarded: selection or settings changed during evaluation. Run Evaluate All again.';return;}const a=data.audit, rec=data.recovery;window.NeuroWorkspace?.renderEvaluation(data);
@@ -424,6 +427,7 @@ $('evaluateAll').onclick=async()=>{
   }else{$('orientationPanel').style.display='none';$('orientationStudy').textContent='Not a hybrid model.';}
 
   const fm=data.fem;
+  femPreviewFields=fm?.preview_fields||null;window.NeuroWorkspace?.renderFEMPreviews();
   $('allEvalStatus').textContent=`${cand.id}: full protocol finished · score ${Number(a.audit_score).toFixed(2)}/100 (${a.score_band||'historical'}) · ${a.feasible?'PASS':'NOT FEASIBLE'} · FEM ${fm?.feasible_linear?'solved':fm?'not feasible':'disabled'}${a.screening_failure_reasons?.length?' · '+a.screening_failure_reasons.slice(0,3).join(', '):''}`;
   const compact={candidate:data.candidate_id,audit_score:a.audit_score,screen_feasible:a.feasible,
     score_band:a.score_band,spatial_operating_summary:a.spatial_operating_summary,
@@ -474,4 +478,4 @@ async function loadHybridLibrary(){
 $('seed').value=String(crypto.getRandomValues(new Uint32Array(1))[0]>>>1);
 loadSeedLibrary();loadHybridLibrary();refreshSearchScopes();
 setInterval(poll,1100);fetch('/api/system').then(r=>r.json()).then(d=>{$('cores').max=d.logical_cores;$('cores').value=Math.max(1,Math.min(d.default_cores,d.logical_cores));$('coreinfo').textContent=`${d.logical_cores} logical CPUs available · ${d.hardware?.cpu?.physical_host||'unknown'} physical · ${d.hardware?.ram_total_mb?Math.round(d.hardware.ram_total_mb/1024)+' GB RAM':'RAM unknown'} · ${d.hardware?.nvidia_gpu?.available?(d.hardware.nvidia_gpu.name+' ('+d.hardware.nvidia_gpu.total_vram_mb+' MB VRAM)'):'GPU unverified'}; CPU evolution recommended.`}).catch(()=>{});poll();
-</script><script src="/static/workspace_reports.js"></script><script src="/static/workspace_profiles.js"></script><script src="/static/workspace.js"></script></body></html>
+</script><script src="/static/workspace_reports.js"></script><script src="/static/workspace_profiles.js"></script><script src="/static/fem_previews.js"></script><script src="/static/workspace.js"></script></body></html>

@@ -20,6 +20,7 @@ from scipy.sparse import coo_matrix
 from scipy.sparse.linalg import splu
 from matrixfree_fem import MatrixFreeElasticity
 from reference_fem import ke_hex
+from fem_preview import PREVIEW_CASES, MAX_TRIANGLES, pack_previews
 from advanced import structural_struts, _profile_radius
 
 CORNERS=np.asarray([[0,0,0],[1,0,0],[1,1,0],[0,1,0],[0,0,1],[1,0,1],[1,1,1],[0,1,1]], dtype=np.int32)
@@ -361,7 +362,7 @@ class HexElasticSolver:
 
 
 def fem_sweep(family,g,pitch_mm=1.25,include_fields=False,backend='auto',
-              inspector_case='press_center',inspector_force_N=.1,inspector_offset=(0.,0.),compute_device='cpu',case_workers=1):
+              inspector_case='press_center',inspector_force_N=.1,inspector_offset=(0.,0.),compute_device='cpu',case_workers=1,include_previews=False):
     """Real FEM: small-pitch space-frame or coarser HEX8 solid with explicit backend labels."""
     if type(case_workers) is not int or not 1<=case_workers<=8:
         raise ValueError('case_workers must be an integer in 1..8')
@@ -372,7 +373,7 @@ def fem_sweep(family,g,pitch_mm=1.25,include_fields=False,backend='auto',
     if backend=='beam' or (backend=='auto' and pitch_mm<.7 and g.get('hybrid_id','none') in ('none',None,'')):
         from beam_fem import beam_sweep
         return beam_sweep(family,g,pitch_mm=pitch_mm,include_fields=include_fields,inspector_case=inspector_case,
-                          inspector_force_N=inspector_force_N,inspector_offset=inspector_offset)
+                          inspector_force_N=inspector_force_N,inspector_offset=inspector_offset,include_previews=include_previews)
 
     """Identical FEM load protocol for all shortlisted candidates.
 
@@ -380,7 +381,7 @@ def fem_sweep(family,g,pitch_mm=1.25,include_fields=False,backend='auto',
     No global physics claims if the model is nonconvergent or too highly strained.
     """
     config=FEMConfig(pitch_mm=pitch_mm,young_MPa=float(g.get('material_E',1.0)))
-    mesh=voxel_mesh(family,g,config,build_surface=include_fields)
+    mesh=voxel_mesh(family,g,config,build_surface=include_fields or include_previews)
     fem=HexElasticSolver(mesh,config.young_MPa,config.poisson,
             family=family,genome=g,
             matrixfree_threshold=config.matrixfree_threshold,cg_maxiter=config.cg_maxiter,cg_rtol=config.cg_rtol,cg_timeout_s=config.cg_timeout_s,compute_device=compute_device)
@@ -578,10 +579,12 @@ def fem_sweep(family,g,pitch_mm=1.25,include_fields=False,backend='auto',
         report['fields']=_serialize_mesh_fields(mesh,inspection)
         report['inspection_case']=inspector_case
         report['inspection_metrics']={k:v for k,v in inspection.items() if k not in ('displacement','element_strain','element_stress','von_mises_MPa','principal_strain')}
+    if include_previews:
+        report['preview_fields']=pack_previews({name:_serialize_mesh_fields(mesh,results[name],MAX_TRIANGLES) for name in PREVIEW_CASES},report['load_cases'])
     return report
 
 
-def _serialize_mesh_fields(mesh:SolidMesh,result:dict):
+def _serialize_mesh_fields(mesh:SolidMesh,result:dict,max_triangles=85_000):
     cell_sigma=np.asarray(result['von_mises_MPa'])
     cell_strain=np.asarray(result['principal_strain'])
     # Surface per-vertex averages of element fields, keeping fixed 1:1 FE node IDs.
@@ -594,7 +597,6 @@ def _serialize_mesh_fields(mesh:SolidMesh,result:dict):
     # Large FE surface meshes can overwhelm browsers, even if the solver succeeds.
     # Preserve full nodal fields in VTK/NPZ exports; limit visualization payload.
     full_triangles=len(mesh.surface_faces)
-    max_triangles=85_000
     surface=mesh.surface_faces
     if full_triangles>max_triangles:
         step=int(math.ceil(full_triangles/max_triangles))

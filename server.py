@@ -377,6 +377,7 @@ def simulate_fem(req:FEMRequest):
   raise HTTPException(422, f'FEM geometry/solver rejected candidate: {exc}')
 
 class EvaluateAllRequest(SelectionExpectation):
+ fem_include_previews:bool=False
  fem_inspection_case:str='press_center'
  fem_inspection_force_n:float=Field(default=.1,gt=0,le=.5)
  fem_inspection_offset_x:float=Field(default=0.,ge=-2,le=2)
@@ -413,7 +414,7 @@ def evaluate_all(req:EvaluateAllRequest):
    try:
     fem=fem_sweep(candidate['family'],g,pitch_mm=req.fem_pitch_mm,backend=req.fem_backend,include_fields=True,
                   inspector_case=req.fem_inspection_case,inspector_force_N=req.fem_inspection_force_n,
-                  inspector_offset=(req.fem_inspection_offset_x,req.fem_inspection_offset_y),compute_device=req.fem_compute_device)
+                  inspector_offset=(req.fem_inspection_offset_x,req.fem_inspection_offset_y),compute_device=req.fem_compute_device,include_previews=req.fem_include_previews)
     from audit_combine import merge_fem_into_audit
     merge_fem_into_audit(audit,fem,candidate['family'],g,fem_backend=req.fem_backend,include_fields=False)
    except (ValueError,RuntimeError,MemoryError) as exc:

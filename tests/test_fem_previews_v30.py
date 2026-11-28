@@ -1,0 +1,41 @@
+import numpy as np
+import pytest
+from fem_preview import PREVIEW_CASES,pack_previews
+
+
+def test_shared_preview_topology_and_case_identity(monkeypatch):
+    import fem_preview
+    monkeypatch.setattr(fem_preview,'MAX_TRIANGLES',1)
+    fields={name:{'vertices_mm':[[0,0,0],[1,0,0],[0,1,0],[1,1,0]],
+                  'faces':[[0,1,2],[1,2,3]],'displacement_mm':[[0,0,i]]*4,
+                  'stress_vm_MPa':[i]*4,'principal_strain':[i/10]*4}
+            for i,name in enumerate(PREVIEW_CASES)}
+    metrics={name:{'max_displacement_mm':i,'load_force_N':[0,0,-.1]} for i,name in enumerate(PREVIEW_CASES)}
+    out=pack_previews(fields,metrics)
+    assert out['case_order']==list(PREVIEW_CASES)
+    assert out['display_downsampled'] and out['display_surface_triangles']==1
+    assert len(out['vertices_mm'])==3
+    for i,name in enumerate(PREVIEW_CASES):
+        assert out['cases'][name]['displacement_mm']==[[0,0,i]]*3
+        assert out['cases'][name]['metrics']['max_displacement_mm']==i
+    fields['shear_x']['vertices_mm'][0]=[1,2,3]
+    with pytest.raises(ValueError,match='share reference'):pack_previews(fields,metrics)
+
+
+@pytest.mark.parametrize('backend',['hex8','beam'])
+def test_fem_preview_fields_reuse_standard_cases_without_changing_score(backend):
+    from advanced import new_genome
+    from physical_fem import fem_sweep
+    import random
+    g=new_genome('quadrant',random.Random(42));g['hybrid_id']='none'
+    a=fem_sweep('quadrant',g,pitch_mm=1.25,backend=backend)
+    b=fem_sweep('quadrant',g,pitch_mm=1.25,backend=backend,include_fields=True,include_previews=True)
+    assert 'preview_fields' not in a
+    assert a['fem_score']==pytest.approx(b['fem_score'],abs=1e-7)
+    assert a['feasible_linear']==b['feasible_linear']
+    p=b['preview_fields'];assert p['case_order']==list(PREVIEW_CASES)
+    for name in PREVIEW_CASES:
+        c=p['cases'][name]
+        assert len(c['displacement_mm'])==len(p['vertices_mm'])
+        assert c['metrics']['max_displacement_mm']==b['load_cases'][name]['max_displacement_mm']
+    assert not np.allclose(p['cases']['press_center']['displacement_mm'],p['cases']['shear_x']['displacement_mm'])

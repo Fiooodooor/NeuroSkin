@@ -154,3 +154,7 @@ Canonical development branch: `develop/v3`. Consolidate the full v2.2-derived in
 - Added real FastAPI/Chromium Evaluate All test for all four load fields, shared color limits, audit payload stripping, expansion, resource disposal and count-only preview override. Exact-head browser CI pending.
 - Local verification: all three tests in test_fem_previews_v30.py pass against available Alpha 2 mechanics with the same preview integration edits; the packer and test Git hashes match the committed files. Node shared-scale regression passed; frontend renderer hash matches Git. Previous full revision 21 CI passed. This is not a full latest-HEAD regression or GPU performance measurement.
 - D026: display sampling may omit local extrema; label range as displayed and retain full solved extrema in case captions. No change to numerical qualification or T3.
+
+## Revision 25 — keep display failures outside the FEM qualification boundary
+- Optional four-case packing errors are reported separately without changing numerical score or feasible flag; exclude display-only errors from audit summaries. Clear preview resources on closing the FEM details panel as well as leaving the tab. Add injected-failure regression. Exact-head tests pending.
+- D027: the optional preview serialization stage is not a physical validity gate. This does not suppress actual solver, geometry or equilibrium failures. T3 optional.

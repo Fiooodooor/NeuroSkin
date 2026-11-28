@@ -124,7 +124,7 @@ function piezoWiringOverrideValue(){return $('piezoWiring').value!==''?Number($(
 function metricBox(k,v){return `<div class="metric"><small>${k.replace(/_/g,' ')}</small><b>${typeof v==='number'?v.toLocaleString('en-US',{maximumFractionDigits:5}):String(v)}</b></div>`}
 let lastSelectionIdentity='',meshRequest=0,responseRequest=0,spatialRequest=0,selectionRevision=0,contextRevision=0,startPending=false;
 function selectionIdentity(){const c=findCandidate(currentSelection);return JSON.stringify([archiveRunId,archiveGeneration,archiveRunId||(['seed','hybrid'].includes(currentSelection.kind)?null:state?.id),c?.id,c?.family,piezoOverrideValue(),piezoWiringOverrideValue()]);}
-function invalidateInspectors(){selectionRevision++;window.NeuroWorkspace?.renderEvaluation(null);currentResponse=null;lastSpatial=null;solvedFEM=null;femPreviewFields=null;window.NeuroWorkspace?.renderFEMPreviews();laminateShell=null;responseRequest++;spatialRequest++;$('exportspatial').disabled=true;for(const id of ['electricalmetrics','piezoMetrics','spatialmetrics'])$(id).replaceChildren();for(const id of ['modeldisplacement','spatialflags','femMetrics','laminateShellMetrics','validationMetrics','allEvalResult'])$(id).textContent='Selection changed — run the inspector again.';$('femStatus').textContent='No FEM result for this selection.';$('laminateShellStatus').textContent='No laminate result for this selection.';$('validationStatus').textContent='No validation result for this selection.';$('orientationPanel').style.display='none';$('orientationStudy').textContent='No orientation result for this selection.';for(const id of ['responsegraph','piezoGraph','spatialmap','femPlot','laminatePlot']){const p=$(id);if(p?._fullLayout)Plotly.react(p,[],p.layout||{}, {responsive:true,displaylogo:false});}markEvaluationStale();}
+function invalidateInspectors(){selectionRevision++;window.NeuroWorkspace?.renderEvaluation(null);currentResponse=null;lastSpatial=null;solvedFEM=null;femPreviewFields=null;femPreviewError=null;window.NeuroWorkspace?.renderFEMPreviews();laminateShell=null;responseRequest++;spatialRequest++;$('exportspatial').disabled=true;for(const id of ['electricalmetrics','piezoMetrics','spatialmetrics'])$(id).replaceChildren();for(const id of ['modeldisplacement','spatialflags','femMetrics','laminateShellMetrics','validationMetrics','allEvalResult'])$(id).textContent='Selection changed — run the inspector again.';$('femStatus').textContent='No FEM result for this selection.';$('laminateShellStatus').textContent='No laminate result for this selection.';$('validationStatus').textContent='No validation result for this selection.';$('orientationPanel').style.display='none';$('orientationStudy').textContent='No orientation result for this selection.';for(const id of ['responsegraph','piezoGraph','spatialmap','femPlot','laminatePlot']){const p=$(id);if(p?._fullLayout)Plotly.react(p,[],p.layout||{}, {responsive:true,displaylogo:false});}markEvaluationStale();}
 function selectedUI(){
  const c=findCandidate(currentSelection);if(!c){if(lastSelectionIdentity){lastSelectionIdentity='';invalidateInspectors();$('viewtitle').textContent='No candidate selected';$('fitness').textContent='—';$('gateStatus').textContent='No screening result';$('metricgrid').replaceChildren();$('parameters').textContent='—';$('stl').disabled=true;$('genome').disabled=true;meshSignature='';meshRequest++;Plotly.react('model',[],baseLayout,{responsive:true,displaylogo:false});}return;}
  if(c.family==='quadrant'&&(!c.genome.hybrid_id||c.genome.hybrid_id==='none')&&piezoOverrideValue()>4)$('piezoOverride').value='';
@@ -234,7 +234,7 @@ Plotly.newPlot('spatialmap',[],{paper_bgcolor:'#101e2b',plot_bgcolor:'#101e2b',f
 
 
 // ACTUAL FEM VIEWER — plots the exact surface FE nodes and numerical displacements.
-let solvedFEM=null;let laminateShell=null;let femPreviewFields=null;
+let solvedFEM=null;let laminateShell=null;let femPreviewFields=null;let femPreviewError=null;
 function renderSolvedFEM(){
  window.NeuroWorkspace?.renderFEMPreviews();
  if(!solvedFEM||!$('femCustomInspector').open||(window.NeuroWorkspace&&!window.NeuroWorkspace.isFEMVisible()))return;
@@ -428,7 +428,7 @@ $('evaluateAll').onclick=async()=>{
   }else{$('orientationPanel').style.display='none';$('orientationStudy').textContent='Not a hybrid model.';}
 
   const fm=data.fem;
-  femPreviewFields=fm?.preview_fields||null;window.NeuroWorkspace?.renderFEMPreviews();
+  femPreviewFields=fm?.preview_fields||null;femPreviewError=fm?.preview_error||(fm?.failed?fm.error:null);window.NeuroWorkspace?.renderFEMPreviews();
   $('allEvalStatus').textContent=`${cand.id}: full protocol finished · score ${Number(a.audit_score).toFixed(2)}/100 (${a.score_band||'historical'}) · ${a.feasible?'PASS':'NOT FEASIBLE'} · FEM ${fm?.feasible_linear?'solved':fm?'not feasible':'disabled'}${a.screening_failure_reasons?.length?' · '+a.screening_failure_reasons.slice(0,3).join(', '):''}`;
   const compact={candidate:data.candidate_id,audit_score:a.audit_score,screen_feasible:a.feasible,
     score_band:a.score_band,spatial_operating_summary:a.spatial_operating_summary,

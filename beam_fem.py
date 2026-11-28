@@ -416,5 +416,8 @@ def beam_sweep(family,g,pitch_mm=.25,include_fields=False,inspector_case='press_
         report['inspection_case']=inspector_case
         report['inspection_metrics']={k:v for k,v in inspection.items() if k!='fields'}
     if include_previews:
-        report['preview_fields']=pack_previews({name:results[name]['fields'] for name in PREVIEW_CASES},reports)
+        try:
+            report['preview_fields']=pack_previews({name:results[name]['fields'] for name in PREVIEW_CASES},reports)
+        except (ValueError,TypeError,IndexError,KeyError,MemoryError,ArithmeticError) as exc:
+            report['preview_error']=f'{type(exc).__name__}: {exc}'
     return report

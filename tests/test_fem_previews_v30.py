@@ -39,3 +39,19 @@ def test_fem_preview_fields_reuse_standard_cases_without_changing_score(backend)
         assert len(c['displacement_mm'])==len(p['vertices_mm'])
         assert c['metrics']['max_displacement_mm']==b['load_cases'][name]['max_displacement_mm']
     assert not np.allclose(p['cases']['press_center']['displacement_mm'],p['cases']['shear_x']['displacement_mm'])
+
+
+def test_optional_preview_serialization_failure_does_not_change_fem_result(monkeypatch):
+    from advanced import new_genome
+    import physical_fem as pf
+    import random
+    g=new_genome('quadrant',random.Random(42));g['hybrid_id']='none'
+    baseline=pf.fem_sweep('quadrant',g,pitch_mm=1.25,backend='hex8')
+    def fail(*args,**kwargs):
+        raise ValueError('Injected preview packing failure')
+    monkeypatch.setattr(pf,'pack_previews',fail)
+    out=pf.fem_sweep('quadrant',g,pitch_mm=1.25,backend='hex8',include_previews=True)
+    assert 'preview_fields' not in out
+    assert 'Injected preview packing failure' in out['preview_error']
+    assert baseline['fem_score']==out['fem_score']
+    assert baseline['feasible_linear']==out['feasible_linear']

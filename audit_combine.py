@@ -13,7 +13,7 @@ def merge_fem_into_audit(audit: dict, fem: dict, family: str, genome: dict,
     feasible = bool(audit['feasible'] and fem['feasible_linear'])
     audit['audited_surrogate_score'] = baseline
     audit['audited_surrogate_feasible'] = bool(audit['feasible'])
-    audit['fem'] = fem if include_fields else {k:v for k,v in dict(fem, fields=None).items() if k!='preview_fields'}
+    audit['fem'] = fem if include_fields else {k:v for k,v in dict(fem, fields=None).items() if k not in ('preview_fields','preview_error')}
     if fem.get('inflated_features',0):
         audit.setdefault('screening_failure_reasons', []).append('fem_geometry_inflated_members')
     if not fem['feasible_linear']:

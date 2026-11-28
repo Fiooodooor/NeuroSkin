@@ -580,7 +580,11 @@ def fem_sweep(family,g,pitch_mm=1.25,include_fields=False,backend='auto',
         report['inspection_case']=inspector_case
         report['inspection_metrics']={k:v for k,v in inspection.items() if k not in ('displacement','element_strain','element_stress','von_mises_MPa','principal_strain')}
     if include_previews:
-        report['preview_fields']=pack_previews({name:_serialize_mesh_fields(mesh,results[name],MAX_TRIANGLES) for name in PREVIEW_CASES},report['load_cases'])
+        try:
+            report['preview_fields']=pack_previews({name:_serialize_mesh_fields(mesh,results[name],MAX_TRIANGLES) for name in PREVIEW_CASES},report['load_cases'])
+        except (ValueError,TypeError,IndexError,KeyError,MemoryError,ArithmeticError) as exc:
+            # Optional visualization is not a mechanical qualification gate.
+            report['preview_error']=f'{type(exc).__name__}: {exc}'
     return report
 
 

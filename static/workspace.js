@@ -176,7 +176,7 @@
     const range=valid&&visible?preview.bounds(packet,key,scale):null;
     femLegend.textContent=valid?(femStale?'Settings changed — last solved fields only. ':'')+
       (range?units[key]+' · shared displayed range '+range.cmin.toPrecision(4)+' to '+range.cmax.toPrecision(4)+' · '+scale+'× visual scale · '+packet.display_surface_triangles+' triangles'+(packet.display_downsampled?' (sampled)':''):'Four standard load fields available.'):
-      'No solved fields. Select a receptor and run Evaluate All with FEM enabled.';
+      (femPreviewError?'FEM comparison fields unavailable: '+femPreviewError:'No solved fields. Select a receptor and run Evaluate All with FEM enabled.');
     femLegend.classList.toggle('workspace-stale',femStale&&valid);femActions.hidden=!valid;
     previewDraw=previewDraw.catch(()=>{}).then(async()=>{
       if(rev!==previewRevision)return;
@@ -194,7 +194,7 @@
   }
   function isFEMVisible(){return active==='fem'&&advanced&&fem.open;}
   function updateDetailedFEM(){if(isFEMVisible()){renderSolvedFEM();renderLaminateShell();}else{purgePlot(el('femPlot'));purgePlot(el('laminatePlot'));}}
-  fem.addEventListener('toggle',updateDetailedFEM);
+  fem.addEventListener('toggle',()=>{updateDetailedFEM();if(!isFEMVisible())renderFEMPreviews();});
   const reports=window.NeuroReports;
   let saved=[];try{saved=reports.load(localStorage);}catch{}
   const comparison=make('details','workspace-comparison');comparison.id='workspaceComparison';comparison.append(make('summary','','Compare & save inspection reports'));

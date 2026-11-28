@@ -3,6 +3,7 @@ import math
 import numpy as np
 from sensor_metrics import NOISE_SIGMA, FEATURE_SCALES, grouped_position_split, response_vector
 from validation_design import select_decoder, shear_pairs
+from readout_gain import study_feedback
 
 
 def wired_features(electrical, piezo, frequency_hz):
@@ -32,7 +33,7 @@ def wired_features(electrical, piezo, frequency_hz):
     return np.r_[static,stage,dynamic],sigma,len(stage)
 
 
-def compare_readouts(x,y,groups,sigma,stage_count,*,seed=3322):
+def compare_readouts(x,y,groups,sigma,stage_count,*,seed=3322,feedback_pf=None,tau_s=None):
     """Fit ablations on the same samples, group split and shared noise realization."""
     x,y,sigma=np.asarray(x,float),np.asarray(y,float),np.asarray(sigma,float)
     if (x.ndim!=2 or not 8<=x.shape[1]<=17 or y.shape!=(len(x),5) or len(groups)!=len(x)
@@ -42,7 +43,8 @@ def compare_readouts(x,y,groups,sigma,stage_count,*,seed=3322):
         raise ValueError('Invalid matched readout dataset')
     train,val,test=grouped_position_split(groups,seed)
     rng=np.random.default_rng(seed+13)
-    noisy=x+rng.normal(size=x.shape)*sigma
+    noise=rng.normal(size=x.shape)*sigma
+    noisy=x+noise
     zero=rng.normal(size=(128,x.shape[1]))*sigma
     first_pvdf=7+stage_count
     saturated=np.abs(x[:,first_pvdf:])>1.65
@@ -60,10 +62,13 @@ def compare_readouts(x,y,groups,sigma,stage_count,*,seed=3322):
                        'force_rmse_norm_N':float(np.sqrt(np.mean(np.sum(error[:,:3]**2,axis=1)))),
                        'position_mae_mm':float(np.mean(np.linalg.norm(error[:,3:],axis=1))),
                        'false_positive_fraction_assumed':float(np.mean(np.linalg.norm(pred_zero[:,:3],axis=1)>.025))}
-    return {'models':reports,'group_counts':{k:len({groups[i] for i in v}) for k,v in (('train',train),('validation',val),('test',test))},
+    result={'models':reports,'group_counts':{k:len({groups[i] for i in v}) for k,v in (('train',train),('validation',val),('test',test))},
             'sample_counts':{'train':len(train),'validation':len(val),'test':len(test)},
             'assumed_noise_std_channels':sigma.tolist(),'pvdf_saturated_sample_fraction_assumed':float(np.mean(np.any(saturated,axis=1))),
             'pvdf_ideal_span_V':[-1.65,1.65],'seed':seed,'shared_noise_realization':True}
+    if feedback_pf is not None:
+        result['feedback_study']=study_feedback(x,y,train,val,test,sigma,first_pvdf,feedback_pf,tau_s,noise,zero,FEATURE_SCALES)
+    return result
 
 
 def evaluate_fusion(family,genome,*,grid=3,frequency_hz=25.,seed=3322):
@@ -87,7 +92,8 @@ def evaluate_fusion(family,genome,*,grid=3,frequency_hz=25.,seed=3322):
                 if layout is None:layout=identity
                 elif layout!=identity:raise ValueError('Readout layout changed during load sweep')
                 xdata.append(vector);ydata.append([fx,fy,-fz,x,y]);groups.append(i)
-    result=compare_readouts(xdata,ydata,groups,sigma,stage_count,seed=seed)
+    result=compare_readouts(xdata,ydata,groups,sigma,stage_count,seed=seed,
+                            feedback_pf=float(genome.get('piezo_feedback_pf',100.)),tau_s=float(piezo['leak_tau_s']))
     result.update(tier='T0',evidence='DIAGNOSTIC_ONLY',frequency_hz=frequency_hz,grid=grid,
                   stage_output_count=stage_count,pvdf_output_count=len(layout[1]),wiring_matrix=[list(r) for r in layout[1]],
                   genome_hash=digest({'family':family,'genome':genome}),protocol_hash=digest(protocol.model_dump(mode='json')),

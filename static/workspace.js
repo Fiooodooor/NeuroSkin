@@ -22,6 +22,17 @@
   const actions=make('div','workspace-actions');
   for(const id of ['start','pause','stop','evaluateAll'])actions.append(el(id));
   commands.append(context,actions);
+  const computeStatus=make('small','workspace-compute-status advanced-only','Compute status loading…');computeStatus.id='workspaceComputeStatus';commands.append(computeStatus);
+  let computePending=false;
+  async function refreshCompute(){
+    if(computePending||document.hidden)return;computePending=true;
+    try{
+      const r=await fetch('/api/compute/status',{cache:'no-store'});if(!r.ok)throw Error('HTTP '+r.status);
+      const c=await r.json(),a=c.manual_active;
+      computeStatus.textContent=(a?'Heavy analysis: '+a.name+' · '+a.elapsed_s.toFixed(1)+' s':c.evolution_active?'Evolution owns heavy-compute slot (including pause/cleanup)':'Heavy-compute slot available')+' · '+c.available_cpu+' CPUs · '+(c.available_ram_mb==null?'RAM unknown':(c.available_ram_mb/1024).toFixed(1)+' GiB RAM available');
+    }catch{computeStatus.textContent='Compute status unavailable';}
+    finally{computePending=false;}
+  }
   const toolbar=make('div','workspace-toolbar');header.before(toolbar);toolbar.append(header,commands,nav);
   // Empty legacy action rows are removed, not cloned. Existing handlers stay attached.
   for(const n of [...left.querySelectorAll('.row')])if(!n.children.length)n.remove();
@@ -302,5 +313,5 @@
   archive.addEventListener('click',e=>{if(e.target.closest('#openArchive,#openStage,#returnLive'))show('overview');});
   window.addEventListener('message',e=>{if(e.origin!==location.origin)return;const item=[...openLabs.values()].find(x=>x.frame.contentWindow===e.source);if(!item)return;if(e.data?.type==='neuroskin:lab-height'&&Number.isFinite(e.data.height))item.frame.style.height=Math.max(180,Math.min(18000,e.data.height+12))+'px';else if(e.data?.type==='neuroskin:lab-report'){const r=reports.record(e.data.result);if(r&&reports.matchesFrame(r,item.context)){item.reports.set(r.diagnostic_context.path,r);renderReports();}}else if(e.data?.type==='neuroskin:lab-busy'&&typeof e.data.busy==='boolean'){item.busy=e.data.busy;if(item.frame===frame){labBusy=item.busy;update();}}});
   window.NeuroWorkspace={show,update,resize,renderEvaluation,renderFEMPreviews,markFEMStale,isFEMVisible};
-  mode();show('overview');renderReports();
+  mode();show('overview');renderReports();refreshCompute();setInterval(refreshCompute,2000);
 })();

@@ -20,3 +20,5 @@
 @media(max-width:720px){.workspace-fem-grid{grid-template-columns:1fr}.workspace-fem-preview-plot{height:280px}.workspace .stage.workspace-compact-stage #model,.workspace-pinned-plot{height:280px}}
 
 .workspace-fem-actions{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}.workspace-field-swatch{display:block;width:min(180px,55%);height:12px;border-radius:4px;background:linear-gradient(90deg,#440154,#414487,#2a788e,#22a884,#7ad151,#fde725)}.workspace-fem-card-toolbar{display:flex;align-items:start;gap:8px;justify-content:space-between;flex-wrap:wrap}.workspace-fem-card-toolbar small{flex:1 1 190px}.workspace-fem-card-toolbar button{font-size:11px;padding:4px 8px}.workspace-fem-card.workspace-fem-wide{grid-column:1/-1}.workspace-fem-wide .workspace-fem-preview-plot{height:clamp(350px,64vh,720px)}
+
+.workspace-compute-status{flex:1 0 100%;color:var(--muted);font-size:11px;overflow-wrap:anywhere}

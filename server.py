@@ -20,6 +20,13 @@ from archive_store import ArchiveStore, ArchiveError
 ROOT=Path(__file__).resolve().parent
 EVO=EvolutionV5(ROOT/'runs_v05')
 ARCHIVES=ArchiveStore(EVO.folder)
+from compute_admission import ComputeAdmission
+
+def evolution_alive():
+ thread=getattr(EVO,'thread',None)
+ return thread is not None and thread.is_alive()
+
+COMPUTE=ComputeAdmission(evolution_alive)
 @asynccontextmanager
 async def application_lifespan(app):
  try:
@@ -214,8 +221,14 @@ def select_candidate(kind:str,index:str,family:str,run_id:str|None=None,generati
 def state():return EVO.snapshot()
 @app.post('/api/start')
 def start(req:Start):
- try:return EVO.start(req.mode,req.seconds,req.seed if req.seed is not None else secrets.randbits(31),req.population,req.exploration,req.objective,req.physical_gate,req.gate_grid,req.cores or getattr(app.state,'default_cores',1),req.audit_grid,req.fem_enabled,req.fem_pitch_mm,req.fem_backend,req.search_strategy,req.search_precision)
+ try:
+  with COMPUTE.start_guard():return EVO.start(req.mode,req.seconds,req.seed if req.seed is not None else secrets.randbits(31),req.population,req.exploration,req.objective,req.physical_gate,req.gate_grid,req.cores or getattr(app.state,'default_cores',1),req.audit_grid,req.fem_enabled,req.fem_pitch_mm,req.fem_backend,req.search_strategy,req.search_precision)
  except (ValueError,RuntimeError) as e:raise HTTPException(409,str(e))
+@app.get('/api/compute/status')
+def compute_status():
+ from audit_scheduler import available_ram_mb
+ return {**COMPUTE.snapshot(),'available_cpu':available_cores(),'available_ram_mb':available_ram_mb()}
+
 @app.get('/api/audit')
 def audit_state():
  s=EVO.snapshot()
@@ -283,7 +296,7 @@ def _request_candidate(req):
 
 
 from neuroskin_v30.integration import build_router
-app.include_router(build_router(select_candidate,_preview_genome,_live_run_id))
+app.include_router(build_router(select_candidate,_preview_genome,_live_run_id,COMPUTE))
 
 @app.get('/api/mesh')
 def mesh(kind:str='best',index:str="0",family:str='crown',quality:int=10,run_id:str|None=None,generation:int|None=None,piezo_count_override:int|None=None,piezo_wiring_override:int|None=None,expected_live_run_id:str|None=None,expected_candidate_id:str|None=None):
@@ -328,6 +341,7 @@ class FEMRequest(SelectionExpectation):
  load_n:float=Field(default=.1,gt=0,le=.5)
 
 @app.post('/api/fem/simulate')
+@COMPUTE.route('linear_fem')
 def simulate_fem(req:FEMRequest):
  """Actual continuum HEX8 solution; browser receives the solver's FE surface nodes."""
  c=_request_candidate(req)
@@ -339,7 +353,9 @@ def simulate_fem(req:FEMRequest):
    raise ValueError('Compute device must be cpu, gpu or auto')
   if req.backend not in ('auto','beam','hex8'):
    raise HTTPException(400,'Backend must be auto, beam or hex8')
-  beam_selected=req.backend=='beam' or (req.backend=='auto' and req.pitch_mm<.7)
+  hybrid=g.get('hybrid_id','none') not in ('none',None,'')
+  if hybrid and req.backend=='beam':raise ValueError('Two-stage hybrid requires connected solid HEX8 FEM')
+  beam_selected=req.backend=='beam' or (req.backend=='auto' and req.pitch_mm<.7 and not hybrid)
   if beam_selected and req.compute_device=='gpu':
    raise ValueError('GPU mode only supports small solid HEX8 CSR meshes')
   if beam_selected:
@@ -397,6 +413,7 @@ class EvaluateAllRequest(SelectionExpectation):
  objective:str='balanced'
 
 @app.post('/api/evaluate_all')
+@COMPUTE.route('evaluate_all')
 def evaluate_all(req:EvaluateAllRequest):
  """Unified characterization, spatial scan, dynamic PVDF, inverse tests,
  material-recovery screening, and optional 3D/beam mechanical FEM.

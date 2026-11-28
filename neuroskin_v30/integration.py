@@ -158,8 +158,9 @@ def tile_report(kz, req):
                            'no physical membrane, curvature or readout calibration','contact multiplicity is not identified']}
 
 
-def build_router(select_candidate, preview_genome, current_run_id=None):
+def build_router(select_candidate, preview_genome, current_run_id=None, compute=None):
     router=APIRouter()
+    heavy=compute.route if compute is not None else (lambda name: lambda fn: fn)
     def resolve(req):
         def check_run():
             if req.expected_live_run_id is not None and (current_run_id is None or current_run_id()!=req.expected_live_run_id):
@@ -183,6 +184,7 @@ def build_router(select_candidate, preview_genome, current_run_id=None):
                 'hardware_certified':False}
 
     @router.post('/api/v30/nonlinear/contact-box')
+    @heavy('verification_box')
     def box(req:BoxInput):
         if not CONTACT_SLOT.acquire(blocking=False):raise HTTPException(409,'Nonlinear solver busy')
         try:
@@ -193,6 +195,7 @@ def build_router(select_candidate, preview_genome, current_run_id=None):
         finally:CONTACT_SLOT.release()
 
     @router.post('/api/v30/nonlinear/candidate')
+    @heavy('nonlinear_contact')
     def candidate(req:CandidateContact):
         c,g=resolve(req)
         if not CONTACT_SLOT.acquire(blocking=False):raise HTTPException(409,'Nonlinear solver busy')
@@ -212,6 +215,7 @@ def build_router(select_candidate, preview_genome, current_run_id=None):
         finally:CONTACT_SLOT.release()
 
     @router.post('/api/v30/fusion')
+    @heavy('sensor_fusion')
     def fusion(req:FusionInput):
         c,g=resolve(req)
         if not FUSION_SLOT.acquire(blocking=False):raise HTTPException(409,'Fusion solver busy')

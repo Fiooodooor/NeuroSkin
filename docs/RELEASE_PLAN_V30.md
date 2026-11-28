@@ -54,3 +54,8 @@ These milestones do not complete R03/R04/R09. Do not confuse software release wi
 - [x] Topology jumps select a distinct effective architecture, not an overwritten label. No new orphan hybrid labels; categorical and integer genes are not interpolated during crossover.
 - 29 focused tests and 41 subtests passed (2 long lifecycle cases deselected). Full-suite qualification remains pending.
 - D010: a hybrid-to-hybrid transition may legitimately retain the topology label 'hybrid'; tests now compare architecture identity as well. Scope repair may still constrain the result in a single-architecture mode.
+
+## Revision 7 — full regression follow-up
+- Initial full suite (before topology fix): 203 passed, 3 failed, 1 skipped, 106 subtests passed. The topology regression is repaired in revision 6.
+- D011: provenance reads the exact VERSION instead of hard-coding the release. The old refinement fixture's middle candidate now passes the corrected physical screen; use two explicitly single-stage candidates that actually fail the unchanged weak-pressure criterion to test the gradient. Scores 6.1000 and 6.5880, both below 15. No qualification threshold was relaxed.
+- 16 focused tests passed, 2 lifecycle cases deselected; rerun of full suite required.

@@ -587,7 +587,7 @@ def engine_provenance():
               'audit_combine.py','validation_contract.py','sensor_metrics.py','evaluation_v30.py','electronics_budget.py','validation_protocol_v30.json','pvdf_physics.py','neuroskin_multiscale.py','symmetry_geometry.py'):
   data=(Path(__file__).parent/name).read_bytes()
   h.update(name.encode('utf-8')+b'\0'+data)
- return {'release':'2.2.0','model_type':'spatial_feasibility_guided_evolution_plus_PVDF_shell',
+ return {'release':(Path(__file__).parent/'VERSION').read_text(encoding='utf-8').strip(),'model_type':'spatial_feasibility_guided_evolution_plus_PVDF_shell',
          'sha256':h.hexdigest(),'schema':2}
 
 class EvolutionV5:

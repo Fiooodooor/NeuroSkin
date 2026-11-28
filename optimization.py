@@ -10,6 +10,7 @@ PRESETS={
  'touch':{'geometry':.25,'electrical':.43,'robustness':.12,'piezo':.20},
  'robust':{'geometry':.30,'electrical':.17,'robustness':.38,'piezo':.15},
  'dynamic':{'geometry':.22,'electrical':.18,'robustness':.10,'piezo':.50},
+ 'electronics':{'geometry':.22,'electrical':.18,'robustness':.15,'piezo':.15,'readout':.30},
 }
 
 
@@ -18,7 +19,7 @@ def evaluate(fam,p,preset='balanced',physical_gate=False,gate_grid=3):
  base,metrics,desc=proxy(fam,p)
  if base<-1000:return base,metrics,desc
  try:
-  e=screening_electrical(fam,p)
+  e=screening_electrical(fam,p,include_readout=preset=='electronics')
   # Soft saturation; 6-sigma synthetic *assumptions*, not actual detection accuracy.
   signal=100*(.6*(1-math.exp(-e['normal_snr_proxy']/6))+.4*(1-math.exp(-e['shear_snr_proxy']/6)))
   strain=e['substrate_strain_signal_snr_proxy']
@@ -29,7 +30,7 @@ def evaluate(fam,p,preset='balanced',physical_gate=False,gate_grid=3):
   robust*=1-.35*ambiguity
   piezo=piezo_screen(fam,p)
   w=PRESETS[preset]
-  fitness=float(np.clip(w['geometry']*base+w['electrical']*signal+w['robustness']*robust+w['piezo']*piezo['piezo_score'],0,100))
+  fitness=float(np.clip(w['geometry']*base+w['electrical']*signal+w['robustness']*robust+w['piezo']*piezo['piezo_score']+w.get('readout',0.)*e.get('fitness_readout',0.),0,100))
   hybrid_stage=None
   if p.get('hybrid_id','none') not in ('none',None,''):
    from electromechanics import examine

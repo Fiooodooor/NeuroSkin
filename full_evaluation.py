@@ -170,6 +170,7 @@ def audit_candidate(family,g,objective='balanced',grid_size=5):
                  .12*signal_component+.16*recovery_component+.10*conditioning_component+
                  .08*dynamic_component+.04*low_force_component)
     utility=.92*utility+.08*unload['recovery_score_0_100_assumed']
+    if objective=='electronics':utility=.80*utility+.20*original['fitness_readout']
     if not feasible:
         utility=min(49.99,utility*.5*(.40+.60*margin_quality))
     rejection_reasons=list(summary['failing_conditions'])
@@ -202,6 +203,9 @@ def audit_candidate(family,g,objective='balanced',grid_size=5):
                            'STL is an assembly visualization, not a printable watertight union',
                            'strain and manufacturing thresholds are tentative design assumptions',
                            'Unloading recovery uses an assumed standard-linear-solid compliance, not viscoelastic FEM or experimental calibration']}
+    if objective=='electronics':
+        audit['decision_basis']['readout_score_assumed']=original['fitness_readout']
+        audit['decision_basis']['readout_worst_peak_to_span']=original['readout_worst_peak_to_span']
     return enforce_score_band(audit)
 
 

@@ -591,7 +591,7 @@ def engine_provenance():
  for name in ('seed_library.py','archetype_geometry.py','recovery_sim.py','advanced.py','engine.py','optimization.py','electromechanics.py',
               'piezoelectric.py','spatial_validation.py','full_evaluation.py','geometry_fixes.py','physical_fem.py','laminate_fem.py','laminate_shell.py','hybrid_geometry.py','hybrid_library.py','pvdf_array.py',
               'reference_fem.py','beam_fem.py','matrixfree_fem.py','selection_refinement.py','search_space.py','orientation_study.py',
-              'audit_combine.py','validation_contract.py','sensor_metrics.py','evaluation_v30.py','electronics_budget.py','validation_protocol_v30.json','pvdf_physics.py','neuroskin_multiscale.py','symmetry_geometry.py','audit_scheduler.py','validation_design.py','population_pareto.py','finalist_selection.py'):
+              'audit_combine.py','validation_contract.py','sensor_metrics.py','evaluation_v30.py','electronics_budget.py','electronics_evolution.py','validation_protocol_v30.json','pvdf_physics.py','neuroskin_multiscale.py','symmetry_geometry.py','audit_scheduler.py','validation_design.py','population_pareto.py','finalist_selection.py'):
   data=(Path(__file__).parent/name).read_bytes()
   h.update(name.encode('utf-8')+b'\0'+data)
  return {'release':(Path(__file__).parent/'VERSION').read_text(encoding='utf-8').strip(),'model_type':'spatial_feasibility_guided_evolution_plus_PVDF_shell',
@@ -664,7 +664,7 @@ class EvolutionV5:
 
  def _loop(self,mode,duration,seed,population,exploration,objective,physical_gate,gate_grid,cores,audit_grid,fem_enabled,fem_pitch,fem_backend,search_strategy='adaptive',search_precision=.8):
   from search_space import SearchScope, local_refinement, EliteArchive
-  from population_pareto import rank_population,parent_key,OBJECTIVES
+  from population_pareto import rank_population,parent_key,objectives_for
   scope=SearchScope.parse(mode)
   rng=random.Random(seed);families=scope.families
   pop=[scope.generate(rng) for _ in range(population)]
@@ -789,7 +789,7 @@ class EvolutionV5:
     decision['finalist_nomination']=nomination
     decision['distinct_finalists']=len(top)
     decision['screening_pareto_front_T0']=population_front
-    decision['screening_pareto_objectives']=list(OBJECTIVES)
+    decision['screening_pareto_objectives']=list(objectives_for(objective))
     decision['screening_pareto_policy']='common proxy objectives; feasible-first; not full validation'
     decision['generation']=gen+1;decision['top3']=[{'id':c['id'],'family':c['family'],
        'topology':c['genome']['topology'],'score':c['audit']['audit_score'],

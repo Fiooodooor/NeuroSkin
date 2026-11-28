@@ -188,7 +188,7 @@ def sweep(family,genome,case='normal',steps=17):
    'ux_mm':round(me['displacement_mm'][0],6),'uz_mm':round(me['displacement_mm'][2],6),'rotation_z_rad':round(me['rotation_rad'][2],7)})
  return {'case':case,'rows':rows,'validity':'Predicted electrical signals from assumed geometry and transfer laws. Not verified with circuits or materials.'}
 
-def screening_electrical(family,p):
+def screening_electrical(family,p,include_readout=False):
  """Cheap screening features, with explicit noise margins. This is not force accuracy."""
  scenarios=[examine(family,p,x) for x in ('normal','shear_x','torsion','offcenter','stretch_x')]
  features=[]
@@ -200,6 +200,12 @@ def screening_electrical(family,p):
  norm=float(np.linalg.norm(f[0]/noise));shear=float(np.linalg.norm(f[1]/noise))
  nuisance=float(np.linalg.norm(f[4]/noise))
  # Do not claim observability from the sum of these metrics
- return {'normal_snr_proxy':round(norm,3),'shear_snr_proxy':round(shear,3),
+ result={'normal_snr_proxy':round(norm,3),'shear_snr_proxy':round(shear,3),
     'substrate_strain_signal_snr_proxy':round(nuisance,3),'offcentre_similarity_proxy':round(float(np.dot(f[1],f[3])/(1e-12+np.linalg.norm(f[1])*np.linalg.norm(f[3]))),4),
     'electric_response_status':'Assumed electrostatic/magnetic transfer; no field solving or actual circuit noise.'}
+ if include_readout:
+  from electronics_evolution import screen_readout
+  # Same 25 Hz excitation for all intended cases; substrate stretch is nuisance,
+  # not a desirable event. Include upper operating pressure to test headroom.
+  result.update(screen_readout(scenarios[:4]+[examine(family,p,'shear_y'),examine(family,p,'normal',force=[0.,0.,-.4])]))
+ return result

@@ -17,9 +17,13 @@ def _finite(value, fallback=-1e30):
         return fallback
 
 
+def objectives_for(preset):
+    return OBJECTIVES+('fitness_readout',) if preset=='electronics' else OBJECTIVES
+
+
 def constraint_class(candidate, physical_gate):
     m=candidate.get('metrics',{})
-    if m.get('error') or _finite(candidate.get('fitness')) < 0 or any(_finite(m.get(k))==-1e30 for k in OBJECTIVES):
+    if m.get('error') or _finite(candidate.get('fitness')) < 0 or any(_finite(m.get(k))==-1e30 for k in objectives_for(m.get('fitness_preset'))):
         return 2
     if (physical_gate and m.get('spatial_feasible') is not True) or candidate.get('known_audit_feasible') is False:
         return 1
@@ -57,7 +61,10 @@ def rank_population(candidates, physical_gate):
         c['pareto']={'constraint_class':cls,'rank':None,'crowding':0.,'source':'T0_common_fast_screen'}
         if cls==0:eligible.append(c)
     if eligible:
-        values=np.array([[float(c['metrics'][k]) for k in OBJECTIVES] for c in eligible])
+        presets={c['metrics'].get('fitness_preset') for c in eligible}
+        if 'electronics' in presets and len(presets)!=1:raise ValueError('Mixed readout objective protocols')
+        objectives=objectives_for(next(iter(presets)))
+        values=np.array([[float(c['metrics'][k]) for k in objectives] for c in eligible])
         ranks,crowd=_fronts(values)
         for c,r,d in zip(eligible,ranks,crowd):
             c['pareto'].update(rank=int(r),crowding=float(d))

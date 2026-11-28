@@ -69,7 +69,7 @@ class Contact(BaseModel):
 
 
 class TileInput(Selection):
-    size: Literal[3,5,8] = 3
+    size: Literal[3,5,7,8] = 3
     pitch_mm: float = Field(20., ge=1., le=100.)
     coupling_N_mm: float = Field(.2, ge=0., le=100.)
     membrane_model: Literal['spring','tensioned_q1','nonlinear_coupled'] = 'spring'
@@ -87,7 +87,7 @@ class TileInput(Selection):
 
 class TileOptimizeInput(Selection):
     patch_side_mm: float = Field(120., ge=60., le=300.)
-    sizes: list[Literal[3,5,8]] = Field(default_factory=lambda:[3,5],min_length=1,max_length=3)
+    sizes: list[Literal[3,5,7,8]] = Field(default_factory=lambda:[3,5,7],min_length=1,max_length=4)
     tensions: list[float] = Field(default_factory=lambda:[.1,.3,1.],min_length=1,max_length=3)
     substrate_depths_mm: list[float] = Field(default_factory=lambda:[2.,4.],min_length=1,max_length=2)
     membrane_young_MPa: float = Field(2.,gt=0,le=100.)
@@ -334,6 +334,7 @@ def build_router(select_candidate, preview_genome, current_run_id=None, compute=
                 raise ValueError('Tension and substrate depth outside bounded range')
             from tile_optimization import receptor_descriptor,designs,optimize
             receptors=[receptor_descriptor(c,g)]
+            receptor_models={str(c['id']):(c,g)}
             if req.include_library:
                 import random
                 from hybrid_library import ranked,genome_for
@@ -341,7 +342,9 @@ def build_router(select_candidate, preview_genome, current_run_id=None, compute=
                     identity='hybrid-'+spec.id
                     if identity==c['id']:continue
                     other=genome_for(spec,random.Random(1701))
-                    receptors.append(receptor_descriptor({'id':identity,'family':spec.upper_family},other))
+                    model={'id':identity,'family':spec.upper_family}
+                    receptors.append(receptor_descriptor(model,other))
+                    receptor_models[identity]=(model,other)
                     if len(receptors)>=3:break
             ds,excluded=designs(receptors,req.patch_side_mm,req.sizes,req.tensions,req.substrate_depths_mm,
                 req.substrate_young_MPa,req.membrane_young_MPa,req.membrane_thickness_mm,req.noise_N,req.seed)
@@ -349,6 +352,8 @@ def build_router(select_candidate, preview_genome, current_run_id=None, compute=
             workers=allocation['cpu_workers'] if allocation else 1
             progress=compute.progress_callback() if compute is not None else lambda _:None
             out=optimize(ds,excluded,req.finalists,workers,progress)
+            from skin_patch_preview import attach_skin_previews
+            attach_skin_previews(out,receptor_models)
             out.update(candidate_id=c['id'],family=c['family'])
             return diagnostic_context(out,'tile/optimize',req,c,g)
         except (ValueError,RuntimeError,ArithmeticError,np.linalg.LinAlgError,MemoryError) as exc:raise HTTPException(422,str(exc)) from exc

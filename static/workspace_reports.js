@@ -7,7 +7,8 @@
     const c=result?.diagnostic_context;
     if(!c||c.schema!==1||!paths.includes(c.path)||!hex(c.comparison_key)||!hex(c.solver_hash)||!c.settings||!c.runtime)return null;
     if(c.path==='nonlinear/contact-box'?c.candidate_id!==null:(!c.candidate_id||!hex(c.genome_hash)||!c.selection))return null;
-    try{const json=JSON.stringify(result);if(json.length>maxBytes)return null;return JSON.parse(json);}catch{return null;}
+    // Geometry is a disposable preview; keep bounded numerical reports usable.
+    try{const {skin_templates,skin_patches,...numerical}=result;const json=JSON.stringify(numerical);if(json.length>maxBytes)return null;return JSON.parse(json);}catch{return null;}
   }
   function identity(r){const c=r.diagnostic_context;return JSON.stringify([c.path,c.comparison_key,c.genome_hash,c.candidate_id,c.selection?.run_id,c.selection?.generation,c.selection?.expected_live_run_id]);}
   function merge(old,added){const map=new Map();for(const raw of [...old,...added]){const r=record(raw);if(r)map.set(identity(r),r);}const all=[...map.values()];if(all.length>limit||JSON.stringify(all).length>maxBytes)throw Error('Report storage limit reached; export or clear saved reports first.');return all;}

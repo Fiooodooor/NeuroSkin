@@ -9,3 +9,5 @@ assert.equal(R.matchesFrame(a,{selection:'id',index:'b',family:'quadrant',expect
 assert.equal(R.metrics(a)[0][1],1);assert.equal(R.save(storage,[],[a,b]).length,2);
 assert.deepEqual(R.load(storage),[a,b]);assert.throws(()=>R.save(storage,[a,b],Array.from({length:13},(_,i)=>result('id'+i))),/limit/);assert.deepEqual(R.load(storage),[a,b]);
 R.clear(storage);assert.deepEqual(R.load(storage),[]);console.log('report snapshot tests passed');
+const geometryHeavy={...a,skin_templates:{mesh:'x'.repeat(600000)},skin_patches:[{placements:'x'.repeat(600000)}]};
+assert.deepEqual(R.record(geometryHeavy),a);assert(!('skin_templates' in R.record(geometryHeavy)));

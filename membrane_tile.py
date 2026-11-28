@@ -14,7 +14,7 @@ from scipy.sparse.linalg import splu
 class MembraneTile:
     def __init__(self,kz,pitch_mm,tension_N_mm,subdivisions=4):
         k=np.asarray(kz,float);h=float(pitch_mm);T=float(tension_N_mm);q=subdivisions
-        if k.ndim!=2 or k.shape[0]!=k.shape[1] or k.shape[0] not in (3,5,8) or not np.isfinite(k).all() or np.any(k<=0):
+        if k.ndim!=2 or k.shape[0]!=k.shape[1] or k.shape[0] not in (3,5,7,8) or not np.isfinite(k).all() or np.any(k<=0):
             raise ValueError('Invalid taxel stiffness grid')
         if not np.isfinite([h,T]).all() or h<=0 or T<=0 or type(q) is not int or q not in (4,8):
             raise ValueError('Positive pitch/tension and 4 or 8 subdivisions required')

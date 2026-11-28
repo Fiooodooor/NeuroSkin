@@ -307,3 +307,41 @@ def test_presets_modes_and_resizable_panels(app_url):
         assert gallery['images'] == 0 and '<img' in gallery['text']
         assert not errors, errors
         browser.close()
+
+
+def test_computed_skin_patch_three_five_seven_views(app_url):
+    from playwright.sync_api import sync_playwright, expect
+    from pathlib import Path
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(headless=True, args=['--disable-dev-shm-usage', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'])
+        page = browser.new_page(viewport={'width': 1500, 'height': 1100})
+        errors, requests = [], []
+        page.on('pageerror', lambda e: errors.append(str(e)))
+        page.on('request', lambda r: requests.append(r.url) if r.url.endswith('/tile/optimize') else None)
+        page.goto(app_url+'/v30?selection=hybrid&index=h01_serpentine_quadrant&family=quadrant', wait_until='domcontentloaded')
+        page.locator('#lab-tab-3').click()
+        expect(page.locator('#optGridSizes input')).to_have_count(3)
+        page.locator('#optSide').fill('160')
+        page.locator('#optLibrary').uncheck()
+        page.locator('#optFinalists').select_option('1')
+        page.locator('#optWorkers').select_option('1')
+        page.locator('#optimizeTile').click()
+        expect(page.locator('#lab-panel-3 .lab-status')).to_contain_text('Completed', timeout=180000)
+        for n in (3, 5, 7):
+            page.locator('#skinPatchSize').select_option(str(n))
+            page.wait_for_function("""n=>{const p=document.getElementById('skinPatchPlot');return p?.data?.find(t=>t.name==='Sensor positions')?.x.length===n*n;}""", arg=n, timeout=90000)
+            assert page.locator('#skinPatchPlot').evaluate('(p)=>p.data.some(t=>t.name==="flexure"&&t.i?.length)')
+        expect(page.locator('#skinPatchStatus')).to_contain_text('Screening only')
+        page.locator('#skinPatchMembrane').uncheck()
+        page.wait_for_function("""()=>{const p=document.getElementById('skinPatchPlot');return p?.data?.length&&!p.data.some(t=>t.name==='Nominal membrane');}""", timeout=90000)
+        page.locator('#skinPatchPVDF').uncheck()
+        page.wait_for_function("""()=>{const p=document.getElementById('skinPatchPlot');return p?.data?.length&&!p.data.some(t=>t.name==='PVDF films');}""", timeout=90000)
+        page.locator('#skinPatchPlot').evaluate("p=>p.emit('plotly_click',{points:[{customdata:'r7-c7'}]})")
+        expect(page.locator('#skinPatchSelection')).to_contain_text('r7-c7')
+        assert len(requests) == 1
+        Path('artifacts').mkdir(exist_ok=True)
+        page.locator('#skinPatchPlot').screenshot(path='artifacts/skin-patch-7x7.png')
+        page.locator('#lab-tab-0').click()
+        page.wait_for_function("""[...document.querySelectorAll('#optimizationResultVisual .js-plotly-plot')].length===0""", timeout=30000)
+        assert not errors, errors
+        browser.close()

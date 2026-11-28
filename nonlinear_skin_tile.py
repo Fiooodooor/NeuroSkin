@@ -16,7 +16,7 @@ from neuroskin_v30.nonlinear_fem import NeoHookean, TetNeoHookeanSolver
 
 class Substrate3D:
     def __init__(self,n,pitch,thickness,young,poisson=.35):
-        if n not in (3,5,8) or not np.isfinite([pitch,thickness,young,poisson]).all() or min(pitch,thickness,young)<=0:
+        if n not in (3,5,7,8) or not np.isfinite([pitch,thickness,young,poisson]).all() or min(pitch,thickness,young)<=0:
             raise ValueError('Invalid substrate geometry/material')
         m=4*n+1;self.m=m;self.n=n;self.pitch=pitch;self.thickness=thickness
         self.mesh=box_mesh(m-1,m-1,2,(n*pitch,n*pitch,thickness))

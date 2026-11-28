@@ -78,8 +78,8 @@ def tile_response(vertical_stiffness, coupling_N_mm, loads_N):
     electrical coupling, or friction. Signed inputs are intentionally rejected.
     """
     k, f = np.asarray(vertical_stiffness,float), np.asarray(loads_N,float)
-    if k.ndim != 2 or k.shape != f.shape or k.shape[0] != k.shape[1] or k.shape[0] not in (3,5,8):
-        raise ValueError('expected matching 3x3, 5x5 or 8x8 arrays')
+    if k.ndim != 2 or k.shape != f.shape or k.shape[0] != k.shape[1] or k.shape[0] not in (3,5,7,8):
+        raise ValueError('expected matching 3x3, 5x5, 7x7 or 8x8 arrays')
     if not np.isfinite(k).all() or not np.isfinite(f).all() or np.any(k<=0) or np.any(f<0):
         raise ValueError('invalid stiffness or load')
     if not np.isfinite(coupling_N_mm) or coupling_N_mm < 0:

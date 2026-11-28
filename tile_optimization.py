@@ -47,6 +47,8 @@ def receptor_descriptor(candidate,genome):
 
 
 def designs(receptors,side,sizes,tensions,depths,young,membrane_E,membrane_t,noise,seed):
+    if not sizes or any(type(n) is not int or n not in (3,5,7,8) for n in sizes):
+        raise ValueError('Supported skin grids are 3, 5, 7 or 8 per side')
     if not np.isfinite([side,young,membrane_E,membrane_t,noise,*tensions,*depths]).all() or min(side,young,membrane_E,membrane_t,*tensions,*depths)<=0 or noise<0:
         raise ValueError('Invalid patch parameters')
     out=[];excluded=[]

@@ -152,6 +152,7 @@ function selectedUI(){
  $('pvdfLayoutWarning').textContent=piezoOverrideValue()!==null?`PVDF ${piezoOverrideValue()}-film override: archive remains unchanged; press Evaluate All to recalculate bonded-film mechanics and electrical response. Historical score is NOT comparable.`:legacy?'Archived model: original single-sided PVDF. Select Balanced quartet to inspect a corrected layout; rerun evolution before treating stored scores as comparable.':`Designed PVDF: ${c.genome.piezo_count} films. ${c.genome.hybrid_id && c.genome.hybrid_id!=='none'?('Two-stage architecture '+c.genome.hybrid_id+' with bonded intermediate plate; use HEX8, not the legacy beam backend. '):''}Primary mechanics includes bonded PVDF + adhesive stiffness; Evaluate All adds final reduced shell post-processing.`;
  }
 async function updateMesh(force=false,localOnly=false){
+ if(window.NeuroWorkspace?.geometryVisible&&!window.NeuroWorkspace.geometryVisible())return;
  const c=findCandidate(currentSelection);if(!c)return;
  if(solvedFEM && (solvedFEM.candidate_id!==c.id || solvedFEM.family!==c.family)){solvedFEM=null;$('femStatus').textContent='Selected model changed. Compute real FEM to see its own displacement/stress field.';Plotly.react('femPlot',[],baseLayout);} if(laminateShell && (laminateShell.candidate_id!==c.id || laminateShell.family!==c.family)){laminateShell=null;$('laminateShellStatus').textContent='Selected model changed. Re-run Evaluate All to resolve the final laminate shell for this candidate.';$('laminateShellMetrics').textContent='No laminate shell result yet.';Plotly.react('laminatePlot',[],{...baseLayout,showlegend:false,uirevision:'laminate-camera',margin:{l:0,r:0,t:0,b:0}});}
  const sig=[state?.id,currentSelection.kind,currentSelection.index,currentSelection.family,c.id,$('wire').checked,$('transparent').checked,$('showPiezo').checked,$('piezoOverride').value,$('piezoWiring').value,$('quality').value,$('deform').checked,$('deformscale').value,$('loadcase').value,$('loadamount').value,currentResponse?.candidate_id||''].join('|');
@@ -176,6 +177,7 @@ async function updateMesh(force=false,localOnly=false){
    return {type:'mesh3d',name:comp.part,showlegend:true,x:v.map(a=>a[0]),y:v.map(a=>a[1]),z:v.map(a=>a[2]),i:f.map(a=>a[0]),j:f.map(a=>a[1]),k:f.map(a=>a[2]),color:colors[comp.part]||'#a0b3bd',opacity:$('transparent').checked?0.53:1,flatshading:false,lighting:{ambient:.52,diffuse:.75,specular:.35,roughness:.45},hoverinfo:'skip',contour:$('wire').checked?{show:true,color:'#051d25',width:1}:undefined};
   });
   const decorated=window.NeuroWorkspace?.decorateGeometry?.(data,traces,identity,enabled)||traces;
+  if(window.NeuroWorkspace?.geometryVisible&&!window.NeuroWorkspace.geometryVisible())return;
   await Plotly.react('model',decorated,baseLayout,{responsive:true,displaylogo:false});
  }catch(e){if(request===meshRequest){meshSignature='';$('error').textContent='3D error: '+e.message;}}
 }

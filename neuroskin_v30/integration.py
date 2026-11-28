@@ -173,7 +173,7 @@ def tile_report(kz, req):
         return [float((grid*ix).sum()*pitch/grid.sum()),float((grid*iy).sum()*pitch/grid.sum())]
     extra={k:result[k] for k in ('membrane_surface','membrane_energy_Nmm','spring_energy_Nmm','energy_balance_error_Nmm','free_residual_N','minimum_reaction_N') if k in result}
     return {'tier':'T0','model':model,'kz_N_mm':float(kz),**extra,
-            'pitch_mm':pitch,'load_grid_N':f.tolist(),'reaction_N':result['reaction_N'].tolist(),
+            'pitch_mm':pitch,'input_contacts':[c.model_dump(mode='json') for c in req.contacts],'load_grid_N':f.tolist(),'reaction_N':result['reaction_N'].tolist(),
             'displacement_mm':result['displacement_mm'].tolist(),'noisy_reactions_N':y.reshape(n,n).tolist(),
             'reconstructed_load_N':reconstructed.tolist(),'input_centroid_mm':centroid(f),
             'reconstructed_centroid_mm':centroid(reconstructed),'force_balance_error_N':result['force_balance_error_N'],

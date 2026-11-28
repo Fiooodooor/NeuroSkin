@@ -35,3 +35,16 @@ def test_fem_evidence_attach_preserves_t0(fem,status,convergence):
     r={'evidence':{'solver':'six_dof_composite_surrogate'},'tests':[{'id':'continuum_fem','status':'not_run'},{'id':'mesh_convergence','status':'not_run'}],'metrics':{},'pass_current_tier':True}
     out=m.attach_fem_evidence(r,fem)
     assert out['tests'][0]['status']==status and out['evidence']['mesh_convergence_verified']==convergence and out['pass_current_tier']
+
+
+def test_spawn_parallel_and_serial_same_numerical_decision():
+    from hybrid_library import ranked,genome_for
+    spec=ranked()[0];g=genome_for(spec)
+    opts=dict(hybrid=True,fem_enabled=False,objective='balanced',audit_grid=3,candidate_id='spawn-test',inspector_force=.1)
+    serial=m.run_manual(spec.upper_family,g,opts,m.plan_manual(1,20000,False,'hex8',1.25,'cpu',True),lambda:None,lambda x:None)
+    parallel=m.run_manual(spec.upper_family,g,opts,m.plan_manual(3,20000,False,'hex8',1.25,'cpu',True),lambda:None,lambda x:None)
+    assert parallel['telemetry']['plan']['surrogate_processes']==2
+    assert parallel['audit']['audit_score']==serial['audit']['audit_score']
+    assert parallel['validation']['tests']==serial['validation']['tests']
+    assert parallel['validation']['metrics']==serial['validation']['metrics']
+    assert parallel['orientation']==serial['orientation']

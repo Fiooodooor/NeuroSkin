@@ -26,7 +26,11 @@ def evolution_alive():
  thread=getattr(EVO,'thread',None)
  return thread is not None and thread.is_alive()
 
-COMPUTE=ComputeAdmission(evolution_alive)
+def compute_capacity():
+ from audit_scheduler import available_ram_mb
+ return {'cpu':available_cores(),'ram_mb':available_ram_mb()}
+
+COMPUTE=ComputeAdmission(evolution_alive,compute_capacity)
 @asynccontextmanager
 async def application_lifespan(app):
  try:
@@ -426,8 +430,13 @@ def evaluate_all(req:EvaluateAllRequest):
  g=_preview_genome(candidate,req.piezo_count_override,req.piezo_wiring_override)
  try:
   hybrid=g.get('hybrid_id','none') not in ('none',None,'')
-  cores=min(req.compute_workers or getattr(app.state,'default_cores',1),available_cores())
-  plan=plan_manual(cores,available_ram_mb(),req.fem_enabled,req.fem_backend,req.fem_pitch_mm,req.fem_compute_device,hybrid)
+  allocation=COMPUTE.current_allocation()
+  from manual_evaluation import ManualPlan
+  if allocation and allocation.get('plan'):
+   plan=ManualPlan(**allocation['plan'])
+  else:
+   cores=min(req.compute_workers or getattr(app.state,'default_cores',1),available_cores())
+   plan=plan_manual(cores,available_ram_mb(),req.fem_enabled,req.fem_backend,req.fem_pitch_mm,req.fem_compute_device,hybrid)
   options={'objective':req.objective,'audit_grid':req.audit_grid,'candidate_id':candidate['id'],
            'hybrid':hybrid,'fem_enabled':req.fem_enabled,'inspector_force':req.fem_inspection_force_n}
   def solve_fem():
@@ -435,11 +444,11 @@ def evaluate_all(req:EvaluateAllRequest):
    try:
     return fem_sweep(candidate['family'],g,pitch_mm=req.fem_pitch_mm,backend=req.fem_backend,include_fields=True,
                   inspector_case=req.fem_inspection_case,inspector_force_N=req.fem_inspection_force_n,
-                  inspector_offset=(req.fem_inspection_offset_x,req.fem_inspection_offset_y),compute_device=req.fem_compute_device,
+                  inspector_offset=(req.fem_inspection_offset_x,req.fem_inspection_offset_y),compute_device=plan.device,
                   include_previews=req.fem_include_previews,case_workers=plan.fem_case_workers),None
    except (ValueError,RuntimeError,MemoryError) as exc:
     return None,exc
-  results=run_manual(candidate['family'],g,options,plan,solve_fem,COMPUTE.set_progress)
+  results=run_manual(candidate['family'],g,options,plan,solve_fem,COMPUTE.progress_callback())
   audit=results['audit'];fem,error=results.get('fem',(None,None))
   if req.fem_enabled:
    from audit_combine import merge_fem_into_audit,mark_fem_failure

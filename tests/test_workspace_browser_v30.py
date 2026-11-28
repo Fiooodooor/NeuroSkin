@@ -100,7 +100,7 @@ def test_workspace_modes_context_and_multiscale(app_url):
         frame.locator('#tile').click()
         expect(frame.locator('.lab-status:visible')).to_contain_text('Completed',timeout=30000)
         expect(frame.locator('#tileResultVisual .js-plotly-plot')).to_be_visible(timeout=30000)
-        assert frame.locator('#tileResultVisual .js-plotly-plot').evaluate('(p)=>p.data.some(t=>t.type===\"surface\")')
+        page.wait_for_function("""document.querySelector('#workspaceLabFrame').contentDocument.querySelector('#tileResultVisual .js-plotly-plot')?.data?.some(t=>t.type==='surface')""",timeout=30000)
         result=json.loads(frame.locator('#tileResult').text_content())
         assert result['tier']=='T0' and result['force_balance_error_N']<1e-8
         page.locator('#workspaceComparison > summary').click()

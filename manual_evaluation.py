@@ -21,13 +21,18 @@ class ManualPlan:
     device: str
 
 
+def fem_base_ram_mb(fem_enabled,backend,pitch):
+    if not fem_enabled or backend=='beam':return 512
+    return 1024 if pitch>=1. else 2048 if pitch>=.5 else 4096 if pitch>=.4 else 6144
+
+
 def plan_manual(cores, ram_mb, fem_enabled, backend, pitch, device, hybrid):
     if type(cores) is not int or cores<1 or device not in ('cpu','gpu'):
         raise ValueError('Invalid manual CPU/device budget')
     # One local execution thread, plus independent process workers.
     tasks=2+int(hybrid) if fem_enabled else 1+int(hybrid)
     solid=fem_enabled and backend!='beam'
-    base=6144 if solid and pitch<.4 else 4096 if solid else 512
+    base=fem_base_ram_mb(fem_enabled,backend,pitch)
     reserve=1024
     budget=0 if ram_mb is None else max(0,int(ram_mb*.5))
     processes=max(0,min(tasks,cores-1,(budget-base)//reserve))
@@ -89,7 +94,7 @@ def run_manual(family,genome,options,plan,solve_fem,progress,*,executor_factory=
             v=fn()
         except BaseException:
             state(name,'failed',monotonic()-t);raise
-        state(name,'completed',monotonic()-t);return v
+        state(name,'solver_failed' if name=='fem' and isinstance(v,tuple) and len(v)==2 and v[1] is not None else 'completed',monotonic()-t);return v
     out={}
     if plan.surrogate_processes==0:
         for name in ['audit','fem','validation','orientation']:

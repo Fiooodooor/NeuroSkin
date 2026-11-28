@@ -30,7 +30,7 @@
       const r=await fetch('/api/compute/status',{cache:'no-store'});if(!r.ok)throw Error('HTTP '+r.status);
       const c=await r.json(),a=c.manual_active;lastCompute=c;
       computeStatus.textContent=(a?'Heavy analysis: '+a.name+' · '+a.elapsed_s.toFixed(1)+' s':c.evolution_active?'Evolution owns heavy-compute slot (including pause/cleanup)':'Heavy-compute slot available')+' · '+c.available_cpu+' CPUs · '+(c.available_ram_mb==null?'RAM unknown':(c.available_ram_mb/1024).toFixed(1)+' GiB RAM available');
-      if(a?.progress){const p=a.progress;computeStatus.textContent+=' · '+p.plan.surrogate_processes+' surrogate processes / up to '+p.plan.fem_case_workers+' FEM case workers · '+Object.entries(p.stages).map(([k,v])=>k+': '+v.state).join(' · ');}
+      if(c.manual_jobs?.length){computeStatus.textContent+=' · '+c.manual_jobs.length+' active / '+c.reserved.cpu_workers+' reserved CPU workers / '+(c.reserved.ram_mb_estimate/1024).toFixed(2)+' GiB estimated RAM / '+c.reserved.gpu_slots+' GPU slot';for(const job of c.manual_jobs){const p=job.progress;computeStatus.textContent+=' · '+job.name+' '+job.elapsed_s.toFixed(1)+' s';if(p)computeStatus.textContent+=' ['+Object.entries(p.stages).map(([k,v])=>k+': '+v.state).join(' · ')+']';}}
       renderComputeHistory();
     }catch{computeStatus.textContent='Compute status unavailable';lastCompute=null;renderComputeHistory();}
     finally{computePending=false;}
@@ -61,8 +61,9 @@
     if(!computeDetails.open)return;
     const c=lastCompute;computeHistory.replaceChildren();
     if(!c){computeHistory.append(make('small','','Compute status unavailable.'));return;}
-    computeHistory.append(make('small','','One heavy job per server process. Stop evolution before manual FEM or fusion. Lightweight inspectors remain available.'));
+    computeHistory.append(make('small','','Manual analyses may share estimated CPU/RAM budgets and one GPU slot. Evolution remains exclusive; stop and wait for cleanup. No hard memory enforcement.'));
     computeHistory.append(make('p','workspace-summary','Rejected conflicts: '+(c.rejected_requests??0)+' · Queue: disabled'));
+    for(const job of c.manual_jobs||[]){const row=make('div','workspace-compute-row');row.append(make('strong','',job.name+' · active'),make('small','',job.allocation.cpu_workers+' CPU workers · '+job.allocation.ram_mb_estimate+' MiB estimated RAM · GPU '+Number(job.allocation.gpu_slot)+(job.allocation.exclusive_fallback?' · exclusive fallback':'')));computeHistory.append(row);}
     const rows=c.recent_manual_requests||[];
     if(!rows.length){computeHistory.append(make('small','','No completed manual requests.'));return;}
     for(const job of [...rows].reverse()){
@@ -111,7 +112,7 @@
     const dock=make('details','workspace-geometry-dock advanced-only');dock.open=key==='signals';
     dock.append(make('summary','',key==='signals'?'PVDF signal map · interactive 3D':'Reference geometry · interactive 3D'));host.prepend(dock);
     if(key==='signals')dock.append(signalMapNote);
-    geometryDocks.set(key,dock);dock.addEventListener('toggle',resize);
+    geometryDocks.set(key,dock);dock.addEventListener('toggle',()=>{if(active===key)refreshGeometryVisibility();resize();});
   }
   // Explicit manual refresh actions, using the existing request functions.
   const signalActions=make('div','workspace-signal-actions');
@@ -287,7 +288,7 @@
   function resize(){requestAnimationFrame(()=>{for(const plot of main.querySelectorAll('.js-plotly-plot'))if(plot.getClientRects().length&&plot._fullLayout)try{Plotly.Plots.resize(plot);}catch{}});}
   function show(id){if(!panels.has(id)||(!advanced&&views.find(v=>v[0]===id)[3]))id='overview';active=id;
     for(const [key,p] of panels){p.hidden=key!==id;const t=tabs.get(key);t.setAttribute('aria-selected',String(key===id));t.tabIndex=key===id?0:-1;}
-    if(id==='multiscale'&&!bound)bindLab(false);mountGeometry();update();renderPinnedGeometry();syncLabVisibility();updateDetailedFEM();if(!isFEMVisible())renderFEMPreviews();if(geometryCache)updateMesh(true,true);resize();
+    if(id==='multiscale'&&!bound)bindLab(false);mountGeometry();update();renderPinnedGeometry();syncLabVisibility();updateDetailedFEM();if(!isFEMVisible())renderFEMPreviews();refreshGeometryVisibility();resize();
   }
   nav.addEventListener('keydown',e=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;const visible=views.filter(v=>advanced||!v[3]).map(v=>v[0]);let i=visible.indexOf(active);i=e.key==='Home'?0:e.key==='End'?visible.length-1:(i+(e.key==='ArrowRight'?1:-1)+visible.length)%visible.length;e.preventDefault();show(visible[i]);tabs.get(visible[i]).focus();});
   function current(){const p=selectedPayload(),c=findCandidate(currentSelection);if(!p||!c)return null;
@@ -357,7 +358,9 @@
   window.addEventListener('message',e=>{if(e.origin!==location.origin)return;const item=[...openLabs.values()].find(x=>x.frame.contentWindow===e.source);if(!item)return;if(e.data?.type==='neuroskin:lab-height'&&Number.isFinite(e.data.height))item.frame.style.height=Math.max(180,Math.min(18000,e.data.height+12))+'px';else if(e.data?.type==='neuroskin:lab-report'){const r=reports.record(e.data.result);if(r&&reports.matchesFrame(r,item.context)){item.reports.set(r.diagnostic_context.path,r);renderReports();}}else if(e.data?.type==='neuroskin:lab-busy'&&typeof e.data.busy==='boolean'){item.busy=e.data.busy;if(item.frame===frame){labBusy=item.busy;update();}}});
   function clearComponents(){componentInspector.set(null,null);}
   function decorateGeometry(data,traces,identity,deformed){componentInspector.set(data.model,identity);componentInspector.setEvidence(femPreviewFields,femStale);componentInspector.setReferenceAvailable(!deformed);if(active==='signals'){const r=currentResponse&&currentResponse._input===JSON.stringify(selectedPayload())?currentResponse.result.piezoelectric:null;const out=window.NeuroComponents.signalMap(traces,data.model,r);traces=out.traces;signalMapNote.textContent=r?'Signed per-film Q at '+r.frequency_hz+' Hz · blue negative / orange positive · max |Q| '+out.max.toPrecision(4)+' pC · before wiring, synthetic':'Run characterization to map signed film charge on the receptor.';}return window.NeuroComponents.decorate(traces,data.model,componentInspector.selected(),data.strut_paths,componentInspector.paths(),colors);}
-  function refreshSignalGeometry(){if(active==='signals'&&geometryCache)updateMesh(true,true);}
-  window.NeuroWorkspace={show,update,resize,renderEvaluation,renderFEMPreviews,markFEMStale,isFEMVisible,clearComponents,decorateGeometry,refreshSignalGeometry};
+  function geometryVisible(){return active==='overview'||!!(advanced&&geometryDocks.get(active)?.open);}
+  function refreshGeometryVisibility(){if(geometryVisible()){updateMesh(true,true);}else{meshRequest++;meshSignature='';purgePlot(el('model'));}}
+  function refreshSignalGeometry(){if(active==='signals'&&geometryVisible()&&geometryCache)updateMesh(true,true);}
+  window.NeuroWorkspace={show,update,resize,renderEvaluation,renderFEMPreviews,markFEMStale,isFEMVisible,clearComponents,decorateGeometry,refreshSignalGeometry,geometryVisible};
   mode();show('overview');renderReports();refreshCompute();setInterval(refreshCompute,2000);
 })();

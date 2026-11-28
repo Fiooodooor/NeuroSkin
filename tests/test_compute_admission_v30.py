@@ -67,3 +67,31 @@ def test_history_is_bounded():
         with c.manual(str(i)):pass
     h=c.snapshot()['recent_manual_requests']
     assert len(h)==16 and h[0]['id']==5 and h[-1]['id']==20
+
+
+def test_budgeted_manual_concurrency_and_progress_isolation():
+    c=ComputeAdmission(lambda:False,lambda:{'cpu':2,'ram_mb':10000})
+    with c.manual('sensor_fusion',{}):
+        first=c.progress_callback();first({'stage':'first'})
+        with c.manual('verification_box',{}):
+            second=c.progress_callback();second({'stage':'second'})
+            jobs=c.snapshot()['manual_jobs']
+            assert len(jobs)==2 and jobs[0]['progress']=={'stage':'first'} and jobs[1]['progress']=={'stage':'second'}
+            assert c.snapshot()['reserved']['cpu_workers']==2
+            with pytest.raises(ComputeBusy):
+                with c.manual('nonlinear_contact',{}):pass
+        assert len(c.snapshot()['manual_jobs'])==1
+    assert c.snapshot()['reserved']['cpu_workers']==0
+
+
+def test_gpu_and_ram_conflicts_and_unknown_capacity():
+    c=ComputeAdmission(lambda:False,lambda:{'cpu':8,'ram_mb':20000})
+    with c.manual('linear_fem',{'compute_device':'gpu','pitch_mm':1.25}):
+        with pytest.raises(ComputeBusy,match='GPU'):
+            with c.manual('linear_fem',{'compute_device':'gpu','pitch_mm':1.25}):pass
+        with c.manual('sensor_fusion',{}):pass
+    c=ComputeAdmission(lambda:False,lambda:{'cpu':8,'ram_mb':None})
+    with c.manual('sensor_fusion',{}):
+        assert c.snapshot()['manual_active']['allocation']['exclusive_fallback']
+        with pytest.raises(ComputeBusy):
+            with c.manual('verification_box',{}):pass

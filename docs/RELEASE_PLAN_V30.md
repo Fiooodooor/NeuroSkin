@@ -243,3 +243,6 @@ Canonical development branch: `develop/v3`. Consolidate the full v2.2-derived in
 
 ## Revision 47 — relaxed in-plane membrane and cached transfer
 - Add Föppl-von Kármán membrane with u,v,w DOFs, exact consistent material and geometric tangent, fixed in-plane perimeter and transverse free edges. Maintain fixed-in-plane reference option. Use relaxed model for multiscale refined stage. Reuse zero-load transfer matrices per immutable model across scenarios. Verify affine fixed-inplane energy limit, finite-difference tangent and equilibrium. Normal spring/substrate coupling only; no tangential attachment, wrinkling or bending; remains T0.
+
+## Revision 48 — nonlinear tile dimension regression fix
+- Windows CI for revision 45 found two incorrect node-count expressions (object multiplied by integer); replace both with squared integer grid dimension. Previous matrix-free revision 43 completed green CI. Exact-head tests pending.

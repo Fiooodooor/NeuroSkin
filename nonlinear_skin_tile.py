@@ -106,7 +106,7 @@ class NonlinearSkinTile:
         return float(u@self.K0@u/2)+quartic-float(f@u),r,K,quartic
 
     def solve(self,contacts):
-        m=self.linear;f=np.zeros(m.m*m)
+        m=self.linear;f=np.zeros(m.m**2)
         for x,y,F in contacts:f+=m.point_load(x,y,F)
         u=np.zeros_like(f);iterations=0
         # Fixed continuation, deterministic; fail rather than report unconverged.
@@ -151,4 +151,4 @@ class NonlinearSkinTile:
                 'moderate_slope_screen':bool(slope<=.5),'iterations':iterations,
                 'substrate':sub,'inverse_basis':'zero_load_linearization',
                 'membrane_surface':{'axis_mm':m.axis.tolist(),'displacement_mm':w.tolist(),'pad_width_mm':m.pitch/2,
-                                    'tension_N_mm':m.T,'node_count':m.m*m}}
+                                    'tension_N_mm':m.T,'node_count':m.m**2}}

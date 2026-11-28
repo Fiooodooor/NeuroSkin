@@ -92,6 +92,7 @@
   // Audit grid had a label in the old pipeline header. Its empty wrapper is harmless.
   const overview=make('section','workspace-overview');main.append(overview);overview.append(left,stage,right);
   stage.querySelector('.bar').classList.add('workspace-modelbar');
+  const componentInspector=window.NeuroComponents.inspector(stage,()=>updateMesh(true,true),'workspaceComponentTree');
   const empty=make('div','workspace-empty');empty.append(make('strong','','Start with a design'),make('p','','Run evolution or choose a reference architecture to inspect its geometry and sensor response.'),button('workspaceBrowse','Browse reference designs',()=>show('library')));el('model').before(empty);
   for(const id of ['piezoOverride','piezoWiring'])el(id).parentElement.classList.add('advanced-only');
   const results=make('section','workspace-stack');tests[0].classList.add('workspace-result');
@@ -132,6 +133,7 @@
   const pinnedFilmLabel=make('label','','PVDF layer');pinnedFilmLabel.prepend(pinnedFilm);
   pinnedActions.append(pinnedFilmLabel,pinnedReset);
   pinnedGeometry.append(make('summary','','Selected geometry · interactive 3D (inspection session)'),pinnedStatus,pinnedActions,pinnedPlot);
+  const pinnedInspector=window.NeuroComponents.inspector(pinnedGeometry,renderPinnedGeometry,'workspacePinnedComponentTree');
   lab.append(labBar,pinnedGeometry,frames);
   const views=[['overview','Overview',overview,false],['results','Results',results,false],['fem','FEM',femPanel,true],['signals','Signals',signals,true],['multiscale','Multiscale',lab,true],['library','Library',library,false],['runs','Runs',archive,false],['history','History',history,true]];
   let active='overview',bound=null,advanced=false,labBusy=false,frame=null;
@@ -170,7 +172,9 @@
           type:'mesh3d',name:c.part,x:c.vertices.map(v=>v[0]),y:c.vertices.map(v=>v[1]),z:c.vertices.map(v=>v[2]),
           i:c.faces.map(f=>f[0]),j:c.faces.map(f=>f[1]),k:c.faces.map(f=>f[2]),color:colors[c.part]||'#a0b3bd',hoverinfo:'skip',opacity:1,flatshading:false
         }));
-        await Plotly.react(pinnedPlot,traces,{...baseLayout,uirevision:key},{responsive:true,displaylogo:false});
+        pinnedInspector.set(item.geometry.model,key);
+        const decorated=window.NeuroComponents.decorate(traces,item.geometry.model,pinnedInspector.selected(),item.geometry.strut_paths,pinnedInspector.paths(),colors);
+        await Plotly.react(pinnedPlot,decorated,{...baseLayout,uirevision:key},{responsive:true,displaylogo:false});
         if(revision===geometryRequest)pinnedStatus.textContent=p.expected_candidate_id+' · '+p.family+' · pinned undeformed geometry · PVDF '+(p.piezo_count_override??'as saved')+' / wiring '+(p.piezo_wiring_override??'as saved');
         else purgePlot(pinnedPlot);
       }catch(e){if(revision===geometryRequest){purgePlot(pinnedPlot);pinnedStatus.textContent='Pinned geometry unavailable: '+e.message;}}
@@ -332,6 +336,8 @@
   library.addEventListener('click',e=>{if(e.target.closest('[data-hybrid],[data-preview-seed]'))show('overview');});
   archive.addEventListener('click',e=>{if(e.target.closest('#openArchive,#openStage,#returnLive'))show('overview');});
   window.addEventListener('message',e=>{if(e.origin!==location.origin)return;const item=[...openLabs.values()].find(x=>x.frame.contentWindow===e.source);if(!item)return;if(e.data?.type==='neuroskin:lab-height'&&Number.isFinite(e.data.height))item.frame.style.height=Math.max(180,Math.min(18000,e.data.height+12))+'px';else if(e.data?.type==='neuroskin:lab-report'){const r=reports.record(e.data.result);if(r&&reports.matchesFrame(r,item.context)){item.reports.set(r.diagnostic_context.path,r);renderReports();}}else if(e.data?.type==='neuroskin:lab-busy'&&typeof e.data.busy==='boolean'){item.busy=e.data.busy;if(item.frame===frame){labBusy=item.busy;update();}}});
-  window.NeuroWorkspace={show,update,resize,renderEvaluation,renderFEMPreviews,markFEMStale,isFEMVisible};
+  function clearComponents(){componentInspector.set(null,null);}
+  function decorateGeometry(data,traces,identity,deformed){componentInspector.set(data.model,identity);return window.NeuroComponents.decorate(traces,data.model,componentInspector.selected(),data.strut_paths,componentInspector.paths()&&!deformed,colors);}
+  window.NeuroWorkspace={show,update,resize,renderEvaluation,renderFEMPreviews,markFEMStale,isFEMVisible,clearComponents,decorateGeometry};
   mode();show('overview');renderReports();refreshCompute();setInterval(refreshCompute,2000);
 })();

@@ -170,3 +170,8 @@ Canonical development branch: `develop/v3`. Consolidate the full v2.2-derived in
 
 ## Revision 28 — compute activity history and regression compatibility
 - Retain the previous Mechanical FEM heading prefix to preserve the legacy structural smoke test; the four-case grid remains unchanged. Prior revisions 24–25 failed the legacy heading assertion (135/136 other tests passed, respectively, and 44 subtests passed); browser phase was not reached. Add bounded activity history UI and monotonic conflict count, with explicit no-queue and no qualification claims. Five local scheduler tests re-run successfully; exact module/test hashes verified. Full latest CI pending.
+
+## Revision 29 — component tree with exact conceptual primitive spans
+- Preserve ordinary mesh export and expose individual generated component IDs, face/vertex spans, bounds, nominal flexure radius/length, stage identity and successful PVDF-to-member attachment. Stage assignment follows actual generator order. Missing ribbons are not fabricated. No FEM element ownership implied.
+- Shared Advanced geometry and pinned Multiscale each have an interactive assembly tree, highlight selected faces on the existing plot, and optional reference centerlines. Main selection changes invalidate cached geometry; local highlight uses the accepted mesh payload. Reference centerlines are disabled on surrogate-deformed display. Add Python primitive span and Node highlight tests. Full current CI pending; revision 28 Windows backend and Chromium CI passed.
+- D028: stable IDs are local to a candidate/geometry, not across genome mutations; sensor shapes remain conceptual proxies. T3 optional.

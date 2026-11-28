@@ -465,7 +465,7 @@ def tapered_tube(points, base_radius, p, tag='leg', sections=18):
   faces.append((top_id,(n-1)*m+k,(n-1)*m+j))
  return trimesh.Trimesh(vertices=np.asarray(vertices),faces=np.asarray(faces),process=False)
 
-def detail_mesh(fam,p,quality=16):
+def detail_mesh(fam,p,quality=16,describe=False):
  """Returns separate visual mesh component groups. Overlapping primitives are NOT fabrication CAD."""
  groups={'base':[],'flexure':[],'contact':[],'sensor':[],'inner':[]}
  if p.get('hybrid_id','none') not in ('none',None,''):
@@ -489,20 +489,21 @@ def detail_mesh(fam,p,quality=16):
    a=2*math.pi*i/4
    sensor=trimesh.creation.box(extents=[2,2,.16]);sensor.apply_translation([6.3*math.cos(a),6.3*math.sin(a),.83]);groups['sensor'].append(sensor)
  pad=trimesh.creation.cylinder(radius=p['pad_radius']+0.4,height=.7,sections=48);pad.apply_translation([p.get('pad_offset_x',0),p.get('pad_offset_y',0),p['height']]);groups['contact'].append(pad)
- for pts,r,tag in structural_struts(fam,p):
+ members=structural_struts(fam,p)
+ for pts,r,tag in members:
   groups['flexure'].append(tapered_tube(pts,r,p,tag,sections=quality))
  # PVDF: independently routed mirrored films on 2 or 4 primary beams.
  # Missing 'piezo_count' preserves archived single-film model exactly.
  from pvdf_array import choose_film_members
- members=structural_struts(fam,p)
- films=[]
- for member_index in choose_film_members(members,p):
+ films=[];film_members=[]
+ for film_index,member_index in enumerate(choose_film_members(members,p)):
   support_pts,support_radius,_=members[member_index]
   try:
    films.append(pvdf_ribbon(support_pts,support_radius,
        position=p.get('piezo_position',.5),length_mm=p.get('piezo_span_mm',4.),
        width_mm=p.get('piezo_width_mm',2.5),
        thickness_mm=p.get('piezo_thickness_um',28.)/1000.))
+   film_members.append((film_index,member_index))
   except ValueError:
    pass  # Invalid film excluded; candidate audit must flag missing film.
  if films:groups['piezo']=films
@@ -519,14 +520,18 @@ def detail_mesh(fam,p,quality=16):
   mag=trimesh.creation.cylinder(radius=1.4,height=.65,sections=32);mag.apply_translation([0,0,.9]);groups['sensor'].append(mag)
  else:
   hub=trimesh.creation.cylinder(radius=1,height=.4,sections=24);hub.apply_translation([0,0,p['height']-.5]);groups['inner'].append(hub)
+ if describe:
+  hybrid=p.get('hybrid_id','none') not in ('none',None,'')
+  stages=['single']*len(members)
+  if hybrid:
+   from hybrid_geometry import stage_descriptors
+   stages=[stage for stage,subfamily,g,_ in stage_descriptors(fam,p) for _member in _single_stage_struts(subfamily,g)]
+  from component_inspection import pack_components
+  return pack_components(groups,members,film_members,stages,hybrid)
  return {name:trimesh.util.concatenate(parts) for name,parts in groups.items() if parts}
 
 def webmesh(fam,p,quality=10):
- out=[]
- for name,m in detail_mesh(fam,p,quality).items():
-  # Do not subsample faces; doing so makes indexing inconsistent and can damage mesh.
-  out.append({'part':name,'vertices':np.round(m.vertices,3).tolist(),'faces':m.faces.tolist()})
- return {'components':out,'note':'Concept geometry with tapered detailed flexures; separate mechanics uses reduced-order proxy and/or actual FEM depending on workflow.'}
+ return detail_mesh(fam,p,quality,describe=True)
 
 def audit_job(job):
  """Heavy, identical second-stage audit of a shortlisted candidate."""

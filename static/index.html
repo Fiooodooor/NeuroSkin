@@ -123,8 +123,9 @@ function piezoOverrideValue(){return $('piezoOverride').value?Number($('piezoOve
 function piezoWiringOverrideValue(){return $('piezoWiring').value!==''?Number($('piezoWiring').value):null}
 function metricBox(k,v){return `<div class="metric"><small>${k.replace(/_/g,' ')}</small><b>${typeof v==='number'?v.toLocaleString('en-US',{maximumFractionDigits:5}):String(v)}</b></div>`}
 let lastSelectionIdentity='',meshRequest=0,responseRequest=0,spatialRequest=0,selectionRevision=0,contextRevision=0,startPending=false;
+let geometryCache=null;
 function selectionIdentity(){const c=findCandidate(currentSelection);return JSON.stringify([archiveRunId,archiveGeneration,archiveRunId||(['seed','hybrid'].includes(currentSelection.kind)?null:state?.id),c?.id,c?.family,piezoOverrideValue(),piezoWiringOverrideValue()]);}
-function invalidateInspectors(){selectionRevision++;window.NeuroWorkspace?.renderEvaluation(null);currentResponse=null;lastSpatial=null;solvedFEM=null;femPreviewFields=null;femPreviewError=null;window.NeuroWorkspace?.renderFEMPreviews?.();laminateShell=null;responseRequest++;spatialRequest++;$('exportspatial').disabled=true;for(const id of ['electricalmetrics','piezoMetrics','spatialmetrics'])$(id).replaceChildren();for(const id of ['modeldisplacement','spatialflags','femMetrics','laminateShellMetrics','validationMetrics','allEvalResult'])$(id).textContent='Selection changed — run the inspector again.';$('femStatus').textContent='No FEM result for this selection.';$('laminateShellStatus').textContent='No laminate result for this selection.';$('validationStatus').textContent='No validation result for this selection.';$('orientationPanel').style.display='none';$('orientationStudy').textContent='No orientation result for this selection.';for(const id of ['responsegraph','piezoGraph','spatialmap','femPlot','laminatePlot']){const p=$(id);if(p?._fullLayout)Plotly.react(p,[],p.layout||{}, {responsive:true,displaylogo:false});}markEvaluationStale();}
+function invalidateInspectors(){geometryCache=null;window.NeuroWorkspace?.clearComponents?.();selectionRevision++;window.NeuroWorkspace?.renderEvaluation(null);currentResponse=null;lastSpatial=null;solvedFEM=null;femPreviewFields=null;femPreviewError=null;window.NeuroWorkspace?.renderFEMPreviews?.();laminateShell=null;responseRequest++;spatialRequest++;$('exportspatial').disabled=true;for(const id of ['electricalmetrics','piezoMetrics','spatialmetrics'])$(id).replaceChildren();for(const id of ['modeldisplacement','spatialflags','femMetrics','laminateShellMetrics','validationMetrics','allEvalResult'])$(id).textContent='Selection changed — run the inspector again.';$('femStatus').textContent='No FEM result for this selection.';$('laminateShellStatus').textContent='No laminate result for this selection.';$('validationStatus').textContent='No validation result for this selection.';$('orientationPanel').style.display='none';$('orientationStudy').textContent='No orientation result for this selection.';for(const id of ['responsegraph','piezoGraph','spatialmap','femPlot','laminatePlot']){const p=$(id);if(p?._fullLayout)Plotly.react(p,[],p.layout||{}, {responsive:true,displaylogo:false});}markEvaluationStale();}
 function selectedUI(){
  const c=findCandidate(currentSelection);if(!c){if(lastSelectionIdentity){lastSelectionIdentity='';invalidateInspectors();$('viewtitle').textContent='No candidate selected';$('fitness').textContent='—';$('gateStatus').textContent='No screening result';$('metricgrid').replaceChildren();$('parameters').textContent='—';$('stl').disabled=true;$('genome').disabled=true;meshSignature='';meshRequest++;Plotly.react('model',[],baseLayout,{responsive:true,displaylogo:false});}return;}
  if(c.family==='quadrant'&&(!c.genome.hybrid_id||c.genome.hybrid_id==='none')&&piezoOverrideValue()>4)$('piezoOverride').value='';
@@ -150,15 +151,18 @@ function selectedUI(){
  $('pvdfLayoutWarning').style.display='block';
  $('pvdfLayoutWarning').textContent=piezoOverrideValue()!==null?`PVDF ${piezoOverrideValue()}-film override: archive remains unchanged; press Evaluate All to recalculate bonded-film mechanics and electrical response. Historical score is NOT comparable.`:legacy?'Archived model: original single-sided PVDF. Select Balanced quartet to inspect a corrected layout; rerun evolution before treating stored scores as comparable.':`Designed PVDF: ${c.genome.piezo_count} films. ${c.genome.hybrid_id && c.genome.hybrid_id!=='none'?('Two-stage architecture '+c.genome.hybrid_id+' with bonded intermediate plate; use HEX8, not the legacy beam backend. '):''}Primary mechanics includes bonded PVDF + adhesive stiffness; Evaluate All adds final reduced shell post-processing.`;
  }
-async function updateMesh(force=false){
+async function updateMesh(force=false,localOnly=false){
  const c=findCandidate(currentSelection);if(!c)return;
  if(solvedFEM && (solvedFEM.candidate_id!==c.id || solvedFEM.family!==c.family)){solvedFEM=null;$('femStatus').textContent='Selected model changed. Compute real FEM to see its own displacement/stress field.';Plotly.react('femPlot',[],baseLayout);} if(laminateShell && (laminateShell.candidate_id!==c.id || laminateShell.family!==c.family)){laminateShell=null;$('laminateShellStatus').textContent='Selected model changed. Re-run Evaluate All to resolve the final laminate shell for this candidate.';$('laminateShellMetrics').textContent='No laminate shell result yet.';Plotly.react('laminatePlot',[],{...baseLayout,showlegend:false,uirevision:'laminate-camera',margin:{l:0,r:0,t:0,b:0}});}
  const sig=[state?.id,currentSelection.kind,currentSelection.index,currentSelection.family,c.id,$('wire').checked,$('transparent').checked,$('showPiezo').checked,$('piezoOverride').value,$('piezoWiring').value,$('quality').value,$('deform').checked,$('deformscale').value,$('loadcase').value,$('loadamount').value,currentResponse?.candidate_id||''].join('|');
  if(sig===meshSignature&&!force)return;meshSignature=sig;const request=++meshRequest;const identity=selectionIdentity();
  const selected=selectedPayload();const q=new URLSearchParams({kind:selected.selection,index:selected.index,family:selected.family,expected_candidate_id:selected.expected_candidate_id,...(selected.expected_live_run_id!=null?{expected_live_run_id:selected.expected_live_run_id}:{}),quality:$('quality').value,...(piezoOverrideValue()!==null?{piezo_count_override:piezoOverrideValue()}:{}),...(piezoWiringOverrideValue()!==null?{piezo_wiring_override:piezoWiringOverrideValue()}:{}),...(archiveRunId?{run_id:archiveRunId,...(archiveGeneration!=null?{generation:archiveGeneration}:{})}:{})});
  try{
-  const r=await fetch('/api/mesh?'+q.toString());if(!r.ok)throw Error('Mesh response '+r.status);
-  const data=await r.json();if(request!==meshRequest||identity!==selectionIdentity()||String(data.candidate.id)!==String(c.id))return;
+  let data;
+  if(localOnly&&geometryCache?.key===q.toString())data=geometryCache.data;
+  else{const r=await fetch('/api/mesh?'+q.toString());if(!r.ok)throw Error('Mesh response '+r.status);data=await r.json();}
+  if(request!==meshRequest||identity!==selectionIdentity()||String(data.candidate.id)!==String(c.id))return;
+  geometryCache={key:q.toString(),data};
   const response=currentResponse?.candidate_id===c.id?currentResponse:null;
   const enabled=$('deform').checked&&!!response;
   const m=enabled?response.result.mechanics:null;
@@ -171,7 +175,8 @@ async function updateMesh(force=false){
    const f=comp.faces;
    return {type:'mesh3d',name:comp.part,showlegend:true,x:v.map(a=>a[0]),y:v.map(a=>a[1]),z:v.map(a=>a[2]),i:f.map(a=>a[0]),j:f.map(a=>a[1]),k:f.map(a=>a[2]),color:colors[comp.part]||'#a0b3bd',opacity:$('transparent').checked?0.53:1,flatshading:false,lighting:{ambient:.52,diffuse:.75,specular:.35,roughness:.45},hoverinfo:'skip',contour:$('wire').checked?{show:true,color:'#051d25',width:1}:undefined};
   });
-  await Plotly.react('model',traces,baseLayout,{responsive:true,displaylogo:false});
+  const decorated=window.NeuroWorkspace?.decorateGeometry?.(data,traces,identity,enabled)||traces;
+  await Plotly.react('model',decorated,baseLayout,{responsive:true,displaylogo:false});
  }catch(e){if(request===meshRequest){meshSignature='';$('error').textContent='3D error: '+e.message;}}
 }
 
@@ -479,4 +484,4 @@ async function loadHybridLibrary(){
 $('seed').value=String(crypto.getRandomValues(new Uint32Array(1))[0]>>>1);
 loadSeedLibrary();loadHybridLibrary();refreshSearchScopes();
 setInterval(poll,1100);fetch('/api/system').then(r=>r.json()).then(d=>{$('cores').max=d.logical_cores;$('cores').value=Math.max(1,Math.min(d.default_cores,d.logical_cores));$('coreinfo').textContent=`${d.logical_cores} logical CPUs available · ${d.hardware?.cpu?.physical_host||'unknown'} physical · ${d.hardware?.ram_total_mb?Math.round(d.hardware.ram_total_mb/1024)+' GB RAM':'RAM unknown'} · ${d.hardware?.nvidia_gpu?.available?(d.hardware.nvidia_gpu.name+' ('+d.hardware.nvidia_gpu.total_vram_mb+' MB VRAM)'):'GPU unverified'}; CPU evolution recommended.`}).catch(()=>{});poll();
-</script><script src="/static/workspace_reports.js"></script><script src="/static/workspace_profiles.js"></script><script src="/static/fem_previews.js"></script><script src="/static/workspace.js"></script></body></html>
+</script><script src="/static/workspace_reports.js"></script><script src="/static/workspace_profiles.js"></script><script src="/static/fem_previews.js"></script><script src="/static/component_inspection.js"></script><script src="/static/workspace.js"></script></body></html>

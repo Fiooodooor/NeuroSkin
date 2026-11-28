@@ -67,6 +67,9 @@ class TileInput(Selection):
     size: Literal[3,5,8] = 3
     pitch_mm: float = Field(20., ge=1., le=100.)
     coupling_N_mm: float = Field(.2, ge=0., le=100.)
+    membrane_model: Literal['spring','tensioned_q1'] = 'spring'
+    pretension_N_mm: float = Field(.2, gt=0., le=20.)
+    membrane_subdivisions: Literal[4,8] = 4
     noise_N: float = Field(0., ge=0., le=.1)
     seed: int = Field(42, ge=0, le=2**32-1)
     contacts: list[Contact] = Field(min_length=1, max_length=8)
@@ -135,11 +138,23 @@ def tile_report(kz, req):
     n,pitch = req.size,req.pitch_mm
     k = np.full((n,n),kz)
     f = distribute_contacts(n,pitch,req.contacts)
-    result = tile_response(k,req.coupling_N_mm,f)
-    # Full reaction transfer matrix, using independent unit-load basis, not the
-    # actual load positions. NNLS estimates the nonnegative GRID load vector.
-    transfer = np.column_stack([tile_response(k,req.coupling_N_mm,e.reshape(n,n))['reaction_N'].ravel()
-                                for e in np.eye(n*n)])
+    if req.membrane_model=='tensioned_q1':
+        from membrane_tile import MembraneTile
+        membrane=MembraneTile(k,pitch,req.pretension_N_mm,req.membrane_subdivisions)
+        result=membrane.solve([(c.x_mm,c.y_mm,c.force_N) for c in req.contacts])
+        transfer=result['transfer']
+        model='linear_pretensioned_Q1_membrane_bonded_pad_springs'
+        limitations=['prescribed isotropic membrane pretension; small transverse slope; no bending or in-plane stretch solve',
+                     'finite square pads with bilateral mean displacement springs; no pad detachment, resolved 3D substrate or readout calibration',
+                     'inverse basis uses taxel-centre point loads; off-centre contacts are not exactly in this basis',
+                     'point load footprint is mesh-dependent; no contact multiplicity identification']
+    else:
+        result = tile_response(k,req.coupling_N_mm,f)
+        # Same scalar operator for all basis vectors; preserve legacy model.
+        transfer = np.column_stack([tile_response(k,req.coupling_N_mm,e.reshape(n,n))['reaction_N'].ravel() for e in np.eye(n*n)])
+        model='linear_scalar_nearest_neighbour_tile'
+        limitations=['assumed scalar coupling and direct reaction sensing','matched-model synthetic inverse problem',
+                     'no physical membrane, curvature or readout calibration','contact multiplicity is not identified']
     y = result['reaction_N'].ravel()+np.random.default_rng(req.seed).normal(0.,req.noise_N,n*n)
     reconstruction, residual = nnls(transfer,y)
     reconstructed = reconstruction.reshape(n,n)
@@ -147,15 +162,15 @@ def tile_report(kz, req):
         if grid.sum()<=1e-12:return None
         iy,ix=np.indices(grid.shape)
         return [float((grid*ix).sum()*pitch/grid.sum()),float((grid*iy).sum()*pitch/grid.sum())]
-    return {'tier':'T0','model':'linear_scalar_nearest_neighbour_tile','kz_N_mm':float(kz),
+    extra={k:result[k] for k in ('membrane_surface','membrane_energy_Nmm','spring_energy_Nmm','energy_balance_error_Nmm','free_residual_N','minimum_reaction_N') if k in result}
+    return {'tier':'T0','model':model,'kz_N_mm':float(kz),**extra,
             'pitch_mm':pitch,'load_grid_N':f.tolist(),'reaction_N':result['reaction_N'].tolist(),
             'displacement_mm':result['displacement_mm'].tolist(),'noisy_reactions_N':y.reshape(n,n).tolist(),
             'reconstructed_load_N':reconstructed.tolist(),'input_centroid_mm':centroid(f),
             'reconstructed_centroid_mm':centroid(reconstructed),'force_balance_error_N':result['force_balance_error_N'],
             'reconstruction_grid_rmse_N':float(np.sqrt(np.mean((f-reconstructed)**2))),
             'reconstruction_residual_N':float(residual),'transfer_condition':float(np.linalg.cond(transfer)),
-            'limitations':['assumed scalar coupling and direct reaction sensing','matched-model synthetic inverse problem',
-                           'no physical membrane, curvature or readout calibration','contact multiplicity is not identified']}
+            'limitations':limitations}
 
 
 def build_router(select_candidate, preview_genome, current_run_id=None, compute=None):
@@ -179,7 +194,7 @@ def build_router(select_candidate, preview_genome, current_run_id=None, compute=
 
     @router.get('/api/v30/capabilities')
     def capabilities():
-        return {'nonlinear_box':True,'nonlinear_voxel_candidate_diagnostic':True,'tile_T0':True,'sensor_fusion_T0':True,
+        return {'nonlinear_box':True,'nonlinear_voxel_candidate_diagnostic':True,'tile_T0':True,'tensioned_membrane_T0':True,'sensor_fusion_T0':True,
                 'T2_qualified':False,'T3_required_for_release':False,'T3_required_for_evolution':False,
                 'hardware_certified':False}
 

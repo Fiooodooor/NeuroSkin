@@ -1,7 +1,7 @@
 /* Bounded local diagnostic snapshots. Never restore an engine or candidate. */
 (function(root){
   'use strict';
-  const key='neuroskin-diagnostic-reports-v1',limit=12,maxBytes=512000,paths=['nonlinear/contact-box','nonlinear/candidate','tile','fusion'];
+  const key='neuroskin-diagnostic-reports-v1',limit=12,maxBytes=512000,paths=['nonlinear/contact-box','nonlinear/candidate','tile','fusion','tile/optimize'];
   const hex=v=>typeof v==='string'&&/^[a-f0-9]{64}$/.test(v);
   function record(result){
     const c=result?.diagnostic_context;
@@ -18,6 +18,7 @@
     return c.candidate_id===context.expected_candidate_id&&['selection','index','family','run_id','generation','piezo_count_override','piezo_wiring_override','expected_live_run_id','expected_candidate_id'].every(k=>(c.selection[k]??null)===(context[k]??null));}
   function metrics(r){const c=r.diagnostic_context;
     if(c.path.startsWith('nonlinear/'))return [['Peak force [N]',Math.max(0,...(r.stages||[]).map(s=>s.contact_force_N||0))],['Residual displacement [mm]',r.stages?.at(-1)?.displacement_max_mm],['Inflated members',r.inflated_features??0]];
+    if(c.path==='tile/optimize')return [['Screened designs',r.screening.length],['Refined designs',r.refined.length],['Refined Pareto',r.refined_pareto_ids.length]];
     if(c.path==='tile')return [['Grid RMSE [mN]',1000*r.reconstruction_grid_rmse_N],['Transfer condition',r.transfer_condition],['Balance error [N]',r.force_balance_error_N]];
     const f=r.models?.static_stage_pvdf;return [['Fused force RMSE [mN]',1000*f?.force_rmse_norm_N],['Fused position MAE [mm]',f?.position_mae_mm],['PVDF clipping [%]',100*r.pvdf_saturated_sample_fraction_assumed]];
   }

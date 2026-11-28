@@ -39,5 +39,13 @@
     const names=Object.keys(d.models||{}),m=names.map(n=>d.models[n]);
     return {traces:[{type:'bar',name:'Force RMSE [mN]',x:names,y:m.map(v=>1000*v.force_rmse_norm_N),marker:{color:'#75d3bf'}},{type:'bar',name:'Position MAE [mm]',x:names,y:m.map(v=>v.position_mae_mm),yaxis:'y2',marker:{color:'#b09bdb'}}],layout:{...base,title:'Held-out readout comparison · synthetic',barmode:'group',margin:{l:55,r:55,t:50,b:85},xaxis:{tickangle:-20},yaxis:{title:'Force RMSE [mN]',rangemode:'tozero'},yaxis2:{title:'Position MAE [mm]',overlaying:'y',side:'right',rangemode:'tozero'}}};
   }
-  const api={contact,contactCurve,tile,fusion,config};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.NeuroLabVisuals=api;
+  function optimization(d){
+    const traces=[];
+    for(const [key,rows,front] of [['Screen',d.screening,d.screening_pareto_ids],['Refined',d.refined,d.refined_pareto_ids]]){
+      const valid=rows.filter(r=>!r.failed);
+      traces.push({type:'scatter',mode:'markers',name:key,x:valid.map(r=>r.metrics.power_mW),y:valid.map(r=>r.metrics.position_mae_mm),text:valid.map(r=>r.id+' · '+r.receptor.id+' · '+r.size+'×'+r.size+' · force RMSE '+(1000*r.metrics.force_rmse_N).toFixed(2)+' mN'),marker:{size:key==='Refined'?12:7,symbol:valid.map(r=>!r.diagnostic_screen_pass?'x':front.includes(r.id)?'diamond':'circle'),color:key==='Refined'?'#f1bd6d':'#75d3bf'},hovertemplate:'%{text}<br>Power %{x:.3g} mW<br>Position MAE %{y:.3g} mm<extra></extra>'});
+    }
+    return {traces,layout:{...base,title:'Tile tradeoffs · separate fidelities (diamonds = eligible Pareto)',xaxis:{title:'Assumed total power [mW]'},yaxis:{title:'Centroid MAE [mm]'}}};
+  }
+  const api={contact,contactCurve,tile,fusion,optimization,config};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.NeuroLabVisuals=api;
 })(globalThis);

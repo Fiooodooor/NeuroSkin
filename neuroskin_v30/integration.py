@@ -84,6 +84,21 @@ class TileInput(Selection):
     contacts: list[Contact] = Field(min_length=1, max_length=8)
 
 
+class TileOptimizeInput(Selection):
+    patch_side_mm: float = Field(120., ge=60., le=300.)
+    sizes: list[Literal[3,5,8]] = Field(default_factory=lambda:[3,5],min_length=1,max_length=3)
+    tensions: list[float] = Field(default_factory=lambda:[.1,.3,1.],min_length=1,max_length=3)
+    substrate_depths_mm: list[float] = Field(default_factory=lambda:[2.,4.],min_length=1,max_length=2)
+    membrane_young_MPa: float = Field(2.,gt=0,le=100.)
+    membrane_thickness_mm: float = Field(.5,gt=0,le=5.)
+    substrate_young_MPa: float = Field(1.,gt=0,le=1000.)
+    noise_N: float = Field(.001,ge=0,le=.1)
+    seed: int = Field(42,ge=0,le=2**32-10)
+    include_library: bool = True
+    finalists: int = Field(2,ge=1,le=3)
+    compute_workers: int = Field(2,ge=1,le=4)
+
+
 @lru_cache(maxsize=1)
 def diagnostic_source_hash():
     """Fingerprint the application source at process startup/first diagnostic."""
@@ -225,7 +240,7 @@ def build_router(select_candidate, preview_genome, current_run_id=None, compute=
 
     @router.get('/api/v30/capabilities')
     def capabilities():
-        return {'nonlinear_box':True,'nonlinear_multimaterial_TET4':True,'nonlinear_voxel_candidate_diagnostic':True,'tile_T0':True,'tensioned_membrane_T0':True,'nonlinear_coupled_tile_T0':True,'sensor_fusion_T0':True,
+        return {'nonlinear_box':True,'nonlinear_multimaterial_TET4':True,'nonlinear_voxel_candidate_diagnostic':True,'tile_T0':True,'tensioned_membrane_T0':True,'nonlinear_coupled_tile_T0':True,'multiscale_tile_optimization_T0':True,'sensor_fusion_T0':True,
                 'T2_qualified':False,'T3_required_for_release':False,'T3_required_for_evolution':False,
                 'hardware_certified':False}
 
@@ -301,4 +316,31 @@ def build_router(select_candidate, preview_genome, current_run_id=None, compute=
     def nonlinear_tile(req:TileInput):
         if req.membrane_model!='nonlinear_coupled':raise HTTPException(422,'Select nonlinear_coupled model')
         return solve_tile(req)
+    @router.post('/api/v30/tile/optimize')
+    @heavy('tile_optimization')
+    def tile_optimize(req:TileOptimizeInput):
+        c,g=resolve(req)
+        try:
+            if any(not .001<=v<=20 for v in req.tensions) or any(not .1<=v<=20 for v in req.substrate_depths_mm):
+                raise ValueError('Tension and substrate depth outside bounded range')
+            from tile_optimization import receptor_descriptor,designs,optimize
+            receptors=[receptor_descriptor(c,g)]
+            if req.include_library:
+                import random
+                from hybrid_library import ranked,genome_for
+                for spec in ranked():
+                    identity='hybrid-'+spec.id
+                    if identity==c['id']:continue
+                    other=genome_for(spec,random.Random(1701))
+                    receptors.append(receptor_descriptor({'id':identity,'family':spec.upper_family},other))
+                    if len(receptors)>=3:break
+            ds,excluded=designs(receptors,req.patch_side_mm,req.sizes,req.tensions,req.substrate_depths_mm,
+                req.substrate_young_MPa,req.membrane_young_MPa,req.membrane_thickness_mm,req.noise_N,req.seed)
+            allocation=compute.current_allocation() if compute is not None else None
+            workers=allocation['cpu_workers'] if allocation else 1
+            progress=compute.progress_callback() if compute is not None else lambda _:None
+            out=optimize(ds,excluded,req.finalists,workers,progress)
+            out.update(candidate_id=c['id'],family=c['family'])
+            return diagnostic_context(out,'tile/optimize',req,c,g)
+        except (ValueError,RuntimeError,ArithmeticError,np.linalg.LinAlgError,MemoryError) as exc:raise HTTPException(422,str(exc)) from exc
     return router

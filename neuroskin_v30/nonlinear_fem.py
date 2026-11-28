@@ -103,8 +103,16 @@ def horizontal_surface_weights(mesh:TetMesh, *, top:bool=True, atol:float=1e-9):
 
 
 class TetNeoHookeanSolver:
-    def __init__(self,mesh:TetMesh, material:NeoHookean):
+    def __init__(self,mesh:TetMesh, material:NeoHookean, *, materials=None, material_ids=None):
         self.mesh,self.material=mesh,material
+        if materials is None:
+            if material_ids is not None:raise ValueError('Material IDs require an explicit material table')
+            materials=(material,);material_ids=np.zeros(len(mesh.tets),dtype=int)
+        mats=tuple(materials);ids=np.asarray(material_ids)
+        if not mats or not all(isinstance(m,NeoHookean) for m in mats) or ids.shape!=(len(mesh.tets),) or ids.dtype.kind not in 'iu' or np.any(ids<0) or np.any(ids>=len(mats)):
+            raise ValueError('Invalid element material mapping')
+        self.materials=mats;self.material_ids=ids.astype(int,copy=True);self.material_ids.setflags(write=False)
+        self.mu=np.asarray([m.mu for m in mats])[ids];self.lam=np.asarray([m.lam for m in mats])[ids]
         x=mesh.nodes; t=mesh.tets
         self.grad=np.empty((len(t),4,3))
         self.volumes=np.empty(len(t))
@@ -117,22 +125,42 @@ class TetNeoHookeanSolver:
         self.dofs=np.arange(3*len(x)).reshape(-1,3)[t].reshape(len(t),12)
         self.ndof=3*len(x)
 
+    def material_summary(self):
+        return [{'id':i,'young_MPa':m.young_MPa,'poisson':m.poisson,'elements':int(np.sum(self.material_ids==i)),
+                 'volume_mm3':float(self.volumes[self.material_ids==i].sum())} for i,m in enumerate(self.materials)]
+
+    def _constitutive_batch(self,F,start,end,with_tangent):
+        J=np.linalg.det(F)
+        if np.any(J<=1e-8) or not np.isfinite(J).all():raise InvertedElement('Nonpositive/degenerated deformation Jacobian')
+        invT=np.linalg.inv(F).transpose(0,2,1);logJ=np.log(J)
+        mu=self.mu[start:end];lam=self.lam[start:end]
+        W=.5*mu*(np.sum(F*F,axis=(1,2))-3-2*logJ)+.5*lam*logJ**2
+        P=mu[:,None,None]*(F-invT)+(lam*logJ)[:,None,None]*invT
+        C=None
+        if with_tangent:
+            I=np.eye(3)
+            C=(mu[:,None,None,None,None]*np.einsum('ik,JL->iJkL',I,I)
+               +lam[:,None,None,None,None]*np.einsum('eiJ,ekL->eiJkL',invT,invT)
+               +(mu-lam*logJ)[:,None,None,None,None]*np.einsum('eiL,ekJ->eiJkL',invT,invT))
+        return W,P,C,J
+
     def _assemble(self,u,force,plane,weights,penalty,with_tangent):
         grad_total=np.zeros((len(self.mesh.nodes),3))
         rows=[];cols=[];vals=[]
         energy=0.; minJ=np.inf
-        for k,ids in enumerate(self.mesh.tets):
-            F=np.eye(3)+u[ids].T@self.grad[k]
-            W,P,C,J=self.material.energy_stress_tangent(F)
-            minJ=min(minJ,J)
-            vol=self.volumes[k]
-            energy+=vol*W
-            grad_total[ids]+=vol*(self.grad[k]@P.T)
+        # Vectorized, bounded chunks; same total-Lagrangian energy and tangent.
+        for start in range(0,len(self.mesh.tets),256):
+            end=min(start+256,len(self.mesh.tets));ids=self.mesh.tets[start:end]
+            G=self.grad[start:end];vol=self.volumes[start:end]
+            F=np.eye(3)+np.einsum('eai,eaJ->eiJ',u[ids],G)
+            W,P,C,J=self._constitutive_batch(F,start,end,with_tangent)
+            minJ=min(minJ,float(J.min()));energy+=float(vol@W)
+            local=vol[:,None,None]*np.einsum('eaJ,eiJ->eai',G,P)
+            np.add.at(grad_total,ids.ravel(),local.reshape(-1,3))
             if with_tangent:
-                ke=vol*np.einsum('aJ,iJkL,bL->aibk',self.grad[k],C,self.grad[k],optimize=True)
-                ke=ke.reshape(12,12)
-                d=self.dofs[k]
-                rows.append(np.repeat(d,12));cols.append(np.tile(d,12));vals.append(ke.ravel())
+                ke=vol[:,None,None]*np.einsum('eaJ,eiJkL,ebL->eaibk',G,C,G,optimize=True).reshape(-1,12,12)
+                d=self.dofs[start:end]
+                rows.append(np.repeat(d,12,axis=1).ravel());cols.append(np.tile(d,(1,12)).ravel());vals.append(ke.ravel())
         contact_force=0.; max_pen=0.
         if plane is not None:
             gap=self.mesh.nodes[:,2]+u[:,2]-plane
@@ -143,7 +171,7 @@ class TetNeoHookeanSolver:
             contact_force=float(reaction.sum())
             max_pen=float(intrusion[weights>0].max())
             if with_tangent:
-                active=np.flatnonzero(intrusion>0)
+                active=np.flatnonzero((intrusion>0)&(weights>0))
                 d=3*active+2
                 rows.append(d);cols.append(d);vals.append(penalty*weights[active])
         energy-=float(np.dot(u.reshape(-1),force.reshape(-1)))
@@ -237,7 +265,7 @@ class TetNeoHookeanSolver:
                 raise NonlinearFEMError('line search failed (inversion, unstable tangent or infeasible constraints)')
         raise NonlinearFEMError(f'Newton did not converge in {max_iterations} iterations; residual {norm:.6g} N')
 
-    def contact_cycle(self,indents_mm, *,penalty_N_per_mm3=100., fixed_dofs=None):
+    def contact_cycle(self,indents_mm, *,penalty_N_per_mm3=100., fixed_dofs=None, capture=None):
         """Displacement-driven frictionless contact path; not viscoelastic recovery.
 
         Returns all stages with explicit penetration and equilibrium checks.
@@ -254,5 +282,6 @@ class TetNeoHookeanSolver:
                               plane_z_mm=ztop-displacement,
                               contact_penalty_N_per_mm3=penalty_N_per_mm3)
             old=result.displacement_mm
+            if capture is not None:capture(displacement,result)
             data.append({'indentation_mm':displacement,**result.summary()})
         return data

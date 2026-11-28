@@ -41,6 +41,8 @@ class FusionInput(Selection):
 class BoxInput(BaseModel):
     model_config = ConfigDict(allow_inf_nan=False)
     n: int = Field(1, ge=1, le=3)
+    layered: bool = False
+    second_young_MPa: float = Field(10., ge=.01, le=1000.)
     young_MPa: float = Field(2., ge=.01, le=1000.)
     poisson: float = Field(.3, ge=0., le=.45)
     side_mm: float = Field(1., ge=.1, le=20.)
@@ -49,6 +51,9 @@ class BoxInput(BaseModel):
 
 
 class CandidateContact(Selection):
+    material_model: Literal['homogeneous','stiff_plates'] = 'homogeneous'
+    plate_young_MPa: float = Field(10., ge=.01, le=1000.)
+    plate_poisson: float = Field(.3, ge=0., le=.45)
     pitch_mm: float = Field(2., ge=.5, le=2.5)
     indentation_mm: float = Field(.025, gt=0., le=.25)
     poisson: float = Field(.35, ge=0., le=.45)
@@ -105,18 +110,22 @@ def diagnostic_context(result, path, req, candidate=None, genome=None):
     return result
 
 
-def contact_report(mesh, material, indentation, penalty, fixed=None):
+def contact_report(mesh, material, indentation, penalty, fixed=None, *, materials=None, material_ids=None):
     height = float(np.ptp(mesh.nodes[:,2]))
     if indentation >= .25*height:
         raise ValueError('Indentation must be below 25% of mesh height')
-    solver = TetNeoHookeanSolver(mesh, material)
+    solver = TetNeoHookeanSolver(mesh, material,materials=materials,material_ids=material_ids)
+    from .material_regions import surface_topology
+    used,fields=surface_topology(mesh,solver.material_ids);fields['stages']=[]
+    def capture(indent,result):
+        fields['stages'].append({'indentation_mm':indent,'displacement_mm':result.displacement_mm[used].tolist()})
     stages = solver.contact_cycle([0., indentation/2, indentation, 0.],
-                                  penalty_N_per_mm3=penalty, fixed_dofs=fixed)
+                                  penalty_N_per_mm3=penalty, fixed_dofs=fixed,capture=capture)
     for stage in stages:
         stage['vertical_balance_error_N'] = abs(stage['reactions_sum_N'][2]-stage['contact_force_N'])
-    return {'mesh':mesh.metrics(), 'stages':stages, 'model':'compressible_neo_hookean_TET4',
+    return {'mesh':mesh.metrics(), 'stages':stages, 'contact_fields':fields,'materials':solver.material_summary(), 'model':'compressible_neo_hookean_TET4',
             'evidence':'DIAGNOSTIC_ONLY', 'T2_qualified':False,
-            'limitations':['elastic, homogeneous material','frictionless planar nodal penalty contact',
+            'limitations':['elastic, perfectly bonded material regions; no interface slip','frictionless planar nodal penalty contact',
                            'no independent mesh/penalty convergence','no PVDF, adhesive or electrical coupling']}
 
 
@@ -194,7 +203,7 @@ def build_router(select_candidate, preview_genome, current_run_id=None, compute=
 
     @router.get('/api/v30/capabilities')
     def capabilities():
-        return {'nonlinear_box':True,'nonlinear_voxel_candidate_diagnostic':True,'tile_T0':True,'tensioned_membrane_T0':True,'sensor_fusion_T0':True,
+        return {'nonlinear_box':True,'nonlinear_multimaterial_TET4':True,'nonlinear_voxel_candidate_diagnostic':True,'tile_T0':True,'tensioned_membrane_T0':True,'sensor_fusion_T0':True,
                 'T2_qualified':False,'T3_required_for_release':False,'T3_required_for_evolution':False,
                 'hardware_certified':False}
 
@@ -203,8 +212,12 @@ def build_router(select_candidate, preview_genome, current_run_id=None, compute=
     def box(req:BoxInput):
         if not CONTACT_SLOT.acquire(blocking=False):raise HTTPException(409,'Nonlinear solver busy')
         try:
-            out=contact_report(box_mesh(req.n,req.n,req.n,(req.side_mm,)*3),
-                               NeoHookean(req.young_MPa,req.poisson),req.indentation_mm,req.penalty_N_per_mm3)
+            mesh=box_mesh(req.n,req.n,req.n*(2 if req.layered else 1),(req.side_mm,)*3)
+            mat=NeoHookean(req.young_MPa,req.poisson);opts={}
+            if req.layered:
+                from .material_regions import layered_box_ids
+                opts={'materials':[mat,NeoHookean(req.second_young_MPa,req.poisson)],'material_ids':layered_box_ids(mesh)}
+            out=contact_report(mesh,mat,req.indentation_mm,req.penalty_N_per_mm3,**opts)
             return diagnostic_context(out,'nonlinear/contact-box',req)
         except (ValueError,RuntimeError,MemoryError) as exc:raise HTTPException(422,str(exc)) from exc
         finally:CONTACT_SLOT.release()
@@ -221,8 +234,12 @@ def build_router(select_candidate, preview_genome, current_run_id=None, compute=
                 raise ValueError('Voxel geometry inflated; diagnostic override required or use a resolved mesh')
             mesh=hex8_to_tet4(m.nodes,m.elements)
             fixed=(3*m.bottom[:,None]+np.arange(3)[None,:]).ravel()
-            out=contact_report(mesh,NeoHookean(float(g.get('material_E',1.)),req.poisson),
-                               req.indentation_mm,req.penalty_N_per_mm3,fixed)
+            mat=NeoHookean(float(g.get('material_E',1.)),req.poisson);opts={}
+            if req.material_model=='stiff_plates':
+                from .material_regions import receptor_plate_ids
+                opts={'materials':[mat,NeoHookean(req.plate_young_MPa,req.plate_poisson)],
+                      'material_ids':receptor_plate_ids(m,{**g,'_material_family':c['family']})}
+            out=contact_report(mesh,mat,req.indentation_mm,req.penalty_N_per_mm3,fixed,**opts)
             out.update(candidate_id=c['id'],family=c['family'],mesh_source='voxel_HEX8_subdivision',
                        pitch_mm=req.pitch_mm,inflated_features=m.inflated_features,geometry_warning=m.geometry_warning)
             return diagnostic_context(out,'nonlinear/candidate',req,c,g)

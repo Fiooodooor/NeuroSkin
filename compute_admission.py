@@ -33,6 +33,8 @@ def allocate_manual(name,req,cpu,ram_mb,gpu_busy,has_active):
     elif name=='linear_fem':
         count=1;device='gpu' if req.get('compute_device')=='gpu' else 'cpu'
         memory=fem_base_ram_mb(True,req.get('backend','hex8'),req.get('pitch_mm',.3125))
+    elif name=='nonlinear_tile':
+        count=1;memory=1024+64*int(req.get('size',3))**2
     elif name in ('nonlinear_contact','verification_box','sensor_fusion'):
         count=1;memory=1024
     else:

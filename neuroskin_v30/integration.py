@@ -72,7 +72,11 @@ class TileInput(Selection):
     size: Literal[3,5,8] = 3
     pitch_mm: float = Field(20., ge=1., le=100.)
     coupling_N_mm: float = Field(.2, ge=0., le=100.)
-    membrane_model: Literal['spring','tensioned_q1'] = 'spring'
+    membrane_model: Literal['spring','tensioned_q1','nonlinear_coupled'] = 'spring'
+    membrane_young_MPa: float = Field(2., gt=0., le=100.)
+    membrane_thickness_mm: float = Field(.5, gt=0., le=5.)
+    substrate_young_MPa: float = Field(1., gt=0., le=1000.)
+    substrate_thickness_mm: float = Field(4., gt=0., le=20.)
     pretension_N_mm: float = Field(.2, gt=0., le=20.)
     membrane_subdivisions: Literal[4,8] = 4
     noise_N: float = Field(0., ge=0., le=.1)
@@ -154,7 +158,18 @@ def tile_report(kz, req):
     n,pitch = req.size,req.pitch_mm
     k = np.full((n,n),kz)
     f = distribute_contacts(n,pitch,req.contacts)
-    if req.membrane_model=='tensioned_q1':
+    if req.membrane_model=='nonlinear_coupled':
+        from nonlinear_skin_tile import NonlinearSkinTile,Substrate3D
+        substrate=Substrate3D(n,pitch,req.substrate_thickness_mm,req.substrate_young_MPa)
+        membrane=NonlinearSkinTile(k,pitch,req.pretension_N_mm,req.membrane_young_MPa,req.membrane_thickness_mm,
+                                   subdivisions=req.membrane_subdivisions,substrate=substrate)
+        result=membrane.solve([(c.x_mm,c.y_mm,c.force_N) for c in req.contacts]);transfer=result['transfer']
+        model='fixed_inplane_von_karman_Q1_with_condensed_linear_TET4_substrate'
+        limitations=['moderate rotation membrane with constrained in-plane displacement; no wrinkling or bending',
+                     'linear elastic 3D substrate, clamped bottom, coarse TET4; no mesh convergence',
+                     'bilateral receptor springs and point contacts; no detachment or sensor calibration',
+                     'inverse uses zero-load linearization, not nonlinear inverse or independently calibrated decoder']
+    elif req.membrane_model=='tensioned_q1':
         from membrane_tile import MembraneTile
         membrane=MembraneTile(k,pitch,req.pretension_N_mm,req.membrane_subdivisions)
         result=membrane.solve([(c.x_mm,c.y_mm,c.force_N) for c in req.contacts])
@@ -178,7 +193,7 @@ def tile_report(kz, req):
         if grid.sum()<=1e-12:return None
         iy,ix=np.indices(grid.shape)
         return [float((grid*ix).sum()*pitch/grid.sum()),float((grid*iy).sum()*pitch/grid.sum())]
-    extra={k:result[k] for k in ('membrane_surface','membrane_energy_Nmm','spring_energy_Nmm','energy_balance_error_Nmm','free_residual_N','minimum_reaction_N','maximum_membrane_slope','small_slope_screen','small_slope_screen_limit') if k in result}
+    extra={k:result[k] for k in ('membrane_surface','membrane_energy_Nmm','spring_energy_Nmm','energy_balance_error_Nmm','free_residual_N','minimum_reaction_N','maximum_membrane_slope','small_slope_screen','small_slope_screen_limit','moderate_slope_screen','membrane_stretch_energy_Nmm','substrate_energy_Nmm','energy_balance_definition','substrate','receptor_compression_mm','iterations','inverse_basis') if k in result}
     return {'tier':'T0','model':model,'kz_N_mm':float(kz),**extra,
             'pitch_mm':pitch,'input_contacts':[c.model_dump(mode='json') for c in req.contacts],'load_grid_N':f.tolist(),'reaction_N':result['reaction_N'].tolist(),
             'displacement_mm':result['displacement_mm'].tolist(),'noisy_reactions_N':y.reshape(n,n).tolist(),
@@ -210,7 +225,7 @@ def build_router(select_candidate, preview_genome, current_run_id=None, compute=
 
     @router.get('/api/v30/capabilities')
     def capabilities():
-        return {'nonlinear_box':True,'nonlinear_multimaterial_TET4':True,'nonlinear_voxel_candidate_diagnostic':True,'tile_T0':True,'tensioned_membrane_T0':True,'sensor_fusion_T0':True,
+        return {'nonlinear_box':True,'nonlinear_multimaterial_TET4':True,'nonlinear_voxel_candidate_diagnostic':True,'tile_T0':True,'tensioned_membrane_T0':True,'nonlinear_coupled_tile_T0':True,'sensor_fusion_T0':True,
                 'T2_qualified':False,'T3_required_for_release':False,'T3_required_for_evolution':False,
                 'hardware_certified':False}
 
@@ -266,8 +281,7 @@ def build_router(select_candidate, preview_genome, current_run_id=None, compute=
         except (ValueError,RuntimeError,ArithmeticError,np.linalg.LinAlgError) as exc:raise HTTPException(422,str(exc)) from exc
         finally:FUSION_SLOT.release()
 
-    @router.post('/api/v30/tile')
-    def tile(req:TileInput):
+    def solve_tile(req):
         c,g=resolve(req)
         try:
             from advanced import curve_stiffness
@@ -277,4 +291,14 @@ def build_router(select_candidate, preview_genome, current_run_id=None, compute=
             out.update(candidate_id=c['id'],family=c['family'])
             return diagnostic_context(out,'tile',req,c,g)
         except (ValueError,RuntimeError,np.linalg.LinAlgError) as exc:raise HTTPException(422,str(exc)) from exc
+    @router.post('/api/v30/tile')
+    def tile(req:TileInput):
+        if req.membrane_model=='nonlinear_coupled':raise HTTPException(422,'Use /api/v30/tile/nonlinear for coupled analysis')
+        return solve_tile(req)
+
+    @router.post('/api/v30/tile/nonlinear')
+    @heavy('nonlinear_tile')
+    def nonlinear_tile(req:TileInput):
+        if req.membrane_model!='nonlinear_coupled':raise HTTPException(422,'Select nonlinear_coupled model')
+        return solve_tile(req)
     return router

@@ -150,14 +150,20 @@
   const femLegend=make('p','workspace-fem-legend','Run Evaluate All to compute four standard load cases.');femLegend.id='workspaceFEMLegend';
   const femNote=make('small','workspace-summary','Same reference geometry, visual scale and color limits. Standard loads are independent of the custom inspector settings.');
   const femCards=make('div','workspace-fem-grid'),plots=new Map();
+  const femActions=make('div','workspace-fem-actions');
+  const resetCases=button('workspaceResetFEMCameras','Reset all cameras',()=>{for(const {plot} of plots.values())if(plot._fullLayout)Plotly.relayout(plot,{'scene.camera':baseLayout.scene.camera});});
+  const swatch=make('span','workspace-field-swatch');swatch.setAttribute('aria-label','Viridis low to high field scale');
+  femActions.append(swatch,resetCases);
   for(const name of preview.order){
     const card=make('details','workspace-fem-card');card.open=true;card.dataset.case=name;
     const plot=make('div','workspace-fem-preview-plot');plot.id='femPreview-'+name;
     const caption=make('small','workspace-fem-case-metrics','No solved field yet.');
-    card.append(make('summary','',preview.labels[name]),caption,plot);femCards.append(card);plots.set(name,{card,plot,caption});
+    const expand=button('femExpand-'+name,'Expand panel',()=>{const wide=!card.classList.contains('workspace-fem-wide');for(const v of plots.values()){v.card.classList.remove('workspace-fem-wide');v.expand.textContent='Expand panel';v.expand.setAttribute('aria-pressed','false');}card.classList.toggle('workspace-fem-wide',wide);expand.textContent=wide?'Restore grid':'Expand panel';expand.setAttribute('aria-pressed',String(wide));resize();});expand.setAttribute('aria-pressed','false');
+    const toolbar=make('div','workspace-fem-card-toolbar');toolbar.append(caption,expand);
+    card.append(make('summary','',preview.labels[name]),toolbar,plot);femCards.append(card);plots.set(name,{card,plot,caption,expand});
     card.addEventListener('toggle',()=>renderFEMPreviews());
   }
-  femGrid.append(femNote,femLegend,femCards);
+  femGrid.append(femNote,femLegend,femActions,femCards);
   let previewDraw=Promise.resolve(),previewRevision=0,lastPreviewPacket=null,femStale=false;
   function markFEMStale(){femStale=true;renderFEMPreviews();}
   function renderFEMPreviews(){
@@ -169,9 +175,9 @@
     const units={stress_vm_MPa:'von Mises stress [MPa]',principal_strain:'Principal strain [1]',displacement_mm:'Displacement [mm]'};
     const range=valid&&visible?preview.bounds(packet,key,scale):null;
     femLegend.textContent=valid?(femStale?'Settings changed — last solved fields only. ':'')+
-      (range?units[key]+' · shared range '+range.cmin.toPrecision(4)+' to '+range.cmax.toPrecision(4)+' · '+scale+'× visual scale · '+packet.display_surface_triangles+' triangles'+(packet.display_downsampled?' (sampled)':''):'Four standard load fields available.'):
+      (range?units[key]+' · shared displayed range '+range.cmin.toPrecision(4)+' to '+range.cmax.toPrecision(4)+' · '+scale+'× visual scale · '+packet.display_surface_triangles+' triangles'+(packet.display_downsampled?' (sampled)':''):'Four standard load fields available.'):
       'No solved fields. Select a receptor and run Evaluate All with FEM enabled.';
-    femLegend.classList.toggle('workspace-stale',femStale&&valid);
+    femLegend.classList.toggle('workspace-stale',femStale&&valid);femActions.hidden=!valid;
     previewDraw=previewDraw.catch(()=>{}).then(async()=>{
       if(rev!==previewRevision)return;
       for(const [name,{card,plot,caption}] of plots){
@@ -186,7 +192,9 @@
       }
     });
   }
-  fem.addEventListener('toggle',renderFEMPreviews);
+  function isFEMVisible(){return active==='fem'&&advanced&&fem.open;}
+  function updateDetailedFEM(){if(isFEMVisible()){renderSolvedFEM();renderLaminateShell();}else{purgePlot(el('femPlot'));purgePlot(el('laminatePlot'));}}
+  fem.addEventListener('toggle',updateDetailedFEM);
   const reports=window.NeuroReports;
   let saved=[];try{saved=reports.load(localStorage);}catch{}
   const comparison=make('details','workspace-comparison');comparison.id='workspaceComparison';comparison.append(make('summary','','Compare & save inspection reports'));
@@ -230,7 +238,7 @@
   function resize(){requestAnimationFrame(()=>{for(const plot of main.querySelectorAll('.js-plotly-plot'))if(plot.getClientRects().length&&plot._fullLayout)try{Plotly.Plots.resize(plot);}catch{}});}
   function show(id){if(!panels.has(id)||(!advanced&&views.find(v=>v[0]===id)[3]))id='overview';active=id;
     for(const [key,p] of panels){p.hidden=key!==id;const t=tabs.get(key);t.setAttribute('aria-selected',String(key===id));t.tabIndex=key===id?0:-1;}
-    if(id==='multiscale'&&!bound)bindLab(false);mountGeometry();update();renderPinnedGeometry();renderFEMPreviews();resize();
+    if(id==='multiscale'&&!bound)bindLab(false);mountGeometry();update();renderPinnedGeometry();updateDetailedFEM();if(!isFEMVisible())renderFEMPreviews();resize();
   }
   nav.addEventListener('keydown',e=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;const visible=views.filter(v=>advanced||!v[3]).map(v=>v[0]);let i=visible.indexOf(active);i=e.key==='Home'?0:e.key==='End'?visible.length-1:(i+(e.key==='ArrowRight'?1:-1)+visible.length)%visible.length;e.preventDefault();show(visible[i]);tabs.get(visible[i]).focus();});
   function current(){const p=selectedPayload(),c=findCandidate(currentSelection);if(!p||!c)return null;
@@ -293,6 +301,6 @@
   library.addEventListener('click',e=>{if(e.target.closest('[data-hybrid],[data-preview-seed]'))show('overview');});
   archive.addEventListener('click',e=>{if(e.target.closest('#openArchive,#openStage,#returnLive'))show('overview');});
   window.addEventListener('message',e=>{if(e.origin!==location.origin)return;const item=[...openLabs.values()].find(x=>x.frame.contentWindow===e.source);if(!item)return;if(e.data?.type==='neuroskin:lab-height'&&Number.isFinite(e.data.height))item.frame.style.height=Math.max(500,Math.min(18000,e.data.height+12))+'px';else if(e.data?.type==='neuroskin:lab-report'){const r=reports.record(e.data.result);if(r&&reports.matchesFrame(r,item.context)){item.reports.set(r.diagnostic_context.path,r);renderReports();}}else if(e.data?.type==='neuroskin:lab-busy'&&typeof e.data.busy==='boolean'){item.busy=e.data.busy;if(item.frame===frame){labBusy=item.busy;update();}}});
-  window.NeuroWorkspace={show,update,resize,renderEvaluation,renderFEMPreviews,markFEMStale};
+  window.NeuroWorkspace={show,update,resize,renderEvaluation,renderFEMPreviews,markFEMStale,isFEMVisible};
   mode();show('overview');renderReports();
 })();

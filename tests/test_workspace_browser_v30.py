@@ -144,3 +144,44 @@ def test_workspace_modes_context_and_multiscale(app_url):
         expect(page.locator('.workspace-labframe')).to_have_count(0)
         assert not errors,errors
         browser.close()
+
+
+def test_four_real_fem_fields_and_geometry_override(app_url):
+    from playwright.sync_api import sync_playwright,expect
+    with sync_playwright() as pw:
+        browser=pw.chromium.launch(headless=True,args=['--disable-dev-shm-usage','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader'])
+        page=browser.new_page(viewport={'width':1500,'height':1000})
+        errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
+        page.goto(app_url,wait_until='domcontentloaded')
+        page.locator('#advancedMode').click()
+        page.locator('#workspace-tab-library').click()
+        page.locator('#hybridLibrary').locator('xpath=ancestor::details[1]/summary').click()
+        page.locator('[data-hybrid="h01_serpentine_quadrant"]').click(timeout=30000)
+        expect(page.locator('#workspaceCandidate')).to_contain_text('h01',timeout=20000)
+        with page.expect_response(lambda r:'/api/mesh?' in r.url and 'piezo_count_override=4' in r.url,timeout=30000) as response:
+            page.locator('#piezoOverride').select_option('4')
+        assert response.value.ok,response.value.text()
+        assert 'piezo_wiring_override=null' not in response.value.url
+        page.locator('#workspace-tab-fem').click()
+        page.locator('#femViewPitch').select_option('1.25')
+        with page.expect_response(lambda r:r.url.endswith('/api/evaluate_all'),timeout=180000) as response:
+            page.locator('#evaluateAll').click()
+        assert response.value.ok,response.value.text()
+        data=response.value.json()
+        assert data['fem']['preview_fields']['case_order']==['press_center','press_x_plus','shear_x','torsion_z']
+        assert 'preview_fields' not in data['audit']['fem']
+        expect(page.locator('#evaluateAll')).to_be_enabled(timeout=180000)
+        page.locator('#workspace-tab-fem').click()
+        expect(page.locator('#workspaceFEMLegend')).to_contain_text('shared displayed range',timeout=30000)
+        page.wait_for_function("""[...document.querySelectorAll('.workspace-fem-preview-plot')].every(p=>p.data?.length)""",timeout=60000)
+        scales=page.evaluate("""[...document.querySelectorAll('.workspace-fem-preview-plot')].map(p=>{const t=p.data.at(-1);return[t.cmin,t.cmax]})""")
+        assert len(scales)==4 and all(s==scales[0] for s in scales)
+        page.locator('#femExpand-press_center').click()
+        expect(page.locator('.workspace-fem-wide')).to_have_count(1)
+        page.locator('#femExpand-press_center').click()
+        expect(page.locator('.workspace-fem-wide')).to_have_count(0)
+        page.locator('#workspace-tab-signals').click()
+        page.wait_for_function("""[...document.querySelectorAll('.workspace-fem-preview-plot')].every(p=>!p.data)""",timeout=30000)
+        expect(page.locator('#workspace-panel-signals #model')).to_be_visible()
+        assert not errors,errors
+        browser.close()

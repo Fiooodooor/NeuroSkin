@@ -187,7 +187,7 @@ class BeamFEM:
         id=part.global_ids[j]
         return np.zeros(6) if id<0 else part.transforms[j]@U[6*id:6*id+6]
 
-    def solve(self,force=(0,0,-.1),offset=(0.,0.),torque_z_Nmm=0.,include_fields=False):
+    def solve(self,force=(0,0,-.1),offset=(0.,0.),torque_z_Nmm=0.,include_fields=False,include_boundary_vectors=False):
         F=np.asarray(force,dtype=float)
         off=np.asarray(offset,dtype=float)
         if F.shape!=(3,) or off.shape!=(2,) or not np.isfinite(F).all() or not np.isfinite(off).all():
@@ -203,6 +203,7 @@ class BeamFEM:
         residual=float(np.linalg.norm(self.K@U-f)/max(1e-12,np.linalg.norm(f)))
         if residual>1e-5:raise BeamFEMError(f'Beam force equilibrium failed: residual={residual:.3g}')
         reaction=np.zeros(6)
+        support_positions=[];support_forces=[];support_couples=[]
         maxstress=0.;maxstrain=0.;stress_perpart={}
         for part in self.parts:
             D=np.stack([self._endpoint_dofs(part,j,U) for j in range(len(part.nodes))])
@@ -216,7 +217,10 @@ class BeamFEM:
             local=T12@np.r_[wa,wb]
             p_local=kl@local
             if j==0:
-                reaction+=np.r_[p_local[:3]@R,p_local[3:6]@R] + np.r_[np.zeros(3),np.cross(pa-self.padcentre,p_local[:3]@R)]
+                support_force=p_local[:3]@R;support_couple=p_local[3:6]@R
+                reaction+=np.r_[support_force,support_couple] + np.r_[np.zeros(3),np.cross(pa-self.padcentre,support_force)]
+                if include_boundary_vectors:
+                    support_positions.append(pa);support_forces.append(support_force);support_couples.append(support_couple)
             r=float((part.radius[j]+part.radius[j+1])/2)
             A=pi_circle_area(r);I=pi*r**4/4;J=2*I
             axial=max(abs(p_local[0]),abs(p_local[6]))/A
@@ -282,6 +286,12 @@ class BeamFEM:
                 'film_mass_g':float(sum(k['film_mass_g'] for k in self.pvdf_properties)),
                 'adhesive_mass_g':float(sum(k['adhesive_mass_g'] for k in self.pvdf_properties))},
             model_assumptions='linear 3D Euler-Bernoulli beam elements with effective PVDF axial/bending reinforcement and compliant adhesive shear-transfer; rigid pad, no resolved shell/peel/large deformation')
+        if include_boundary_vectors:
+            try:
+                from force_visualization import boundary_wrenches
+                result['boundary_vectors']=boundary_wrenches([self.padcentre+np.r_[off,0.]], [F],support_positions,support_forces,[[0.,0.,torque_z_Nmm]],support_couples,source='Beam endpoint forces and couples')
+            except (ValueError,TypeError,MemoryError,ArithmeticError) as exc:
+                result['boundary_error']=str(exc)
         if include_fields:
             result['fields']=self.surface_fields(U)
         return result
@@ -360,7 +370,7 @@ def beam_sweep(family,g,pitch_mm=.25,include_fields=False,inspector_case='press_
       'shear_x':dict(force=(.03,0.,-.04)),
       'shear_y':dict(force=(0.,.03,-.04)),
       'torsion_z':dict(force=(0.,0.,-.04),torque_z_Nmm=.02)}
-    results={name:fem.solve(**kwargs,include_fields=((include_fields and name=='press_center') or (include_previews and name in PREVIEW_CASES))) for name,kwargs in cases.items()}
+    results={name:fem.solve(**kwargs,include_fields=((include_fields and name=='press_center') or (include_previews and name in PREVIEW_CASES)),include_boundary_vectors=include_previews and name in PREVIEW_CASES) for name,kwargs in cases.items()}
     baseline=results['press_center']
     extrema=max(v['max_abs_principal_strain'] for v in results.values())
     central=baseline['mean_down_mm']
@@ -382,7 +392,7 @@ def beam_sweep(family,g,pitch_mm=.25,include_fields=False,inspector_case='press_
     relative_motion=max_motion/max(float(g['height']),1e-8)
     feasible=bool(pressure_valid and extrema<.08 and relative_motion<.15 and all(v['moment_equilibrium_relative']<1e-5 and v['force_equilibrium_relative']<1e-5 for v in results.values()))
     if not feasible:score=min(score,14.99)
-    reports={k:{kk:(round(float(vv),7) if isinstance(vv,(float,np.floating)) else vv) for kk,vv in v.items() if kk!='fields'} for k,v in results.items()}
+    reports={k:{kk:(round(float(vv),7) if isinstance(vv,(float,np.floating)) else vv) for kk,vv in v.items() if kk not in ('fields','boundary_vectors','boundary_error')} for k,v in results.items()}
     report=dict(fem_backend='actual_3d_beam_frame_EB',mesh_pitch_mm=pitch_mm,elements=fem.n_elements,nodes=fem.n_nodes,volume_mm3=round(volume,2),
         inflated_features=0,max_motion_over_height=relative_motion,beam_linear_valid=feasible,mesh_warning='Beam FE uses physical member radii; axial pitch is NOT 3D voxel pitch. Linear small-strain assumption.',
         elastic_E_MPa=fem.E,poisson=.35,setup_time_s=round(fem.setup_s,4),load_cases=reports,
@@ -414,10 +424,10 @@ def beam_sweep(family,g,pitch_mm=.25,include_fields=False,inspector_case='press_
             inspection=dict(inspection,fields=fem.surface_fields(fem._last_U))
         report['fields']=inspection['fields']
         report['inspection_case']=inspector_case
-        report['inspection_metrics']={k:v for k,v in inspection.items() if k!='fields'}
+        report['inspection_metrics']={k:v for k,v in inspection.items() if k not in ('fields','boundary_vectors','boundary_error')}
     if include_previews:
         try:
-            report['preview_fields']=pack_previews({name:results[name]['fields'] for name in PREVIEW_CASES},reports)
+            report['preview_fields']=pack_previews({name:results[name]['fields'] for name in PREVIEW_CASES},reports,results)
         except (ValueError,TypeError,IndexError,KeyError,MemoryError,ArithmeticError) as exc:
             report['preview_error']=f'{type(exc).__name__}: {exc}'
     return report

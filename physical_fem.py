@@ -277,7 +277,7 @@ class HexElasticSolver:
     def _multiply(self,x):
         return self.K@x if self.K is not None else self.matrixfree.multiply(x)
 
-    def solve(self,force=(0,0,-.1),offset=(0.,0.),patch_radius_mm=3.1,torque_z_Nmm=0.):
+    def solve(self,force=(0,0,-.1),offset=(0.,0.),patch_radius_mm=3.1,torque_z_Nmm=0.,include_boundary_vectors=False):
         mesh=self.mesh;top=mesh.top
         xy=mesh.nodes[top,:2]
         # Contact offset is relative to top-pad centre, not global bounding box.
@@ -343,6 +343,13 @@ class HexElasticSolver:
         # Effective capacitance proxy uses displacement of actual FE top nodes;
         # it is NOT a coupled electrostatic solve.
         top_down=-float(U[selected,2].mean())
+        boundary={}
+        if include_boundary_vectors:
+            try:
+                from force_visualization import boundary_wrenches
+                boundary['boundary_vectors']=boundary_wrenches(mesh.nodes[selected],f.reshape(-1,3)[selected],mesh.nodes[mesh.bottom],R[mesh.bottom])
+            except (ValueError,TypeError,MemoryError,ArithmeticError) as exc:
+                boundary['boundary_error']=str(exc)
         return dict(load_force_N=load.tolist(),offset_mm=list(map(float,offset)),torque_z_Nmm=float(torque_z_Nmm),
             displacement=U,element_strain=epsilon,element_stress=sigma,von_mises_MPa=von,
             principal_strain=principal,loaded_nodes=int(len(selected)),contact_patch_radius_used_mm=float(used_radius),contact_patch_mode=selection_mode,
@@ -358,7 +365,7 @@ class HexElasticSolver:
             pvdf_laminate_response=laminate_response,
             force_equilibrium_relative=force_balance,moment_equilibrium_relative=moment_error,
             free_residual_relative=residual,solver_mode=self.solver_mode,
-            cg_iterations=(self.matrixfree.last_iterations if self.matrixfree else (self.gpu.iterations if self.gpu else 0)),compute_device=self.compute_device,solve_s=time.monotonic()-t)
+            cg_iterations=(self.matrixfree.last_iterations if self.matrixfree else (self.gpu.iterations if self.gpu else 0)),compute_device=self.compute_device,solve_s=time.monotonic()-t,**boundary)
 
 
 def fem_sweep(family,g,pitch_mm=1.25,include_fields=False,backend='auto',
@@ -395,6 +402,8 @@ def fem_sweep(family,g,pitch_mm=1.25,include_fields=False,backend='auto',
        'shear_y':dict(force=(0.,.03,-.04)),
        'torsion_z':dict(force=(0.,0.,-.04),torque_z_Nmm=.02)
     }
+    if include_previews:
+        for name in PREVIEW_CASES:cases[name]['include_boundary_vectors']=True
     cases_started=time.monotonic()
     # Shared read-only mesh and stiffness; do not clone large FEM objects.
     # GPU and unaccelerated Python matvec remain serial. Direct sparse solves
@@ -549,7 +558,7 @@ def fem_sweep(family,g,pitch_mm=1.25,include_fields=False,backend='auto',
             'poisson':config.poisson,'setup_time_s':round(fem.setup_s,4),'load_case_workers':used_workers,
             'load_cases_wall_s':round(cases_wall_s,4),'direct_factor_nnz':int(fem.factor.nnz) if fem.factor is not None else None,
             'cg_preconditioner':('nodal_block_jacobi' if fem.matrixfree.block_inv is not None else 'scalar_jacobi') if fem.matrixfree is not None else None,
-            'load_cases':{k:{kk:(round(float(vv),7) if isinstance(vv,(float,np.floating)) else vv) for kk,vv in value.items() if kk not in ('displacement','element_strain','element_stress','von_mises_MPa','principal_strain')} for k,value in results.items()},
+            'load_cases':{k:{kk:(round(float(vv),7) if isinstance(vv,(float,np.floating)) else vv) for kk,vv in value.items() if kk not in ('displacement','element_strain','element_stress','von_mises_MPa','principal_strain','boundary_vectors','boundary_error')} for k,value in results.items()},
             'capacitance_delta_pF_assumed':signals,
             'fem_capacitor_assumption':{'electrode_area_mm2':area_mm2,'dielectric_gap_mm':gap_mm,
                   'dielectric_eps_r_assumed':eps_rel,
@@ -578,10 +587,10 @@ def fem_sweep(family,g,pitch_mm=1.25,include_fields=False,backend='auto',
     if include_fields:
         report['fields']=_serialize_mesh_fields(mesh,inspection)
         report['inspection_case']=inspector_case
-        report['inspection_metrics']={k:v for k,v in inspection.items() if k not in ('displacement','element_strain','element_stress','von_mises_MPa','principal_strain')}
+        report['inspection_metrics']={k:v for k,v in inspection.items() if k not in ('displacement','element_strain','element_stress','von_mises_MPa','principal_strain','boundary_vectors','boundary_error')}
     if include_previews:
         try:
-            report['preview_fields']=pack_previews({name:_serialize_mesh_fields(mesh,results[name],MAX_TRIANGLES) for name in PREVIEW_CASES},report['load_cases'])
+            report['preview_fields']=pack_previews({name:_serialize_mesh_fields(mesh,results[name],MAX_TRIANGLES) for name in PREVIEW_CASES},report['load_cases'],results)
         except (ValueError,TypeError,IndexError,KeyError,MemoryError,ArithmeticError) as exc:
             # Optional visualization is not a mechanical qualification gate.
             report['preview_error']=f'{type(exc).__name__}: {exc}'

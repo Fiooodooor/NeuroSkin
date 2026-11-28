@@ -10,7 +10,7 @@ MAX_TRIANGLES = 20_000
 FIELD_KEYS = ('displacement_mm','stress_vm_MPa','principal_strain')
 
 
-def pack_previews(fields, load_cases):
+def pack_previews(fields, load_cases, boundary_results=None):
     """Deduplicate identical reference topology across standard load cases."""
     first=fields[PREVIEW_CASES[0]]
     vertices=np.asarray(first['vertices_mm'],float)
@@ -36,6 +36,10 @@ def pack_previews(fields, load_cases):
         m=load_cases[name]
         case['load']={k:m[k] for k in ('load_force_N','offset_mm','torque_z_Nmm') if k in m}
         case['metrics']={k:m[k] for k in ('max_displacement_mm','max_von_mises_MPa','max_abs_principal_strain','force_equilibrium_relative','moment_equilibrium_relative') if k in m}
+        if boundary_results is not None:
+            extra=boundary_results[name]
+            for k in ('boundary_vectors','boundary_error'):
+                if k in extra:case[k]=extra[k]
         cases[name]=case
     source=int(first.get('source_surface_triangles',count))
     return {'schema':1,'vertices_mm':vertices[used].tolist(),'faces':inv.reshape(-1,3).tolist(),

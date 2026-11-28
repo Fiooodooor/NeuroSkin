@@ -38,6 +38,12 @@ def test_fem_preview_fields_reuse_standard_cases_without_changing_score(backend)
         c=p['cases'][name]
         assert len(c['displacement_mm'])==len(p['vertices_mm'])
         assert c['metrics']['max_displacement_mm']==b['load_cases'][name]['max_displacement_mm']
+        vectors=c['boundary_vectors']
+        np.testing.assert_allclose(vectors['applied']['force_N'],b['load_cases'][name]['load_force_N'],atol=1e-10)
+        np.testing.assert_allclose(vectors['reaction']['force_N'],b['load_cases'][name]['force_reaction_N'],atol=1e-10)
+        assert np.linalg.norm(vectors['force_balance_N'])<1e-4
+        assert np.linalg.norm(vectors['moment_balance_Nmm'])<1e-3
+        assert 'boundary_vectors' not in b['load_cases'][name]
     assert not np.allclose(p['cases']['press_center']['displacement_mm'],p['cases']['shear_x']['displacement_mm'])
 
 

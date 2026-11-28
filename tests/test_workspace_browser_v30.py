@@ -166,6 +166,13 @@ def test_four_real_fem_fields_and_geometry_override(app_url):
         page.locator('#hybridLibrary').locator('xpath=ancestor::details[1]/summary').click()
         page.locator('[data-hybrid="h01_serpentine_quadrant"]').click(timeout=30000)
         expect(page.locator('#workspaceCandidate')).to_contain_text('h01',timeout=20000)
+        tree=page.locator('#workspaceComponentTree');tree.locator('summary').first.click()
+        group=tree.locator('details').filter(has_text='upper ·').first
+        group.locator('summary').click(timeout=30000)
+        selected=group.locator('button[data-component-id^="flexure:"]').first
+        selected.click();expect(selected).to_have_attribute('aria-pressed','true')
+        page.wait_for_function("""document.querySelector('#model').data?.some(t=>t.facecolor?.includes('#ffcf70'))""",timeout=30000)
+        tree.get_by_text('Clear highlight',exact=True).click()
         with page.expect_response(lambda r:'/api/mesh?' in r.url and 'piezo_count_override=4' in r.url,timeout=30000) as response:
             page.locator('#piezoOverride').select_option('4')
         assert response.value.ok,response.value.text()
@@ -182,8 +189,11 @@ def test_four_real_fem_fields_and_geometry_override(app_url):
         page.locator('#workspace-tab-fem').click()
         expect(page.locator('#workspaceFEMLegend')).to_contain_text('shared displayed range',timeout=30000)
         page.wait_for_function("""[...document.querySelectorAll('.workspace-fem-preview-plot')].every(p=>p.data?.length)""",timeout=60000)
-        scales=page.evaluate("""[...document.querySelectorAll('.workspace-fem-preview-plot')].map(p=>{const t=p.data.at(-1);return[t.cmin,t.cmax]})""")
+        scales=page.evaluate("""[...document.querySelectorAll('.workspace-fem-preview-plot')].map(p=>{const t=p.data.find(t=>t.type==='mesh3d'&&t.intensity);return[t.cmin,t.cmax]})""")
         assert len(scales)==4 and all(s==scales[0] for s in scales)
+        page.wait_for_function("""[...document.querySelectorAll('.workspace-fem-preview-plot')].every(p=>p.data?.some(t=>t.name==='reaction boundary force'))""",timeout=30000)
+        page.locator('#workspaceBoundaryForces').uncheck()
+        page.wait_for_function("""[...document.querySelectorAll('.workspace-fem-preview-plot')].every(p=>p.data?.length&&!p.data.some(t=>t.name==='reaction boundary force'))""",timeout=30000)
         page.locator('#femExpand-press_center').click()
         expect(page.locator('.workspace-fem-wide')).to_have_count(1)
         page.locator('#femExpand-press_center').click()

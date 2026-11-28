@@ -586,7 +586,7 @@ def engine_provenance():
  for name in ('seed_library.py','archetype_geometry.py','recovery_sim.py','advanced.py','engine.py','optimization.py','electromechanics.py',
               'piezoelectric.py','spatial_validation.py','full_evaluation.py','geometry_fixes.py','physical_fem.py','laminate_fem.py','laminate_shell.py','hybrid_geometry.py','hybrid_library.py','pvdf_array.py',
               'reference_fem.py','beam_fem.py','matrixfree_fem.py','selection_refinement.py','search_space.py','orientation_study.py',
-              'audit_combine.py','validation_contract.py','sensor_metrics.py','evaluation_v30.py','electronics_budget.py','validation_protocol_v30.json','pvdf_physics.py','neuroskin_multiscale.py','symmetry_geometry.py','audit_scheduler.py','validation_design.py','population_pareto.py'):
+              'audit_combine.py','validation_contract.py','sensor_metrics.py','evaluation_v30.py','electronics_budget.py','validation_protocol_v30.json','pvdf_physics.py','neuroskin_multiscale.py','symmetry_geometry.py','audit_scheduler.py','validation_design.py','population_pareto.py','finalist_selection.py'):
   data=(Path(__file__).parent/name).read_bytes()
   h.update(name.encode('utf-8')+b'\0'+data)
  return {'release':(Path(__file__).parent/'VERSION').read_text(encoding='utf-8').strip(),'model_type':'spatial_feasibility_guided_evolution_plus_PVDF_shell',
@@ -708,19 +708,12 @@ class EvolutionV5:
      if fam not in champions or score>champions[fam]['fitness']:champions[fam]=copy.deepcopy(candidate)
     scored.sort(key=lambda x:x[0],reverse=True)
     self._check_stop()
-    # Stage 2: FULL AND IDENTICAL AUDIT of top three by fast fitness. The
-    # incumbent receives no special treatment except deterministic tie retention.
-    # Promotion NEVER depends only on the fast screening / novelty score.
+    # Stage 2: identical full audit, with cache-aware allocation of slots.
     from full_evaluation import promote
-    # Select three *distinct* geometries. Clone-heavy elites must not consume
-    # all three expensive audit slots or hide a genuinely different mechanism.
-    top=[];top_seen=set()
-    for item in sorted((q[1] for q in scored),key=lambda x:x['fitness'],reverse=True):
-     fingerprint=(item['family'],tuple(sorted(item['genome'].items())))
-     if fingerprint in top_seen:continue
-     top_seen.add(fingerprint);top.append(item)
-     if len(top)==3:break
-    if len(top)<3:raise RuntimeError('Population lacks 3 distinct candidates for full audit')
+    from finalist_selection import nominate
+    top,nomination=nominate([q[1] for q in scored],audits_by_fingerprint,
+         (objective,audit_grid,fem_enabled,fem_pitch,fem_backend),physical_gate)
+    if not top:raise RuntimeError('Population has no candidates for audit')
     with self.lock:self.state['phase']='top3_full_audit'
     audit_jobs=[];audit_indices=[];finalists=[None]*len(top)
     for i,c in enumerate(top):
@@ -779,7 +772,7 @@ class EvolutionV5:
      m=report.get('metrics',{})
      d=m.get('decoder_holdout',{})
      robust=m.get('robustness_monte_carlo',{})
-     if d and robust:
+     if d and robust and c['audit'].get('feasible') and report.get('pass_current_tier'):
       pareto_items.append({'id':c['id'],
                            'force_rmse_N':float(d['force_rmse_norm_N']),
                            'position_mae_mm':float(d['position_mae_mm']),
@@ -788,6 +781,8 @@ class EvolutionV5:
                       {'force_rmse_N':'min','position_mae_mm':'min',
                        'robust_signal_p10':'max'})] if pareto_items else []
     decision['pareto_status']='synthetic_surrogate_only'
+    decision['finalist_nomination']=nomination
+    decision['distinct_finalists']=len(top)
     decision['screening_pareto_front_T0']=population_front
     decision['screening_pareto_objectives']=list(OBJECTIVES)
     decision['screening_pareto_policy']='common proxy objectives; feasible-first; not full validation'

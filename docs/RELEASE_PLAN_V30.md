@@ -93,3 +93,8 @@ Canonical development branch: `develop/v3`. Consolidate the full v2.2-derived in
 - [x] Pareto order drives parent tournaments and elitism. Known audit failure status is reused for matching genomes. QD archive uses constraint class and scalar within-niche quality (never cross-generation relative Pareto rank); failed exact clones invalidate their old archive entry. The GUI and stage decisions expose the common screening front.
 - Three standalone ranking tests passed locally; additional QD integration test and existing search regressions scheduled in CI. Full local application regression remains pending.
 - D015: Top-3 finalist nomination remains highest fast fitness and identical full audit; the incumbent cannot be replaced by screening Pareto rank. This change is generation-wide proxy Pareto selection, not full-population measured or Monte Carlo Pareto optimization. No physical qualification is inferred; T3 remains optional.
+
+## Revision 14 — cache-aware Pareto finalist nomination
+- [x] Allocate up to three distinct full audits: strongest eligible scalar leader, then new eligible Pareto-ranked alternatives. Reuse known failures before nomination and retain explicit fallback to fresh near-misses. If the population collapses to fewer distinct genomes, report the actual count rather than crash or duplicate candidates.
+- [x] Archive nomination reasons and restrict the audited T0 Pareto report to fully feasible, passing candidates. The full audit and champion-promotion rule are unchanged.
+- Four focused local nomination tests passed; application CI pending. D016: supersedes D015's scalar-only nomination; this is compute allocation, not a relaxation of physical qualification.

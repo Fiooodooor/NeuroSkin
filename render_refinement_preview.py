@@ -14,7 +14,7 @@ from advanced import new_genome
 from spatial_validation import spatial_pressure_test
 
 
-def make_preview(out='REFINEMENT_V191_PREVIEW.png'):
+def make_preview(out='REFINEMENT_PREVIEW.png'):
     g=new_genome('quadrant',random.Random(33))
     g.update(topology='orthogonal',asymmetry=0.,pad_offset_x=0.,pad_offset_y=0.,
              strut_gradient=0.,wave_amp=0.,piezo_count=4)

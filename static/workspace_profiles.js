@@ -19,5 +19,16 @@
     const all=[...profiles.filter(x=>x.name!==name),{name,values}];if(all.length>limit)throw Error('Maximum six profiles. Delete one first.');storage.setItem(key,JSON.stringify(all));return all;}
   function remove(storage,profiles,name){const all=profiles.filter(x=>x.name!==name);storage.setItem(key,JSON.stringify(all));return all;}
   function apply(values,get){const safe=validate(values,get);for(const id of fields){const el=get(id);if(el.type==='checkbox')el.checked=safe[id];else el.value=safe[id];}return safe;}
-  const api={key,fields,capture,validate,load,save,remove,apply};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.NeuroProfiles=api;
+  function examples(get){
+    const cores=String(Math.max(1,Math.min(4,Number(get('cores').max)||1)));
+    const base={mode:'single:all',seconds:'60',cores,population:'48',searchStrategy:'adaptive',searchPrecision:'80',explore:'55',objective:'balanced',physical_gate:true,enable_fem:true,fem_backend:'hex8',fem_pitch:'0.625',gate_grid:'3',audit_grid:'5'};
+    const templates=[
+      {id:'example:quick',name:'Quick exploration',description:'15 s search budget, one CPU worker, 24 candidates, synthetic screening without FEM.',values:{seconds:'15',cores:'1',population:'24',enable_fem:false,audit_grid:'3',searchStrategy:'explore',explore:'80'}},
+      {id:'example:balanced',name:'Balanced mechanics',description:'Single-stage search with solid HEX8 at 0.625 mm and the full synthetic audit.',values:{}},
+      {id:'example:electronics',name:'Electronics co-design',description:'Search with channel, readout power, bandwidth and saturation objectives.',values:{objective:'electronics'}},
+      {id:'example:hybrids',name:'Two-stage hybrids',description:'Explore two-stage reference architectures with connected solid HEX8 mechanics.',values:{mode:'hybrid:all',seconds:'120',population:'24'}}
+    ];
+    return templates.flatMap(p=>{try{return [{...p,values:validate({...base,...p.values},get)}];}catch{return [];}});
+  }
+  const api={key,fields,capture,validate,load,save,remove,apply,examples};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.NeuroProfiles=api;
 })(globalThis);

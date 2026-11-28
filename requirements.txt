@@ -1,4 +1,4 @@
-# NeuroSkin Evolution Lab 2.1 — SINGLE installation manifest.
+# NeuroSkin Evolution Lab 3 — SINGLE installation manifest.
 # Supported target: Windows 11 x64, CPython 3.14, NVIDIA Quadro P1000/Pascal.
 # Install ALL packages using: python -m pip install -r requirements.txt
 # CuPy [ctk] includes its CUDA 12 runtime, without installing CUDA Toolkit globally.

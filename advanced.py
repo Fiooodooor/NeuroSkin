@@ -1,8 +1,7 @@
-"""v0.5 speculative morphological optimization. No nonlinear FEM is performed.
-Parameters are dimensionalized in mm. All metrics are surrogate screening estimates.
-"""
+"""NeuroSkin 3 evolutionary search and procedural geometry.
+Parameters use mm. Fast metrics remain surrogate screening estimates."""
 from __future__ import annotations
-import copy, csv, io, json, math, random, threading, time, uuid, os, concurrent.futures, multiprocessing, hashlib
+import copy, csv, io, json, math, random, threading, time, uuid, os, concurrent.futures, multiprocessing
 from pathlib import Path
 from audit_scheduler import available_ram_mb, plan_audits, process_capacity, run_audit_batch
 # Avoid nested BLAS pools competing with the evolutionary worker processes.
@@ -587,17 +586,11 @@ def evaluate_job(job):
 
 def engine_provenance():
  """SHA-256 source fingerprint prevents incompatible historical score comparison."""
- h=hashlib.sha256()
- for name in ('seed_library.py','archetype_geometry.py','recovery_sim.py','advanced.py','engine.py','optimization.py','electromechanics.py',
-              'piezoelectric.py','spatial_validation.py','full_evaluation.py','geometry_fixes.py','physical_fem.py','laminate_fem.py','laminate_shell.py','hybrid_geometry.py','hybrid_library.py','pvdf_array.py',
-              'reference_fem.py','beam_fem.py','matrixfree_fem.py','selection_refinement.py','search_space.py','orientation_study.py',
-              'audit_combine.py','validation_contract.py','sensor_metrics.py','evaluation_v30.py','electronics_budget.py','electronics_evolution.py','validation_protocol_v30.json','pvdf_physics.py','neuroskin_multiscale.py','symmetry_geometry.py','audit_scheduler.py','validation_design.py','population_pareto.py','finalist_selection.py'):
-  data=(Path(__file__).parent/name).read_bytes()
-  h.update(name.encode('utf-8')+b'\0'+data)
+ from provenance import numerical_source_hash, SOURCE_SCHEMA
  return {'release':(Path(__file__).parent/'VERSION').read_text(encoding='utf-8').strip(),'model_type':'spatial_feasibility_guided_evolution_plus_PVDF_shell',
-         'sha256':h.hexdigest(),'schema':2}
+         'sha256':numerical_source_hash(),'source_schema':SOURCE_SCHEMA,'schema':3}
 
-class EvolutionV5:
+class EvolutionEngine:
  def __init__(self,folder):
   self.lock=threading.RLock();self.folder=Path(folder);self.folder.mkdir(parents=True,exist_ok=True)
   self.thread=None;self._pool=None;self.stop_event=threading.Event();self.pause_event=threading.Event();self.records={};self.state=self.empty()
@@ -690,6 +683,7 @@ class EvolutionV5:
    while active<duration and not self.stop_event.is_set():
     now=time.monotonic();active+=0 if self.pause_event.is_set() else max(0.,now-last);last=now
     if self.pause_event.is_set():time.sleep(.05);continue
+    if gen and active>=duration:break
     scored=[]
     with self.lock:self.state.update(phase='fast_screening',workers_active=process_capacity(cores,population),audit_progress={})
     jobs=[(fam,p,objective,physical_gate,gate_grid) for fam,p in pop]

@@ -77,20 +77,21 @@
   group('Validation & FEM',['physical_gate','enable_fem','fem_backend','fem_pitch','gate_grid','audit_grid']);
   group('Replay seed',['seed']);
   const profiles=window.NeuroProfiles;let presets=[];try{presets=profiles.load(localStorage);}catch{}
-  const profilePanel=make('details','workspace-settings advanced-only');profilePanel.append(make('summary','','Evolution presets'));
+  const profilePanel=make('details','workspace-settings');profilePanel.id='workspaceEvolutionPresets';profilePanel.append(make('summary','','Evolution presets'));
   const profileBody=make('div','workspace-settings-body'),profileSelect=make('select');profileSelect.id='workspaceProfileSelect';profileSelect.setAttribute('aria-label','Saved evolution presets');
   const profileName=make('input');profileName.id='workspaceProfileName';profileName.placeholder='Preset name';profileName.maxLength=40;profileName.setAttribute('aria-label','Preset name');
   const profileStatus=make('small','','For the next run only. Does not restore a seed or change a running experiment.');profileStatus.id='workspaceProfileStatus';profileStatus.setAttribute('role','status');
   const profileButtons=make('div','workspace-profile-actions');
   const profileSave=button('workspaceProfileSave','Save / replace',()=>profileAction(()=>{const name=profileName.value.trim();presets=profiles.save(localStorage,presets,name,profiles.validate(profiles.capture(el),el));refreshProfiles(name);profileStatus.textContent='Saved preset '+name;}));
-  const profileApply=button('workspaceProfileApply','Load preset',()=>profileAction(()=>{const preset=presets.find(x=>x.name===profileSelect.value);if(!preset)throw Error('Select a preset');profiles.apply(preset.values,el);for(const id of profiles.fields)el(id).dispatchEvent(new Event('input',{bubbles:true}));for(const id of profiles.fields)el(id).dispatchEvent(new Event('change',{bubbles:true}));update();profileStatus.textContent='Loaded '+preset.name+' for the next run. Seed unchanged.';}));
-  const profileDelete=button('workspaceProfileDelete','Delete',()=>profileAction(()=>{presets=profiles.remove(localStorage,presets,profileSelect.value);refreshProfiles();profileStatus.textContent='Preset deleted.';}));
-  profileButtons.append(profileSave,profileApply,profileDelete);profileBody.append(profileSelect,profileName,profileButtons,profileStatus);profilePanel.append(profileBody);left.insertBefore(profilePanel,summary);
+  const selectedProfile=()=>profiles.examples(el).find(x=>x.id===profileSelect.value)||presets.find(x=>'saved:'+x.name===profileSelect.value);
+  const profileApply=button('workspaceProfileApply','Load preset',()=>profileAction(()=>{const preset=selectedProfile();if(!preset)throw Error('Select a preset');profiles.apply(preset.values,el);for(const id of profiles.fields)el(id).dispatchEvent(new Event('input',{bubbles:true}));for(const id of profiles.fields)el(id).dispatchEvent(new Event('change',{bubbles:true}));update();profileStatus.textContent='Loaded '+preset.name+' for the next run. Seed unchanged. '+(preset.description||'')+' Search time excludes completion of in-flight audits and export.';}));
+  const profileDelete=button('workspaceProfileDelete','Delete',()=>profileAction(()=>{const preset=presets.find(x=>'saved:'+x.name===profileSelect.value);if(!preset)throw Error('Example presets cannot be deleted.');presets=profiles.remove(localStorage,presets,preset.name);refreshProfiles();profileStatus.textContent='Preset deleted.';}));
+  profileButtons.append(profileSave,profileApply,profileDelete);profileBody.append(profileSelect,profileName,profileButtons,profileStatus);profilePanel.append(profileBody);left.insertBefore(profilePanel,left.querySelector('.workspace-settings'));
   function profileAllowed(){return !!state&&!archiveRunId&&!startPending&&!['running','paused','stopping'].includes(state.status)&&el('coreinfo').textContent.includes('logical CPUs available')&&el('mode').options.length>3;}
   function profileAction(fn){try{if(!profileAllowed())throw Error('Presets require idle live context and loaded hardware/catalogue settings.');fn();}catch(e){profileStatus.textContent=e.message;}}
-  function refreshProfiles(name){profileSelect.replaceChildren(new Option('Select saved preset',''),...presets.map(p=>new Option(p.name,p.name)));profileSelect.value=name||'';profileName.value=name||'';updateProfileButtons();}
-  function updateProfileButtons(){const allowed=profileAllowed();profileSave.disabled=!allowed;profileApply.disabled=!allowed||!profileSelect.value;profileDelete.disabled=!allowed||!profileSelect.value;}
-  profileSelect.onchange=()=>{profileName.value=profileSelect.value;updateProfileButtons();};
+  function refreshProfiles(name){const prior=name?'saved:'+name:profileSelect.value,examples=make('optgroup'),saved=make('optgroup');examples.label='Examples';saved.label='Your presets';for(const p of profiles.examples(el))examples.append(new Option(p.name,p.id));for(const p of presets)saved.append(new Option(p.name,'saved:'+p.name));profileSelect.replaceChildren(new Option('Select evolution preset',''),examples,saved);profileSelect.value=prior||'';profileName.value=name||selectedProfile()?.name||'';updateProfileButtons();}
+  function updateProfileButtons(){const allowed=profileAllowed();profileSave.disabled=!allowed;profileApply.disabled=!allowed||!selectedProfile();profileDelete.disabled=!allowed||!profileSelect.value.startsWith('saved:');}
+  profileSelect.onchange=()=>{const p=selectedProfile();profileName.value=p?.name||'';profileStatus.textContent=p?.description||'For the next run only. Seed and running experiments remain unchanged.';updateProfileButtons();};
   refreshProfiles();
   // Audit grid had a label in the old pipeline header. Its empty wrapper is harmless.
   const overview=make('section','workspace-overview');main.append(overview);overview.append(left,stage,right);
@@ -285,7 +286,7 @@
   }
   const simpleLabels={all:'Everything', 'single:all':'Single-stage designs','hybrid:all':'All two-stage hybrids',balanced:'Balanced',touch:'Sensitive touch',robust:'Strain robustness',dynamic:'Dynamic events',electronics:'Electronics co-design'};
   function updateLabels(){for(const id of ['mode','objective'])for(const opt of el(id).options){if(!opt.dataset.fullLabel)opt.dataset.fullLabel=opt.textContent;opt.title=opt.dataset.fullLabel;const text=advanced?opt.dataset.fullLabel:(simpleLabels[opt.value]||opt.dataset.fullLabel);if(opt.textContent!==text)opt.textContent=text;}}
-  function mode(){advanced=!document.body.classList.contains('basic');el('basicMode').setAttribute('aria-pressed',String(!advanced));el('advancedMode').setAttribute('aria-pressed',String(advanced));updateLabels();if(!advanced&&views.find(v=>v[0]===active)?.[3])show('overview');else{mountGeometry();update();refreshGeometryVisibility();resize();}}
+  function mode(){advanced=!document.body.classList.contains('basic');el('basicMode').setAttribute('aria-pressed',String(!advanced));el('advancedMode').setAttribute('aria-pressed',String(advanced));for(const d of main.querySelectorAll('.workspace-settings,.workspace-geometry-dock,.workspace-pinned-geometry,.workspace-component-tree,#femDetails,#femCustomInspector'))d.open=advanced;updateLabels();if(!advanced&&views.find(v=>v[0]===active)?.[3])show('overview');else{mountGeometry();update();refreshGeometryVisibility();resize();}}
   function resize(){requestAnimationFrame(()=>{for(const plot of main.querySelectorAll('.js-plotly-plot'))if(plot.getClientRects().length&&plot._fullLayout)try{Plotly.Plots.resize(plot);}catch{}});}
   function show(id){if(!panels.has(id)||(!advanced&&views.find(v=>v[0]===id)[3]))id='overview';active=id;
     for(const [key,p] of panels){p.hidden=key!==id;const t=tabs.get(key);t.setAttribute('aria-selected',String(key===id));t.tabIndex=key===id?0:-1;}
@@ -346,8 +347,8 @@
   new MutationObserver(update).observe(el('viewtitle'),{childList:true,characterData:true,subtree:true});
   new MutationObserver(update).observe(el('archiveNotice'),{childList:true,characterData:true,subtree:true});
   new MutationObserver(updateRuns).observe(el('archiveSelect'),{childList:true,subtree:true});
-  new MutationObserver(()=>{updateLabels();updateProfileButtons();}).observe(el('mode'),{childList:true,subtree:true});
-  new MutationObserver(updateProfileButtons).observe(el('coreinfo'),{childList:true,subtree:true});
+  new MutationObserver(()=>{updateLabels();refreshProfiles();}).observe(el('mode'),{childList:true,subtree:true});
+  new MutationObserver(()=>refreshProfiles()).observe(el('coreinfo'),{childList:true,subtree:true});
   // Native selects emit input before change; don't reset a pending context choice.
   const onControlChange=e=>{if(e.target!==runSwitch&&e.target!==sessions)update();};
   document.addEventListener('change',onControlChange);document.addEventListener('input',onControlChange);
@@ -363,5 +364,10 @@
   function refreshGeometryVisibility(){if(geometryVisible()){updateMesh(true,true);}else{meshRequest++;meshSignature='';purgePlot(el('model'));}}
   function refreshSignalGeometry(){if(active==='signals'&&geometryVisible()&&geometryCache)updateMesh(true,true);}
   window.NeuroWorkspace={show,update,resize,renderEvaluation,renderFEMPreviews,markFEMStale,isFEMVisible,clearComponents,decorateGeometry,refreshSignalGeometry,geometryVisible};
+  const resizablePlots=[el('model'),el('femPlot'),el('laminatePlot'),el('responsegraph'),el('piezoGraph'),el('spatialmap'),pinnedPlot,...[...plots.values()].map(v=>v.plot)].filter(Boolean);
+  if(typeof ResizeObserver!=='undefined'){
+    const observer=new ResizeObserver(entries=>{for(const {target} of entries)if(target.getClientRects().length&&target._fullLayout)try{Plotly.Plots.resize(target);}catch{}});
+    for(const plot of resizablePlots){plot.classList.add('workspace-resizable-plot');observer.observe(plot);}
+  }
   mode();show('overview');renderReports();refreshCompute();setInterval(refreshCompute,2000);
 })();

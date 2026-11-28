@@ -1,11 +1,11 @@
 """Selection identity, preview overrides and live finalist lookup regressions."""
 from fastapi.testclient import TestClient
-from advanced import EvolutionV5
+from advanced import EvolutionEngine
 import server
 
 
 def test_current_finalist_lookup_before_records_checkpoint(tmp_path):
-    evolution=EvolutionV5(tmp_path)
+    evolution=EvolutionEngine(tmp_path)
     finalist={'id':'7-2','family':'quadrant','genome':{'topology':'orthogonal'}}
     evolution.state['audit_top3']=[finalist]
     assert not evolution.records

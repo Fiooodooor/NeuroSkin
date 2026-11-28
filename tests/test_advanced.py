@@ -1,6 +1,6 @@
 import unittest, random, time, tempfile
 import numpy as np
-from advanced import FAMILIES, new_genome, jump, cross, transmute, proxy, KINDS, webmesh, EvolutionV5
+from advanced import FAMILIES, new_genome, jump, cross, transmute, proxy, KINDS, webmesh, EvolutionEngine
 
 class TestAdvanced(unittest.TestCase):
  def test_family_random_candidates(self):
@@ -35,7 +35,7 @@ class TestAdvanced(unittest.TestCase):
     self.assertLess(max(max(q) for q in comp['faces']),len(comp['vertices']))
  def test_time_evolution_and_pin(self):
   with tempfile.TemporaryDirectory() as d:
-   e=EvolutionV5(d);e.start('all',3,10,24,.95,audit_grid=3)
+   e=EvolutionEngine(d);e.start('all',3,10,24,.95,audit_grid=3)
    end=time.monotonic()+35
    while e.snapshot()['status'] not in ('completed','stopped','failed') and time.monotonic()<end:time.sleep(.12)
    if e.snapshot()['status'] not in ('completed','stopped','failed'):
@@ -51,7 +51,7 @@ class TestAdvanced(unittest.TestCase):
    self.assertIn('topology',s['mutations'])
  def test_pause_does_not_use_budget(self):
   with tempfile.TemporaryDirectory() as d:
-   e=EvolutionV5(d);e.start('crown',3,11,24,.5);time.sleep(.3);e.pause()
+   e=EvolutionEngine(d);e.start('crown',3,11,24,.5);time.sleep(.3);e.pause()
    before=e.snapshot()['elapsed'];time.sleep(.35);after=e.snapshot()['elapsed']
    self.assertLess(abs(after-before),.2)
    e.pause();e.stop();e.thread.join(timeout=35)

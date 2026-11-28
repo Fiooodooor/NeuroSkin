@@ -1,8 +1,5 @@
-"""Versioned and fail-closed validation contracts (NeuroSkin 2.2).
-
-Protocol hashes are based on canonical JSON, not filesystem metadata. Tiers are
-claims requiring explicit evidence, never inferred from numerical fitness.
-"""
+"""Versioned, fail-closed validation contracts for NeuroSkin 3.
+Protocol schemas and historical evidence identities retain their own format versions."""
 from __future__ import annotations
 
 from hashlib import sha256

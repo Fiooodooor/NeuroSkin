@@ -14,7 +14,7 @@ from physical_fem import fem_sweep
 
 
 def check(codes=('h01_serpentine_quadrant','h10_dual_chiral'),
-          pitches=(1.25,.625),out='hybrid_mesh_check_v20', tolerance=.10):
+          pitches=(1.25,.625),out='artifacts/hybrid_mesh_check', tolerance=.10):
     outdir=Path(out);outdir.mkdir(exist_ok=True,parents=True)
     rows=[]
     for name in codes:
@@ -66,7 +66,7 @@ if __name__=='__main__':
     parser.add_argument('--models',default='h01_serpentine_quadrant,h10_dual_chiral')
     parser.add_argument('--pitches',default='1.25,0.625')
     parser.add_argument('--tolerance',type=float,default=.10)
-    parser.add_argument('--out',default='hybrid_mesh_check_v20')
+    parser.add_argument('--out',default='artifacts/hybrid_mesh_check')
     args=parser.parse_args()
     codes=args.models.split(',')
     if any(c not in BY_ID for c in codes):parser.error('Unknown hybrid architecture')

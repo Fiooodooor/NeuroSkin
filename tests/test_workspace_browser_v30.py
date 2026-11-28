@@ -53,11 +53,11 @@ def test_workspace_modes_context_and_multiscale(app_url):
         page.locator('#advancedMode').click()
         expect(page.locator('.workspace-tabs button:visible')).to_have_count(8)
         expect(page.locator('#workspaceComputeStatus')).to_contain_text('Heavy-compute slot available',timeout=20000)
-        page.locator('.workspace-settings').filter(has_text='Compute activity').locator('summary').click()
+        page.locator('.workspace-settings').filter(has_text='Compute activity').evaluate('(n)=>n.open=true')
         expect(page.locator('#workspaceComputeHistory')).to_contain_text('Queue: disabled')
-        page.locator('.workspace-settings').filter(has_text='Validation & FEM').locator('summary').click()
+        page.locator('.workspace-settings').filter(has_text='Validation & FEM').evaluate('(n)=>n.open=true')
         page.locator('#fem_pitch').select_option('0.625')
-        page.locator('.workspace-settings').filter(has_text='Evolution presets').locator('summary').click()
+        page.locator('.workspace-settings').filter(has_text='Evolution presets').evaluate('(n)=>n.open=true')
         expect(page.locator('#workspaceProfileSave')).to_be_enabled(timeout=20000)
         page.locator('#workspaceProfileName').fill('Browser preset')
         page.locator('#workspaceProfileSave').click()
@@ -85,7 +85,7 @@ def test_workspace_modes_context_and_multiscale(app_url):
         expect(page.locator('.workspace-fem-card')).to_have_count(4)
         expect(page.locator('#femPreviewGrid')).to_be_visible()
         page.locator('#workspace-tab-multiscale').click()
-        page.locator('.workspace-pinned-geometry > summary').click()
+        page.locator('.workspace-pinned-geometry').evaluate('(n)=>n.open=true')
         expect(page.locator('#workspacePinnedGeometryStatus')).to_contain_text('pinned undeformed geometry',timeout=30000)
         expect(page.locator('#workspacePinnedGeometryStatus')).to_contain_text('seed-')
         frame=page.frame_locator('#workspaceLabFrame')
@@ -146,8 +146,8 @@ def test_workspace_modes_context_and_multiscale(app_url):
         expect(page.locator('#workspace-tab-overview')).to_be_visible(timeout=20000)
         expect(page.locator('.workspace-tabs button:visible')).to_have_count(4)
         page.locator('#advancedMode').click()
-        page.locator('.workspace-settings').filter(has_text='Evolution presets').locator('summary').click()
-        page.locator('#workspaceProfileSelect').select_option('Browser preset')
+        page.locator('.workspace-settings').filter(has_text='Evolution presets').evaluate('(n)=>n.open=true')
+        page.locator('#workspaceProfileSelect').select_option('saved:Browser preset')
         expect(page.locator('#workspaceProfileApply')).to_be_enabled(timeout=20000)
         page.locator('#workspaceProfileApply').click()
         assert page.locator('#fem_pitch').input_value()=='0.625'
@@ -252,4 +252,56 @@ def test_relaxed_tile_and_multiscale_optimization_views(app_url):
         expect(page.locator('#lab-panel-3 .lab-table')).to_contain_text('Holdout position')
         page.wait_for_function("""document.querySelector('#optimizationResultVisual .js-plotly-plot')?.data?.length===2""",timeout=30000)
         assert not errors,errors
+        browser.close()
+
+
+def test_presets_modes_and_resizable_panels(app_url):
+    from playwright.sync_api import sync_playwright, expect
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(headless=True, args=['--disable-dev-shm-usage', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'])
+        page = browser.new_page(viewport={'width': 1500, 'height': 1100})
+        errors = []
+        starts = []
+        page.on('pageerror', lambda error: errors.append(str(error)))
+        page.on('request', lambda request: starts.append(request.url) if request.url.endswith('/api/start') else None)
+        page.goto(app_url, wait_until='domcontentloaded')
+        panel = page.locator('#workspaceEvolutionPresets')
+        expect(panel).to_be_visible(timeout=20000)
+        assert not panel.evaluate('(n)=>n.open')
+        panel.locator('summary').click()
+        expect(page.locator('#workspaceProfileSelect optgroup[label="Examples"] option')).to_have_count(4, timeout=20000)
+        page.locator('#workspaceProfileSelect').select_option('example:quick')
+        expect(page.locator('#workspaceProfileApply')).to_be_enabled(timeout=20000)
+        seed = page.locator('#seed').input_value()
+        page.locator('#workspaceProfileApply').click()
+        assert page.locator('#seconds').input_value() == '15'
+        assert page.locator('#cores').input_value() == '1'
+        assert not page.locator('#enable_fem').is_checked()
+        assert page.locator('#seed').input_value() == seed
+        assert starts == []
+        expect(page.locator('#workspaceProfileDelete')).to_be_disabled()
+        page.locator('#advancedMode').click()
+        assert page.locator('.workspace-settings').evaluate_all('(nodes)=>nodes.every(n=>n.open)')
+        page.locator('#workspaceProfileSelect').select_option('example:electronics')
+        page.locator('#workspaceProfileApply').click()
+        assert page.locator('#objective').input_value() == 'electronics'
+        page.locator('#workspace-tab-library').click()
+        page.locator('[data-preview-seed]').first.click(timeout=20000)
+        plot = page.locator('#model')
+        expect(plot.locator('.plot-container')).to_be_visible(timeout=30000)
+        assert plot.evaluate('(n)=>getComputedStyle(n).resize') == 'vertical'
+        bounds = plot.bounding_box()
+        page.mouse.move(bounds['x'] + bounds['width'] - 5, bounds['y'] + bounds['height'] - 5)
+        page.mouse.down()
+        page.mouse.move(bounds['x'] + bounds['width'] - 5, bounds['y'] + bounds['height'] + 115, steps=12)
+        page.mouse.up()
+        page.wait_for_function('document.getElementById("model").clientHeight > '+str(int(bounds['height'])+80))
+        page.wait_for_function('Math.abs(document.getElementById("model")._fullLayout.height-document.getElementById("model").clientHeight)<8')
+        from pathlib import Path
+        Path('artifacts').mkdir(exist_ok=True)
+        page.screenshot(path='artifacts/workspace-v3.png', full_page=True)
+        page.locator('#basicMode').click()
+        assert page.locator('.workspace-settings').evaluate_all('(nodes)=>nodes.every(n=>!n.open)')
+        assert page.locator('#objective').input_value() == 'electronics'
+        assert not errors, errors
         browser.close()

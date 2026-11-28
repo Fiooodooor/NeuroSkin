@@ -1,8 +1,5 @@
-"""NeuroSkin Evolution v0.4: real-time geometry exploration with an explicit reduced-order beam model.
-
-This is NOT nonlinear continuum FEM. Units: mm, N, MPa. Beam approximation and
-sensor transfer functions are exploratory; validate champions in a proper FEM solver.
-"""
+"""Reduced-order geometry and mechanics primitives used by NeuroSkin 3.
+Units: mm, N, MPa. This module does not establish nonlinear or hardware qualification."""
 from __future__ import annotations
 import csv, io, json, math, random, threading, time, uuid
 from dataclasses import dataclass, asdict

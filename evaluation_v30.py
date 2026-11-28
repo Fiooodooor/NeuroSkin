@@ -1,10 +1,5 @@
-"""NeuroSkin 2.2 experimental validator, based on the 3.0 protocol draft.
-
-This implements a *reproducible surrogate benchmark*, not hardware evidence.
-The normalized, grouped held-out evaluation is deliberately separate from
-legacy scalar 'fitness' and from FEM claims. Unsupported environmental axes
-are reported as unsupported and cannot silently pass qualification.
-"""
+"""NeuroSkin 3 reproducible synthetic validation protocol.
+Grouped held-out metrics do not establish physical sensor accuracy."""
 from __future__ import annotations
 
 import copy
@@ -31,14 +26,8 @@ ENGINE_SIGNATURE = 'neuroskin-v3-independent-shear-decoder-v1'
 
 def solver_source_hash():
     """Hash actual numerical and validation source, not a manually typed release tag."""
-    h=sha256()
-    root=Path(__file__).resolve().parent
-    for name in ('electromechanics.py','advanced.py','sensor_metrics.py',
-                 'evaluation_v30.py','laminate_fem.py','physical_fem.py','laminate_shell.py','piezoelectric.py','hybrid_geometry.py','pvdf_array.py','pvdf_physics.py','beam_fem.py','neuroskin_multiscale.py','symmetry_geometry.py',
-                 'electronics_budget.py','electronics_evolution.py','validation_contract.py','recovery_sim.py','full_evaluation.py','matrixfree_fem.py','audit_scheduler.py','validation_design.py','population_pareto.py','finalist_selection.py'):
-        h.update(name.encode('utf-8')+b'\0')
-        h.update((root/name).read_bytes())
-    return h.hexdigest()
+    from provenance import numerical_source_hash
+    return numerical_source_hash()
 
 
 

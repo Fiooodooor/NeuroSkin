@@ -84,7 +84,8 @@ def top_candidates(n=10):
 def seed_genome(seed: Archetype, rng: random.Random, mutate: bool=True):
     from advanced import new_genome
     g=new_genome(seed.family,rng)
-    g['topology']=seed.id
+    # Curated single-stage concepts must not inherit a random hybrid identity.
+    g.update(topology=seed.id,hybrid_id='none')
     for k,v in seed.settings:
         if k in g:g[k]=v
     if mutate:

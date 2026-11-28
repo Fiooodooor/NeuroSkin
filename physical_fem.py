@@ -1,11 +1,6 @@
-"""NeuroSkin 1.2: actual 3D, small-strain, isotropic linear-elastic HEX8 FEM.
-
-Geometry comes from the SAME parametrized structural_struts() used by the viewer.
-Every occupied voxel is an 8-node *solid* finite element (not a spring proxy).
-Units throughout: mm, N, MPa=N/mm^2, N*mm. No large strains/contact/PVDF coupling.
-
-The meshing step explicitly discloses minimum-thickness voxel inflation, so it is
-NOT a substitute for a tetrahedral mesh convergence study. """
+"""Three-dimensional small-strain linear-elastic HEX8 FEM.
+Units: mm, N, MPa. Includes approximate bonded-film reinforcement;
+voxel geometry and linear solutions require independent convergence evidence."""
 from __future__ import annotations
 import dataclasses
 import math

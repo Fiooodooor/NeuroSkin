@@ -20,7 +20,7 @@ python server.py --cores auto --open --port 8765
 Testy zmienionych modułów:
 
 ```powershell
-python -m pytest -q tests/test_validation_v22.py tests/test_pipeline_v10.py tests/test_archive_api_v11.py
+python -m pytest -q tests/test_validation.py tests/test_pipeline.py tests/test_archive_api.py
 ```
 
 # NeuroSkin 2.1.1 — Windows shutdown hotfix
@@ -65,7 +65,7 @@ For a reproducible baseline / STL catalogue:
 ```powershell
 python benchmark_hybrids.py --pitch 1.25 --grid 3 --out hybrid_validation_v20
 python hybrid_preview.py
-python -m pytest -q tests/test_hybrid_v20.py
+python -m pytest -q tests/test_hybrid.py
 ```
 
 All dependencies are listed in **one** `requirements.txt`, including CUDA 12 CuPy for Quadro P1000. The GPU remains optional for runtime FEM because your benchmark found CPU much faster for small problems. Defaults remain CPU-first.
@@ -146,7 +146,7 @@ See [RELEASE_NOTES_v17.md](RELEASE_NOTES_v17.md), [WORKSTATION_HP_Z840.md](WORKS
 
 # NeuroSkin Evolution Lab v1.6
 
-**NEW:** Read [`RELEASE_NOTES_v16.md`](RELEASE_NOTES_v16.md) for the 20 new geometries, 10×10 scoring, top-10 evolutionary seeding, 1–8 PVDF choices, basic/advanced GUI with **Evolve** and **Evaluate All**, and time-dependent recovery screening. The full 20-STL catalog is under [`seed_models_v16/`](seed_models_v16/); research references are documented in [`SCIENTIFIC_SEED_SOURCES.md`](SCIENTIFIC_SEED_SOURCES.md).
+**NEW:** Read [`RELEASE_NOTES_v16.md`](RELEASE_NOTES_v16.md) for the 20 new geometries, 10×10 scoring, top-10 evolutionary seeding, 1–8 PVDF choices, basic/advanced GUI with **Evolve** and **Evaluate All**, and time-dependent recovery screening. The full 20-STL catalog is under [`seed_models_v16/`](seed_models_v16/); research references are documented in [`docs/SCIENTIFIC_SOURCES.md`](docs/SCIENTIFIC_SOURCES.md).
 
 Start on Windows:
 
@@ -336,7 +336,7 @@ These references do not constitute novelty or freedom-to-operate opinions. The c
 ## How to inspect the results after running and restarting the application
 
 1. Run an evolution normally, wait until **completed**. The application writes
-   `runs_v05/<run_id>/results.json`, CSV history, champion STL and a `stages/`
+   `runs/<run_id>/results.json`, CSV history, champion STL and a `stages/`
    directory containing one atomic JSON for **each completed generation**.
 2. Restart the application (`python server.py --cores 8 --open --port 8765`).
 3. At the top of the GUI open **Saved experiments** → **Refresh** → select a run
@@ -351,8 +351,8 @@ These references do not constitute novelty or freedom-to-operate opinions. The c
    resume viewing ongoing evolution or start another experiment.
 
 **Important:** a headless CLI run written to `runs_headless/` is NOT automatically
-visible in the GUI, which uses `runs_v05/` next to `server.py`. Run the CLI with
-`--out runs_v05` if you want to open its outputs in the GUI.
+visible in the GUI, which uses `runs/` next to `server.py`. Run the CLI with
+`--out runs` if you want to open its outputs in the GUI.
 
 ### Archived experiments and comparison
 
@@ -402,7 +402,7 @@ python verify_release.py --smoke-evolution
 ```
 
 The final command intentionally executes a real three-second evolution and
-saves it under `runs_v05/` so it can be reopened from the GUI.
+saves it under `runs/` so it can be reopened from the GUI.
 
 ## NEW — v1.2 genuine mechanical simulation
 

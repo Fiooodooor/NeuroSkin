@@ -10,3 +10,10 @@ const store=new Map(),storage={getItem:k=>store.get(k),setItem:(k,v)=>store.set(
 let list=P.save(storage,[],'Z840',base);list=P.save(storage,list,'Z840',P.capture(get));assert.equal(list.length,1);assert.deepEqual(P.load(storage),list);
 for(let i=0;i<5;i++)list=P.save(storage,list,'Profile '+i,base);assert.throws(()=>P.save(storage,list,'Too many',base),/six/);assert.equal(P.load(storage).length,6);assert.equal(P.remove(storage,list,'Z840').length,5);
 console.log('evolution preset tests passed');
+
+for(const [id,options] of Object.entries({mode:['single:all','hybrid:all'],population:['24','48'],searchStrategy:['adaptive','explore'],objective:['balanced','electronics'],fem_backend:['hex8'],fem_pitch:['0.625'],gate_grid:['3'],audit_grid:['3','5']}))controls[id]={tagName:'SELECT',value:options[0],options:options.map(value=>({value}))};
+for(const [id,min,max,value] of [['seconds','3','3600','60'],['cores','1','2','1'],['searchPrecision','0','100','80'],['explore','0','100','55']])controls[id]={tagName:'INPUT',type:'number',min,max,value};
+const examples=P.examples(get);assert.equal(examples.length,4);assert.equal(examples[0].values.enable_fem,false);assert.equal(examples[2].values.objective,'electronics');
+for(const p of examples){assert(!('seed' in p.values));assert(Number(p.values.cores)<=2);P.validate(p.values,get);}
+const stored=P.load(storage);P.apply(examples[0].values,get);assert.deepEqual(P.load(storage),stored);assert.equal(get('seconds').value,'15');
+console.log('example preset hardware and storage isolation tests passed');

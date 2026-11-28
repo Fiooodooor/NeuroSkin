@@ -1,9 +1,6 @@
-"""NeuroSkin electromechanical *surrogate*, version 0.6.
-
-Units: mm,N,MPa; capacitive outputs in pF; magnet proxy in mT.
-This is NOT an FEA solution, Maxwell-field simulation, or a calibrated sensor.
-All electrode gaps, dielectric factors, transduction constants and noise are explicit assumptions.
-"""
+"""NeuroSkin 3 electromechanical surrogate.
+Units: mm, N, MPa; capacitive outputs in pF and magnetic proxies in mT.
+Transfer functions and noise remain explicit engineering assumptions."""
 import math
 import numpy as np
 from advanced import curve_stiffness, structural_struts

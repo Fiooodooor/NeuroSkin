@@ -1,4 +1,4 @@
-"""NeuroSkin v0.7 local evolutionary design laboratory."""
+"""NeuroSkin 3 local evolutionary design laboratory."""
 from pathlib import Path
 import os
 for _v in ('OPENBLAS_NUM_THREADS','OMP_NUM_THREADS','MKL_NUM_THREADS'):
@@ -11,14 +11,14 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 import trimesh
 import numpy as np
-from advanced import EvolutionV5, webmesh, detail_mesh, structural_struts
+from advanced import EvolutionEngine, webmesh, detail_mesh, structural_struts
 from electromechanics import examine, sweep, CASES
 from optimization import PRESETS
 from spatial_validation import spatial_pressure_test
 from archive_store import ArchiveStore, ArchiveError
 
 ROOT=Path(__file__).resolve().parent
-EVO=EvolutionV5(ROOT/'runs_v05')
+EVO=EvolutionEngine(ROOT/'runs')
 ARCHIVES=ArchiveStore(EVO.folder)
 from compute_admission import ComputeAdmission
 
@@ -142,11 +142,23 @@ def archive_compare(left:str,right:str):
              and bool(l['validation_protocol_hash']) and l['validation_protocol_hash']==r['validation_protocol_hash']
              and l['validation_tier']==r['validation_tier']
              and l['validation_noise_source']==r['validation_noise_source'])
+ from validation_contract import ValidationReport, candidate_comparable
+ try:
+  reports=[((s.get('audited_champion') or s.get('best') or {}).get('audit') or {})['validation_v30'] for s in (first,second)]
+  for report in reports:
+   ValidationReport.model_validate(report)
+   evidence=report['evidence']
+   if not evidence.get('evaluation_settings_hash') or type(evidence.get('seed')) is not int:
+    comparable=False
+  comparable=bool(comparable and candidate_comparable(*reports)[0] and
+                  all(key in first and key in second and first[key]==second[key]
+                      for key in ('objective','audit_grid','fem_enabled','fem_backend','fem_pitch_mm')))
+ except (ValueError,KeyError,TypeError):comparable=False
  delta=(round(float(r['audited_score'])-float(l['audited_score']),5) if comparable and
         l['audited_score'] is not None and r['audited_score'] is not None else None)
  return {'left':l,'right':r,'comparable':comparable,'score_delta_right_minus_left':delta,
          'warning':None if comparable else
-         'Scores are NOT comparable: source hash, objective, validation protocol hash, fidelity tier or noise provenance differs or is unknown.'}
+         'Scores are NOT comparable: source, solver, seed, protocol, fidelity, noise, evaluation or FEM settings differ or are incomplete.'}
 
 @app.get('/api/archives/{run_id}')
 def archive_load(run_id:str):
@@ -178,17 +190,43 @@ def archive_download(run_id:str):
  selected=('results.json','history.csv','audit_history.csv','stage_decisions.json',
            'champion_full_audit.json','champion_CONCEPT_NOT_PRINT_READY.stl',
            'crown_concept.stl','chiral_concept.stl','quadrant_concept.stl')
- file=io.BytesIO()
- with zipfile.ZipFile(file,'w',zipfile.ZIP_DEFLATED) as z:
-  for name in selected:
-   source=folder/name
-   if source.is_file() and not source.is_symlink():
-    z.write(source,arcname=name)
+ import tempfile
+ from starlette.background import BackgroundTask
+ sources=[];total=0
+ try:
   stage_dir=folder/'stages'
-  if stage_dir.is_dir():
-   for stage in sorted(stage_dir.glob('stage_*.json')):
-    if stage.is_file() and not stage.is_symlink():z.write(stage,arcname='stages/'+stage.name)
- return Response(file.getvalue(),media_type='application/zip',headers={'Content-Disposition':f'attachment; filename="neuroskin_run_{run_id}.zip"'})
+  if not stage_dir.resolve().is_relative_to(folder):raise ArchiveError('Invalid stages directory')
+  names=list(selected)+['stages/'+p.name for p in sorted(stage_dir.glob('stage_*.json'))]
+  if len(names)>10016:raise ArchiveError('Too many archive files for one download')
+  for name in names:
+   try:source=ARCHIVES.resolve_file(run_id,name,16*1024*1024 if name.startswith('stages/') else 100*1024*1024)
+   except FileNotFoundError:continue
+   total+=source.stat().st_size
+   if total>256*1024*1024:raise ArchiveError('Archive download exceeds 256 MiB input limit')
+   sources.append((name,source))
+ except (ArchiveError,OSError,ValueError) as exc:raise HTTPException(422,str(exc))
+ temporary=tempfile.TemporaryDirectory(prefix='neuroskin-download-',dir=EVO.folder)
+ try:
+  path=Path(temporary.name)/'archive.zip'
+  with zipfile.ZipFile(path,'w',zipfile.ZIP_DEFLATED) as z:
+   for name,source in sources:z.write(source,arcname=name)
+  return FileResponse(path,media_type='application/zip',filename=f'neuroskin_run_{run_id}.zip',background=BackgroundTask(temporary.cleanup))
+ except BaseException:
+  temporary.cleanup();raise
+
+@app.get('/api/archives/{run_id}/audit')
+def archive_audit(run_id:str,generation:int|None=None):
+ try:
+  saved=ARCHIVES.load(run_id)
+  stage=ARCHIVES.load_stage(run_id,generation) if generation is not None else None
+ except FileNotFoundError:raise HTTPException(404,'Saved run or stage not found')
+ except (ArchiveError,OSError,ValueError,TypeError) as exc:raise HTTPException(422,str(exc))
+ champion=stage.get('champion') if stage is not None else saved.get('audited_champion') or saved.get('best')
+ if not champion or not champion.get('audit'):raise HTTPException(404,'No full audit for this selection')
+ return Response(json.dumps({'run_id':run_id,'generation':generation,'champion':champion,
+   'history':saved.get('audit_history',[]) if stage is None else [],
+   'decisions':saved.get('stage_decisions',[]) if stage is None else [stage.get('decision')]}),media_type='application/json',
+   headers={'Content-Disposition':f'attachment; filename="neuroskin_{run_id}_audit.json"'})
 
 def select_candidate(kind:str,index:str,family:str,run_id:str|None=None,generation:int|None=None):
  if kind=='hybrid' and not run_id:
@@ -532,7 +570,9 @@ def spatial_pressure(req:SpatialTest):
 
 @app.get('/api/export/{kind}')
 def export(kind:str, selection:str='best',index:str="0",family:str='crown',run_id:str|None=None,generation:int|None=None,piezo_count_override:int|None=None,piezo_wiring_override:int|None=None,expected_live_run_id:str|None=None,expected_candidate_id:str|None=None):
- s=ARCHIVES.load(run_id) if run_id else EVO.snapshot()
+ try:s=ARCHIVES.load(run_id) if run_id else EVO.snapshot()
+ except FileNotFoundError:raise HTTPException(404,'Saved run not found')
+ except (ArchiveError,OSError,ValueError,TypeError) as exc:raise HTTPException(422,str(exc))
  if kind=='json':return Response(json.dumps(s,indent=2),media_type='application/json',headers={'Content-Disposition':'attachment; filename="neuroskin_evolution_v07.json"'})
  if kind=='csv':
   buf=io.StringIO();w=csv.DictWriter(buf,['generation','elapsed','best','median','diversity']);w.writeheader();w.writerows(s['history'])

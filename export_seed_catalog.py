@@ -15,7 +15,7 @@ from seed_library import SEEDS,CRITERIA,seed_genome,top_candidates,serialized_li
 from physical_fem import voxel_mesh,HexElasticSolver,FEMConfig
 
 def main():
-    a=argparse.ArgumentParser();a.add_argument('--out',default='seed_models_v16');a.add_argument('--quality',type=int,default=14)
+    a=argparse.ArgumentParser();a.add_argument('--out',default='artifacts/seed_catalog');a.add_argument('--quality',type=int,default=14)
     a.add_argument('--skip-fem',action='store_true');args=a.parse_args()
     dst=Path(args.out);dst.mkdir(parents=True,exist_ok=True)
     metas=[];rankids={s.id for s in top_candidates()}

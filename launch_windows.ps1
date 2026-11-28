@@ -13,7 +13,7 @@ if (Test-Path $LocalPython) {
 } else {
     $Python = (Get-Command python -ErrorAction Stop).Source
 }
-Write-Host "Starting NeuroSkin v2.1.1 on $HostAddress`:$Port with $Cores CPU workers"
+Write-Host "Starting NeuroSkin 3 on $HostAddress`:$Port with $Cores CPU workers"
 Write-Host "Ctrl+C stops the parent server; spawned Python workers ignore console SIGINT."
 & $Python (Join-Path $Root "server.py") --host $HostAddress --port $Port --cores $Cores --open
 $Code = $LASTEXITCODE

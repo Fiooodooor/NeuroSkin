@@ -1,5 +1,0 @@
-hybrid_id,pitch_mm,elements,centre_down_mm,voxel_inflated_flexures,fem_feasible,shell_feasible,shell_max_stress_MPa,shell_max_shear_MPa,force_balance_relative,moment_balance_relative,relative_deflection_change_vs_previous,mesh_converged_to_previous,solver_error
-h01_serpentine_quadrant,1.25,412,0.1689593,8,True,True,54.737653110876025,2.724102897242154,1.3895776586196955e-14,2.868643684209567e-15,,False,
-h01_serpentine_quadrant,0.625,1911,0.3522434,3,True,False,129.66138398928857,8.527527569070873,2.577175268153797e-13,4.946014922260844e-14,0.5203336670041226,False,
-h10_dual_chiral,1.25,546,0.0162915,22,True,True,13.975078533742806,0.06776351368887244,6.521365714297513e-15,1.4614115282792312e-15,,False,
-h10_dual_chiral,0.625,2605,0.0852968,22,True,True,14.394137297063047,0.3817314693752052,1.2958541147366678e-13,2.5092020844932693e-14,0.8090022134476322,False,

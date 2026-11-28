@@ -16,7 +16,7 @@ from hybrid_library import ranked, genome_for
 from advanced import audit_job, detail_mesh, structural_struts
 
 
-def run(pitch=1.25, audit_grid=3, output='hybrid_validation_v20', export_stl=True):
+def run(pitch=1.25, audit_grid=3, output='artifacts/hybrid_validation', export_stl=True):
     folder=Path(output);folder.mkdir(parents=True,exist_ok=True)
     models=folder/'genomes';models.mkdir(exist_ok=True)
     if export_stl:(folder/'stl').mkdir(exist_ok=True)
@@ -74,7 +74,7 @@ if __name__=='__main__':
     ap=argparse.ArgumentParser()
     ap.add_argument('--pitch',type=float,default=1.25)
     ap.add_argument('--grid',type=int,default=3,choices=[3,5,7])
-    ap.add_argument('--out',default='hybrid_validation_v20')
+    ap.add_argument('--out',default='artifacts/hybrid_validation')
     ap.add_argument('--no-stl',action='store_true')
     args=ap.parse_args()
     run(args.pitch,args.grid,args.out,not args.no_stl)

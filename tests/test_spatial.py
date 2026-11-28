@@ -2,7 +2,7 @@ import random, sys, unittest, time
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from fastapi.testclient import TestClient
-from advanced import new_genome, EvolutionV5
+from advanced import new_genome, EvolutionEngine
 from spatial_validation import spatial_pressure_test, grid_points
 from optimization import evaluate
 from server import app,EVO
@@ -60,7 +60,7 @@ class SpatialTests(unittest.TestCase):
   import tempfile
   for enabled in (False,True):
    with tempfile.TemporaryDirectory() as tmp:
-    e=EvolutionV5(tmp);e.start('crown',3,123,12,.5,'balanced',enabled,3)
+    e=EvolutionEngine(tmp);e.start('crown',3,123,12,.5,'balanced',enabled,3)
     e.thread.join(timeout=35)
     s=e.snapshot();self.assertEqual(s['status'],'completed',s.get('error'))
     self.assertEqual(s['physical_gate'],enabled)

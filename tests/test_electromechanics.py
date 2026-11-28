@@ -46,7 +46,7 @@ class ElectromechanicalTests(unittest.TestCase):
   c=TestClient(app);r=c.get('/api/physics_info');self.assertEqual(r.status_code,200)
   self.assertEqual(len(r.json()['cases']),8)
  def test_api_load_case_selected_candidate(self):
-  from advanced import EvolutionV5
+  from advanced import EvolutionEngine
   # manually provide a cached champion without running optimizer
   item=dict(id='test-1',family='quadrant',genome=self.gs['quadrant'],fitness=60.,generation=1)
   with EVO.lock:

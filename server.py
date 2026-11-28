@@ -51,7 +51,7 @@ class Start(BaseModel):
  fem_pitch_mm:float=Field(default=.3125,ge=.12,le=2.)
 
 @app.get('/')
-def index():return FileResponse(ROOT/'static'/'index.html')
+def index():return FileResponse(ROOT/'static'/'index.html',headers={'Cache-Control':'no-cache'})
 def available_cores():
  # Linux affinity reflects CPUs available to this process; os.cpu_count() can overestimate.
  try:

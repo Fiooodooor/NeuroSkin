@@ -85,7 +85,12 @@ def test_workspace_modes_context_and_multiscale(app_url):
         frame=page.frame_locator('#workspaceLabFrame')
         expect(frame.locator('#labTabs')).to_be_visible(timeout=20000)
         expect(frame.locator('#selection')).to_be_disabled()
-        frame.locator('#lab-tab-1').click();frame.locator('#tile').click()
+        assert frame.locator('html').evaluate('(n)=>getComputedStyle(n).backgroundColor')=='rgb(16, 30, 43)'
+        assert frame.locator('body').evaluate('(n)=>getComputedStyle(n).backgroundColor')=='rgb(16, 30, 43)'
+        page.wait_for_function("""(()=>{const f=document.querySelector('#workspaceLabFrame');return Math.abs(f.clientHeight-f.contentDocument.body.getBoundingClientRect().height-12)<=2;})()""",timeout=15000)
+        frame.locator('#lab-tab-1').click()
+        page.wait_for_function("""(()=>{const f=document.querySelector('#workspaceLabFrame');return Math.abs(f.clientHeight-f.contentDocument.body.getBoundingClientRect().height-12)<=2;})()""",timeout=15000)
+        frame.locator('#tile').click()
         expect(frame.locator('.lab-status:visible')).to_contain_text('Completed',timeout=30000)
         result=json.loads(frame.locator('#tileResult').text_content())
         assert result['tier']=='T0' and result['force_balance_error_N']<1e-8

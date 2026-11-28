@@ -158,3 +158,7 @@ Canonical development branch: `develop/v3`. Consolidate the full v2.2-derived in
 ## Revision 25 — keep display failures outside the FEM qualification boundary
 - Optional four-case packing errors are reported separately without changing numerical score or feasible flag; exclude display-only errors from audit summaries. Clear preview resources on closing the FEM details panel as well as leaving the tab. Add injected-failure regression. Exact-head tests pending.
 - D027: the optional preview serialization stage is not a physical validity gate. This does not suppress actual solver, geometry or equilibrium failures. T3 optional.
+
+## Revision 26 — embedded dark canvas and workspace initialization fix
+- Fix user-reported white iframe canvas: set explicit dark root/body/iframe backgrounds and dark native controls; flow-root isolates margin collapse; natural body height with 180 px floor rather than 500 px. Regression asserts actual embedded root/body colors and height on two sub-tabs. Prevent stale HTML caching with revalidation.
+- Browser CI on b1d80e6: 136 backend tests / 44 subtests passed; browser failed due to temporary missing FEM workspace method. CI on 27f22d4: workspace tabs not initialized; FEM grid was queried using document.getElementById after its parent had been detached during tab construction. Resolve directly from retained FEM element. Optional-call new workspace hooks for mixed cached scripts. Current full CI pending; do not treat as a qualified release.

@@ -146,7 +146,7 @@
     });
   }
   pinnedFilm.onchange=renderPinnedGeometry;pinnedGeometry.addEventListener('toggle',renderPinnedGeometry);
-  const femGrid=el('femPreviewGrid'),preview=window.NeuroFEMPreviews;
+  const femGrid=fem.querySelector('#femPreviewGrid'),preview=window.NeuroFEMPreviews;
   const femLegend=make('p','workspace-fem-legend','Run Evaluate All to compute four standard load cases.');femLegend.id='workspaceFEMLegend';
   const femNote=make('small','workspace-summary','Same reference geometry, visual scale and color limits. Standard loads are independent of the custom inspector settings.');
   const femCards=make('div','workspace-fem-grid'),plots=new Map();
@@ -300,7 +300,7 @@
   // Preview actions in the library should return directly to the 3D workspace.
   library.addEventListener('click',e=>{if(e.target.closest('[data-hybrid],[data-preview-seed]'))show('overview');});
   archive.addEventListener('click',e=>{if(e.target.closest('#openArchive,#openStage,#returnLive'))show('overview');});
-  window.addEventListener('message',e=>{if(e.origin!==location.origin)return;const item=[...openLabs.values()].find(x=>x.frame.contentWindow===e.source);if(!item)return;if(e.data?.type==='neuroskin:lab-height'&&Number.isFinite(e.data.height))item.frame.style.height=Math.max(500,Math.min(18000,e.data.height+12))+'px';else if(e.data?.type==='neuroskin:lab-report'){const r=reports.record(e.data.result);if(r&&reports.matchesFrame(r,item.context)){item.reports.set(r.diagnostic_context.path,r);renderReports();}}else if(e.data?.type==='neuroskin:lab-busy'&&typeof e.data.busy==='boolean'){item.busy=e.data.busy;if(item.frame===frame){labBusy=item.busy;update();}}});
+  window.addEventListener('message',e=>{if(e.origin!==location.origin)return;const item=[...openLabs.values()].find(x=>x.frame.contentWindow===e.source);if(!item)return;if(e.data?.type==='neuroskin:lab-height'&&Number.isFinite(e.data.height))item.frame.style.height=Math.max(180,Math.min(18000,e.data.height+12))+'px';else if(e.data?.type==='neuroskin:lab-report'){const r=reports.record(e.data.result);if(r&&reports.matchesFrame(r,item.context)){item.reports.set(r.diagnostic_context.path,r);renderReports();}}else if(e.data?.type==='neuroskin:lab-busy'&&typeof e.data.busy==='boolean'){item.busy=e.data.busy;if(item.frame===frame){labBusy=item.busy;update();}}});
   window.NeuroWorkspace={show,update,resize,renderEvaluation,renderFEMPreviews,markFEMStale,isFEMVisible};
   mode();show('overview');renderReports();
 })();

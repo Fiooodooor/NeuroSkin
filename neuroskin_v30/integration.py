@@ -174,7 +174,7 @@ def build_router(select_candidate, preview_genome, current_run_id=None):
 
     @router.get('/v30')
     def lab():
-        return FileResponse(Path(__file__).with_name('lab.html'))
+        return FileResponse(Path(__file__).with_name('lab.html'),headers={'Cache-Control':'no-cache'})
 
     @router.get('/api/v30/capabilities')
     def capabilities():

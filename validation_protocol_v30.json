@@ -1,0 +1,59 @@
+{
+  "schema_version": "neuroskin.validation_protocol.v0.1",
+  "purpose": "Design-space benchmark for a robotic tactile cell. All numerical limits are proposed engineering targets, not verified performance or material measurements.",
+  "units": {"length": "mm", "force": "N", "time": "s", "temperature": "degC", "frequency": "Hz"},
+  "design_envelope": {
+    "taxel_nominal_size_mm": [20.0, 20.0],
+    "max_assembly_height_mm": 12.0,
+    "mechanics": ["single_stage", "two_stage"],
+    "electronics": ["capacitive_static", "pvdf_dynamic", "optional_strain_reference"],
+    "include_cost_power_estimates": true
+  },
+  "dataset_splits": {
+    "strategy": "disjoint_contact_positions_indenter_types_and_sessions",
+    "train_fraction": 0.6,
+    "validation_fraction": 0.2,
+    "test_fraction": 0.2,
+    "warning": "Do not split neighboring samples of a single contact trajectory randomly among subsets."
+  },
+  "load_cases": {
+    "normal_forces_N": [0.025, 0.05, 0.1, 0.2, 0.4],
+    "shear_forces_N": [-0.1, -0.05, 0.05, 0.1],
+    "contact_grid": {"pattern": "cartesian_masked_by_contact_surface", "resolution": [5, 5]},
+    "indenters": ["flat", "sphere", "small_edge"],
+    "base_strain_fraction": [-0.05, 0.0, 0.05],
+    "excitation_frequencies_Hz": [2.0, 25.0, 150.0],
+    "ambient_temperature_C": [15.0, 25.0, 40.0],
+    "recovery_times_s": [0.1, 0.5, 1.0, 5.0, 10.0]
+  },
+  "metrics": {
+    "force_rmse_N": "calibrated full test set, report per load axis and condition",
+    "contact_localization_mae_mm": "measured test-set Euclidean position error",
+    "false_positive_rate": "no-contact samples across temperature and base-strain conditions",
+    "worst_case_channel_snr_dB": "measured or separately labeled synthetic signal/noise",
+    "hysteresis_percent_full_scale": "matched load-unload cycle",
+    "residual_deflection_mm_after_5s": "measured or viscoelastic simulation with calibration status",
+    "cross_axis_error": "cross-talk matrix and inverse decoder validation",
+    "identifiability": "singular values of noise-whitened force-position Jacobian with measurement covariance",
+    "mesh_convergence": "separately report change in displacement and max stress on refinement",
+    "estimated_energy_per_event_mJ": "analog front end + processing + communications",
+    "bill_of_materials": "priced hardware + fabrication consumables + labor separately",
+    "latency_ms": "sample to validated decoded output",
+    "data_provenance": "simulation/analytic/measurement, model hash and calibration specimen"
+  },
+  "fidelity_tiers": {
+    "T0": "synthetic fast-screen only; no physical validation",
+    "T1": "connected mechanical FEM and approximate electronics; require mesh sensitivity report",
+    "T2": "nonlinear material/contact model plus independent synthetic held-out tests",
+    "T3": "instrumented hardware validation with calibration data and uncertainty"
+  },
+  "promotion_policy": {
+    "same_fidelity_tier_only": true,
+    "top_k": 3,
+    "record_incumbent": true,
+    "retain_pareto_front": true,
+    "reject_unreported_solver_failure": true,
+    "robustness_checks": ["material_modulus", "bond_thickness", "electrode_gap", "sensor_noise", "temperature", "contact_location"],
+    "note": "An unmeasured, synthetic feasible candidate is never labeled hardware-validated."
+  }
+}

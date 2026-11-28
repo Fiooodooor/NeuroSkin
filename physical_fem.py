@@ -74,6 +74,13 @@ def voxel_mesh(family: str, genome: dict, config: FEMConfig=FEMConfig(), *, buil
     resolution policy; results change with pitch and require mesh convergence.
     """
     if family not in ('crown','chiral','quadrant'):raise ValueError('unknown family')
+    hybrid=genome.get('hybrid_id','none') not in ('none',None,'')
+    if hybrid:
+        from hybrid_geometry import mid_height,mid_radius
+        mid_z=mid_height(genome)
+        mid_r=mid_radius(genome)
+        mid_t=float(genome.get('hybrid_plate_thickness',.65))
+        if not .45<=mid_t<=1.:raise InvalidGeometry('Hybrid intermediate plate thickness outside allowed range')
     paths=structural_struts(family, genome)
     if not paths:raise InvalidGeometry('No structural paths')
     h=config.pitch_mm;H=float(genome['height']); pad=float(genome.get('pad_radius',3.2))+.4
@@ -96,13 +103,15 @@ def voxel_mesh(family: str, genome: dict, config: FEMConfig=FEMConfig(), *, buil
     # Volumetric base: separate four feet for quadrant; shared disk otherwise.
     for k,z in enumerate(zz):
         if z <=.85:
-            if family=='quadrant':
+            if family=='quadrant' and not hybrid:
                 r=float(genome['radius'])*.77
                 for sx in (-1,1):
                     for sy in (-1,1):
                         occupancy[:,:,k] |= (np.abs(X-sx*r)<=1.65)&(np.abs(Y-sy*r)<=1.65)
             else:
                 occupancy[:,:,k] |= (X*X+Y*Y <=9.3**2)
+        if hybrid and abs(z-mid_z)<=max(mid_t*.5, h*.55):
+            occupancy[:,:,k] |= X*X+Y*Y<=mid_r**2
         if H-max(.65,h*.75) <= z <= H+max(.45,h*.45):
             occupancy[:,:,k] |= (X-cx)**2+(Y-cy)**2<=pad**2
     # Rasterize each curved segment only in a bounded local box, rather than
@@ -314,7 +323,14 @@ class HexElasticSolver:
         # Reaction moments from real support reactions and applied nodal load.
         origin=np.array([0.,0.,0.]); mr=np.cross(mesh.nodes[mesh.bottom]-origin,R[mesh.bottom]).sum(axis=0)
         mf=np.cross(mesh.nodes-origin,f.reshape(-1,3)).sum(axis=0)
-        moment_error=float(np.linalg.norm(mr+mf)/max(np.linalg.norm(mf),abs(torque_z_Nmm),1e-10))
+        # A centred vertical load has zero theoretical moment. Dividing roundoff
+        # (~1e-14 Nmm) by the old 1e-10 Nmm floor fabricated a 1e-4 "relative"
+        # imbalance and falsely rejected refined meshes. Normalize by the
+        # actual characteristic force × length of the loaded structure instead.
+        characteristic_length_mm=max(float(np.ptp(mesh.nodes,axis=0).max()),mesh.pitch_mm)
+        reference_moment_Nmm=max(float(np.linalg.norm(mf)),abs(torque_z_Nmm),
+                                  float(np.linalg.norm(load))*characteristic_length_mm,1e-10)
+        moment_error=float(np.linalg.norm(mr+mf)/reference_moment_Nmm)
         energy=float(.5*u@self._multiply(u))
         laminate_energy=(self.laminate.energy_Nmm(u) if self.laminate else 0.)
         laminate_response=(self.laminate.response(u) if self.laminate else None)
@@ -344,7 +360,9 @@ def fem_sweep(family,g,pitch_mm=1.25,include_fields=False,backend='auto',
     """Real FEM: small-pitch space-frame or coarser HEX8 solid with explicit backend labels."""
     if backend not in ('auto','beam','hex8'):
         raise ValueError('backend must be auto, beam or hex8')
-    if backend=='beam' or (backend=='auto' and pitch_mm<.7):
+    if g.get('hybrid_id','none') not in ('none',None,'') and backend=='beam':
+        raise InvalidGeometry('Two-stage hybrid requires a connected solid HEX8 mesh; the legacy beam FEM cannot represent the rigid middle plate')
+    if backend=='beam' or (backend=='auto' and pitch_mm<.7 and g.get('hybrid_id','none') in ('none',None,'')):
         from beam_fem import beam_sweep
         return beam_sweep(family,g,pitch_mm=pitch_mm,include_fields=include_fields,inspector_case=inspector_case,
                           inspector_force_N=inspector_force_N,inspector_offset=inspector_offset)
@@ -371,6 +389,62 @@ def fem_sweep(family,g,pitch_mm=1.25,include_fields=False,backend='auto',
     }
     results={name:fem.solve(**params) for name,params in cases.items()}
     baseline=results['press_center']
+    hybrid_stages=None
+    if g.get('hybrid_id','none') not in ('none',None,''):
+        from hybrid_geometry import mid_height
+        z_mid=mid_height(g)
+        z=mesh.nodes[:,2]
+        lower_idx=np.flatnonzero((z>=z_mid-max(.7,pitch_mm*1.2)) & (z<z_mid-max(.15,pitch_mm*.18)))
+        upper_idx=np.flatnonzero((z>z_mid+max(.15,pitch_mm*.18)) & (z<=z_mid+max(.7,pitch_mm*1.2)))
+        mid_idx=np.flatnonzero(np.abs(z-z_mid)<=max(.2,pitch_mm*.55))
+        if not len(mid_idx) or not len(upper_idx) or not len(lower_idx):
+            raise InvalidGeometry('Hybrid intermediate-plate displacement cannot be resolved; refine mesh')
+        stage_by_case={}
+        for label,res in results.items():
+            u=res['displacement']
+            # For a rigid middle plate, mean in-plane shift is a meaningful
+            # mechanical observable, not a reconstructed force measurement.
+            umid=np.mean(u[mid_idx],axis=0)
+            utop=np.mean(u[mesh.top],axis=0)
+            stage_by_case[label]={'lower_displacement_xyz_mm':umid.tolist(),
+                                  'upper_displacement_xyz_mm':(utop-umid).tolist(),
+                                  'total_displacement_xyz_mm':utop.tolist()}
+        b=stage_by_case['press_center']
+        uz_mid=float(b['lower_displacement_xyz_mm'][2])
+        uz_upper=float(b['upper_displacement_xyz_mm'][2])
+        uz_top=float(b['total_displacement_xyz_mm'][2])
+        lower_frac=float(abs(uz_mid)/max(abs(uz_top),1e-9))
+        upper_frac=float(abs(uz_upper)/max(abs(uz_top),1e-9))
+        # The three force-direction cases excite two distinct stage outputs;
+        # this is a mechanical response basis, NOT calibrated force inference.
+        signatures=[]
+        for name in ('press_center','shear_x','shear_y'):
+            row=stage_by_case[name]
+            signatures.append(row['upper_displacement_xyz_mm']+row['lower_displacement_xyz_mm'])
+        signature=np.asarray(signatures,float)
+        scales=np.maximum(np.linalg.norm(signature,axis=0),1e-8)
+        normalized=signature/scales[None,:]
+        sv=np.linalg.svd(normalized,compute_uv=False)
+        rank=int(np.linalg.matrix_rank(normalized,tol=max(float(sv[0]),1.e-10)*1e-4))
+        condition=float(sv[0]/max(float(sv[-1]),1e-12))
+        hybrid_stages={
+          'architecture':g['hybrid_id'],'interface_z_mm':float(z_mid),
+          'lower_compression_mm':float(-uz_mid),
+          'upper_compression_mm':float(-uz_upper),
+          'total_compression_mm':float(-uz_top),
+          'lower_compression_share':lower_frac,
+          'upper_compression_share':upper_frac,
+          'continuity_error_mm':float(abs(-uz_top + uz_mid + uz_upper)),
+          'stage_response_rank_max3':rank,
+          'stage_response_condition':condition,
+          'stage_response_singular_values':sv.tolist(),
+          'stage_displacements_by_load':stage_by_case,
+          'midplane_sample_nodes':int(len(mid_idx)),
+          'upper_sample_nodes':int(len(upper_idx)),
+          'lower_sample_nodes':int(len(lower_idx)),
+          'readout_channels':{'upper_dynamic':'PVDF (selected upper members)','lower_dynamic':'PVDF (selected lower members)',
+                              'static':'two independently modeled capacitive electrodes (assumed)'},
+          'source':'Connected HEX8 stage displacement samples and normalized 3-axis mechanical transfer; no sensor calibration'}
     inspection=None
     if include_fields:
         if inspector_case not in ('press_center','press_offset','shear_x','shear_y','torsion_z'):
@@ -437,6 +511,17 @@ def fem_sweep(family,g,pitch_mm=1.25,include_fields=False,backend='auto',
         film_guard=math.exp(-max(0.,peak_film-.01)*25.)
         score*=film_guard
     else:peak_film=0.;film_guard=1.
+    if hybrid_stages is not None:
+        # Evaluate second-stage participation and normalized mechanical
+        # excitation diversity without rewarding merely large absolute u.
+        share=hybrid_stages['lower_compression_share']
+        balance=float(math.exp(-(math.log(max(share,1e-5)/.20)/1.4)**2))
+        rank_factor=hybrid_stages['stage_response_rank_max3']/3.
+        condition_factor=1./(1.+max(0.,math.log10(max(1.,hybrid_stages['stage_response_condition']))-1.))
+        modal=float(.65*rank_factor+.35*condition_factor)
+        hybrid_stages['balance_score_0_100']=round(100.*balance,4)
+        hybrid_stages['mode_separation_score_0_100']=round(100.*modal,4)
+        score=.80*score+.12*(100.*balance)+.08*(100.*modal)
     valid=bool(pressure_valid and extrema<.12 and mesh.voxels>80 and max(v['moment_equilibrium_relative'] for v in results.values())<1e-4)
     score=round(float(score),4)
     report={'fem_backend':'actual_hex8_linear_3d','fem_linear_solver':fem.solver_mode,'mesh_pitch_mm':pitch_mm,'elements':mesh.voxels,'nodes':len(mesh.nodes),'volume_mm3':round(mesh.volume_mm3,2),
@@ -452,6 +537,7 @@ def fem_sweep(family,g,pitch_mm=1.25,include_fields=False,backend='auto',
             'force_equilibrium_max':max(v['force_equilibrium_relative'] for v in results.values()),
             'moment_equilibrium_max':max(v['moment_equilibrium_relative'] for v in results.values()),
             'fem_score':score,'feasible_linear':valid,'pvdf_stiffness_included':bool(fem.laminate),
+            'hybrid_stages':hybrid_stages,
             'pvdf_adhesive_model':'embedded_membrane_shear_lag' if fem.laminate else 'none',
             'pvdf_film_count':(fem.laminate.film_count if fem.laminate else 0),
             'pvdf_total_laminate_energy_Nmm':baseline.get('laminate_energy_Nmm',0.),

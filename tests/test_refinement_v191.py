@@ -144,7 +144,7 @@ class RefinementPolicyTests(unittest.TestCase):
 
     def test_provenance_changes_after_policy_update(self):
         provenance=engine_provenance()
-        self.assertEqual(provenance['release'],'1.9.1')
+        self.assertEqual(provenance['release'],(Path(__file__).parents[1]/'VERSION').read_text().strip().split('.')[0]+'.0')
         self.assertEqual(len(provenance['sha256']),64)
 
 

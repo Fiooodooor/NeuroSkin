@@ -55,6 +55,21 @@ def choose_film_members(paths, genome):
     if len(candidates)<n:
         raise ValueError(f'{n} PVDF films requested, only {len(candidates)} primary beams')
     phase=round(float(genome.get('piezo_azimuth_rad',0.)),6)
+    if genome.get('hybrid_id','none') not in ('none',None,''):
+        from hybrid_geometry import mid_height
+        zmid=mid_height(genome)
+        upper=[x for x in candidates if paths[x[0]][0][0,2]>zmid-0.25]
+        lower=[x for x in candidates if paths[x[0]][0][0,2]<=zmid-0.25]
+        # Reserve independent sensors in BOTH physical stages; this is not a
+        # single azimuthal array spanning different Z planes.
+        upper_n=(n+1)//2
+        lower_n=n-upper_n
+        if len(upper)<upper_n or len(lower)<lower_n:
+            raise ValueError('Hybrid lacks sufficient upper/lower PVDF support members')
+        selected=[]
+        if upper_n:selected.extend(_cached_member_selection(tuple(upper),upper_n,phase))
+        if lower_n:selected.extend(_cached_member_selection(tuple(lower),lower_n,phase))
+        return selected
     return list(_cached_member_selection(tuple(candidates),n,phase))
 
 def layout_metrics(paths, genome, selected=None):

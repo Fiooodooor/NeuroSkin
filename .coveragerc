@@ -1,0 +1,5 @@
+[run]
+source = .
+omit = tests/*, make_*preview*.py
+[report]
+show_missing = True

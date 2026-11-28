@@ -53,6 +53,15 @@ for _family in PARAM_EXTRA:
   'dielectric_epsilon_r':(2.3,3.5),
   'mount_compliance_mm_N':(.10,.48),
  })
+ PARAM_EXTRA[_family].update({
+  'hybrid_split':(.35,.65),
+  'hybrid_upper_scale':(.52,1.55),
+  'hybrid_lower_scale':(.52,1.70),
+  'hybrid_phase':(-3.14159,3.14159),
+  'hybrid_plate_thickness':(.48,.95),
+  'hybrid_sensor_mode':(0,2),
+  'hybrid_opposed_chirality':(0,1),
+ })
  # 1D PVDF membrane + compliant shear-transfer bond; these are assumptions
  # optimized during fast screening and re-evaluated with true HEX8 kinematics.
  PARAM_EXTRA[_family].update({
@@ -62,7 +71,7 @@ for _family in PARAM_EXTRA:
   'piezo_bond_fraction':(.50,1.0),
  })
 PIEZO_INTEGER={'piezo_count','piezo_wiring'}
-INTEGER_GENES={'ribs','tier_count','wave_count','branch_factor','morph_seed','piezo_mode'}|PIEZO_INTEGER
+INTEGER_GENES={'ribs','tier_count','wave_count','branch_factor','morph_seed','piezo_mode','hybrid_sensor_mode','hybrid_opposed_chirality'}|PIEZO_INTEGER
 
 def _snap_piezo_count(p,family=None):
  if 'piezo_count' not in p:return p  # old archived genomes retain one film
@@ -77,12 +86,24 @@ def _snap_piezo_count(p,family=None):
 
 def new_genome(family,rng):
  p=random_genome(family,rng);p.update({k:(rng.randint(int(lo),int(hi)) if k in INTEGER_GENES else round(rng.uniform(lo,hi),5)) for k,(lo,hi) in PARAM_EXTRA[family].items()});p['piezo_count']=rng.choices((2,3,4) if family=='quadrant' else (2,3,4,6,8),
-                           weights=(.18,.04,.78) if family=='quadrant' else (.13,.03,.53,.22,.09))[0];p['piezo_wiring']=rng.choices([0,1,2,3,4],[.65,.08,.10,.10,.07])[0];p['topology']=rng.choice(KINDS[family]);return _snap_piezo_count(p,family)
+                           weights=(.18,.04,.78) if family=='quadrant' else (.13,.03,.53,.22,.09))[0];p['piezo_wiring']=rng.choices([0,1,2,3,4],[.65,.08,.10,.10,.07])[0];p['topology']=rng.choice(KINDS[family]);p['hybrid_id']='none'
+ if rng.random()<.16:
+  from hybrid_library import SPECS
+  ids=[x.id for x in SPECS if x.upper_family==family]
+  if ids:
+   p['hybrid_id']=rng.choice(ids);p['topology']='hybrid';p['piezo_count']=4
+   p['height']=max(6.2,p['height'])
+ return _snap_piezo_count(p,family)
 
 def jump(family,p,rng,level='local'):
  q=dict(p);wide=(level!='local')
  if level=='topology':q['topology']=rng.choice([k for k in KINDS[family] if k!=p['topology']])
  if level=='restart':return new_genome(family,rng)
+ if level in ('topology','wide') and rng.random()<(.60 if level=='topology' else .22):
+  from hybrid_library import SPECS
+  ids=[x.id for x in SPECS if x.upper_family==family]
+  q['hybrid_id']=rng.choice(['none']+ids) if ids else 'none'
+  if q['hybrid_id']!='none':q['topology']='hybrid';q['height']=max(6.2,q['height'])
  keys=list(LIMITS[family])+list(PARAM_EXTRA[family]);rng.shuffle(keys)
  n=rng.randint(max(1,len(keys)//2),len(keys)) if wide else rng.randint(1,3)
  for k in keys[:n]:
@@ -90,31 +111,35 @@ def jump(family,p,rng,level='local'):
   if wide and rng.random()<.55:v=rng.uniform(lo,hi)
   else:v=float(q[k])+rng.gauss(0,(hi-lo)*(.34 if wide else .085))
   q[k]=int(round(min(hi,max(lo,v)))) if k in INTEGER_GENES else round(float(min(hi,max(lo,v))),5)
+ if q.get('hybrid_id','none')!='none':q['height']=max(6.2,q['height']);q['topology']='hybrid'
  return _snap_piezo_count(q,family)
 
 def cross(family,a,b,rng):
  q={}
  for k in a:
   if k not in b:continue
-  if k=='topology':q[k]=rng.choice([a[k],b[k]])
+  if k in ('topology','hybrid_id') or not isinstance(a[k],(int,float)) or not isinstance(b[k],(int,float)):q[k]=rng.choice([a[k],b[k]])
   elif rng.random()<.25 and k not in ['ribs','tier_count']:
    # A single interpolation coefficient is mandatory: separate draws can
    # produce weights summing above 1 and unphysical adhesive parameters.
    alpha=rng.random()
    q[k]=round(a[k]*alpha+b[k]*(1.-alpha),5)
   else:q[k]=rng.choice([a[k],b[k]])
+ if q.get('hybrid_id','none')!='none':q['topology']='hybrid';q['height']=max(6.2,q['height'])
  return _snap_piezo_count(jump(family,q,rng),family)
 
 def transmute(family,genome,target,rng):
  """Recombine an inherited *normalized morphology* with new family-specific genetic axes."""
  child=new_genome(target,rng)
- for shared in ('radius','height','thickness','taper','pitch','pad_radius','tier_count','ribs','wave_amp','wave_count','phase','radial_mod','strut_gradient','hub_ratio','branch_factor','material_E','morph_seed','piezo_span_mm','piezo_width_mm','piezo_thickness_um','piezo_position','piezo_strain_transfer','piezo_orientation_rad','piezo_feedback_pf','piezo_leak_tau_s','piezo_mode','piezo_E_MPa','piezo_adhesive_G_MPa','piezo_adhesive_thickness_um','piezo_bond_fraction','piezo_count','piezo_azimuth_rad','piezo_wiring','electrode_area_mm2','dielectric_gap_mm','dielectric_epsilon_r','mount_compliance_mm_N'):
+ for shared in ('radius','height','thickness','taper','pitch','pad_radius','tier_count','ribs','wave_amp','wave_count','phase','radial_mod','strut_gradient','hub_ratio','branch_factor','material_E','morph_seed','piezo_span_mm','piezo_width_mm','piezo_thickness_um','piezo_position','piezo_strain_transfer','piezo_orientation_rad','piezo_feedback_pf','piezo_leak_tau_s','piezo_mode','piezo_E_MPa','piezo_adhesive_G_MPa','piezo_adhesive_thickness_um','piezo_bond_fraction','piezo_count','piezo_azimuth_rad','piezo_wiring','electrode_area_mm2','dielectric_gap_mm','dielectric_epsilon_r','mount_compliance_mm_N','hybrid_split','hybrid_upper_scale','hybrid_lower_scale','hybrid_phase','hybrid_plate_thickness','hybrid_sensor_mode','hybrid_opposed_chirality'):
   if shared in genome and shared in child:
    old_range=(LIMITS.get(family,{})|PARAM_EXTRA[family]).get(shared)
    new_range=(LIMITS[target]|PARAM_EXTRA[target]).get(shared)
    if old_range and new_range:
     v=(genome[shared]-old_range[0])/(old_range[1]-old_range[0]);v=np.clip(v+rng.gauss(0,.12),0,1)
     val=new_range[0]+v*(new_range[1]-new_range[0]);child[shared]=int(round(val)) if shared in INTEGER_GENES else round(float(val),5)
+ if genome.get('hybrid_id','none')!='none' and target==family:
+  child['hybrid_id']=genome['hybrid_id'];child['topology']='hybrid'
  return _snap_piezo_count(child,target)
 
 def _profile_radius(base_r: float, u: float, p: dict, branch_tag: str='leg') -> float:
@@ -137,7 +162,7 @@ def _point_count(p: dict, minimum: int = 17) -> int:
  # More points = smoother and more detailed members in both viewer and voxelized FEM.
  return max(minimum, 2*int(p.get('wave_count',2))+11)
 
-def structural_struts(fam,p):
+def _single_stage_struts(fam,p):
  """Curved beam centre-lines + groups. Screening uses the straight segment tangent surrogate.
  Curvature is geometric, not currently assembled in 6DOF mechanical solve.
  """
@@ -218,23 +243,30 @@ def structural_struts(fam,p):
  from archetype_geometry import apply as apply_archetype
  return apply_archetype(fam,p,out)
 
-def curve_stiffness(family,p,E=1.0):
- """Positive-semidefinite 6DOF rod proxy using chord orientation and curved arc length.
- A curved centre-line lowers axial and bending effective stiffness by a simple
- length ratio. This is a deliberate engineering approximation, NOT curved beam FEM.
+def structural_struts(fam,p):
+ if p.get('hybrid_id','none') not in ('none',None,''):
+  from hybrid_geometry import make_struts
+  return make_struts(fam,p,_single_stage_struts)
+ return _single_stage_struts(fam,p)
+
+def stage_member_local_matrices(family,p,E=1.0):
+ """Reusable local matrices for BOTH stage stiffness and support reactions.
+
+ Identical radius/arc-length/PVDF/adhesive terms must be used for reaction
+ estimates; using a bare rod here causes large force-balance errors.
  """
- K=np.eye(6)*1e-9
  from pvdf_array import choose_film_members
  from laminate_fem import effective_film_properties, film_interval
- paths=structural_struts(family,p)
+ paths=_single_stage_struts(family,p)
  selected=set(choose_film_members(paths,p))
+ out=[]
  for member_index,(points,r,tag) in enumerate(paths):
   a,b=points[0],points[-1];d=b-a;chord=float(np.linalg.norm(d))
   length=float(np.sum(np.linalg.norm(np.diff(points,axis=0),axis=1)))
   if chord<1e-6 or length<1e-6:continue
   n=d/chord
   steps=np.linalg.norm(np.diff(points,axis=0),axis=1)
-  radii=np.asarray([_profile_radius(r,(idx+.5)/len(steps),p) for idx in range(len(steps))])
+  radii=np.asarray([_profile_radius(r,(idx+.5)/len(steps),p,tag) for idx in range(len(steps))])
   axial_compliance=np.sum(steps/(np.pi*np.maximum(radii,1e-5)**2))
   effective_I=(np.pi/4.)*length/max(float(np.sum(steps/np.maximum(radii,1e-5)**4)),1e-12)
   ratio=chord/length
@@ -243,8 +275,6 @@ def curve_stiffness(family,p,E=1.0):
   if member_index in selected:
    _,_,lo,hi=film_interval(points,p)
    composite=effective_film_properties(p,hi-lo,r)
-   # Cheap composite-rod approximation used by EVERY individual.
-   # Full finalists use embedded laminate stiffness in the HEX8 equation.
    coverage=(hi-lo)/max(length,1e-8)
    film_ea=composite['axial_EA_N']*coverage
    k_ax+=film_ea/max(length,1e-6)*ratio**2
@@ -252,9 +282,28 @@ def curve_stiffness(family,p,E=1.0):
    k_bend+=12*film_ea*eccentricity**2/max(length**3,1e-6)
   kl=k_ax*np.outer(n,n)+k_bend*(np.eye(3)-np.outer(n,n))
   local=b-np.array([0,0,p['height']]);B=np.column_stack((np.eye(3),-skew(local)))
+  out.append((points,kl,B))
+ return out
+
+
+def _single_stage_curve_stiffness(family,p,E=1.0):
+ """6DOF equivalent curved-rod stiffness; NOT true curved beam FEM."""
+ K=np.eye(6)*1e-9
+ for _points,kl,B in stage_member_local_matrices(family,p,E):
   K+=B.T@kl@B
  K[3:,3:]+=np.eye(3)*1e-4
  return K
+
+def curve_stiffness(family,p,E=1.0):
+ if p.get('hybrid_id','none') not in ('none',None,''):
+  from hybrid_geometry import stage_stiffnesses
+  stages=stage_stiffnesses(family,p,_single_stage_curve_stiffness)
+  # Two compliant stages are in SERIES, not parallel. The middle plate is
+  # modeled as a rigid 6-DOF coupler in the fast screening model.
+  compliances=[np.linalg.inv(K) for _,K in stages]
+  C=compliances[0]+compliances[1]
+  return np.linalg.inv(C)
+ return _single_stage_curve_stiffness(family,p,E)
 
 def proxy(family,p):
  # Geometry is represented by a straight-strut 6-DOF proxy; topology penalties reflect model uncertainty.
@@ -406,7 +455,17 @@ def tapered_tube(points, base_radius, p, tag='leg', sections=18):
 def detail_mesh(fam,p,quality=16):
  """Returns separate visual mesh component groups. Overlapping primitives are NOT fabrication CAD."""
  groups={'base':[],'flexure':[],'contact':[],'sensor':[],'inner':[]}
- if fam=='quadrant':
+ if p.get('hybrid_id','none') not in ('none',None,''):
+  from hybrid_geometry import mid_height,mid_radius
+  base=trimesh.creation.cylinder(radius=9.3,height=.75,sections=48)
+  base.apply_translation([0,0,.375]);groups['base'].append(base)
+  mid_plate=trimesh.creation.cylinder(radius=mid_radius(p),height=float(p.get('hybrid_plate_thickness',.65)),sections=48)
+  mid_plate.apply_translation([0,0,mid_height(p)]);groups['inner'].append(mid_plate)
+  for i in range(4):
+   a=2*math.pi*i/4
+   sensor=trimesh.creation.box(extents=[2.,2.,.16])
+   sensor.apply_translation([6.2*math.cos(a),6.2*math.sin(a),.82]);groups['sensor'].append(sensor)
+ elif fam=='quadrant':
   for sx in (-1,1):
    for sy in (-1,1):
     foot=trimesh.creation.box(extents=[3.2,3.2,.6]);foot.apply_translation([sx*p['radius']*.77,sy*p['radius']*.77,.32]);groups['base'].append(foot)
@@ -434,7 +493,9 @@ def detail_mesh(fam,p,quality=16):
   except ValueError:
    pass  # Invalid film excluded; candidate audit must flag missing film.
  if films:groups['piezo']=films
- if fam=='crown':
+ if p.get('hybrid_id','none') not in ('none',None,''):
+  pass # The actual intermediate plate already exists; do not add fake rings.
+ elif fam=='crown':
   for tier in range(int(p['tier_count'])):
    r=1.25+(.45*tier);h=max(.25,p['height']-p['gap']-.7-.4*tier)
    t=trimesh.creation.cylinder(radius=r,height=.25,sections=32);t.apply_translation([0,0,h]);groups['inner'].append(t)
@@ -464,57 +525,39 @@ def audit_job(job):
  fem_backend=str(options[2]) if len(options)>2 else 'auto'
  if fem_enabled:
   from physical_fem import fem_sweep, InvalidGeometry
-  original_score=audit['audit_score_before_feasibility_band'];original_pass=audit['feasible']
+  from audit_combine import merge_fem_into_audit, mark_fem_failure
   try:
    fem=fem_sweep(fam,g,pitch_mm=pitch,include_fields=False,backend=fem_backend)
-   audit['fem']=fem
-   audit['audited_surrogate_score']=original_score
-   audit['audited_surrogate_feasible']=original_pass
-   audit['audit_score']=round(.4*original_score+.6*fem['fem_score'],5)
-   audit['feasible']=bool(original_pass and fem['feasible_linear'])
-   audit['audit_version']='1.3-multifidelity-fem-combined'
-   audit['validation_level']='linear_continuum_fem_plus_synthetic_electronics'
-   audit['decision_basis']['fem_score']=fem['fem_score']
-   audit['decision_basis']['fem_feasible']=fem['feasible_linear']
-   audit['decision_basis']['fem_pressure_valid']=fem['pressure_valid']
-   audit['decision_basis']['pvdf_stiffness_included']=bool(fem.get('pvdf_stiffness_included',False))
-   audit['decision_basis']['pvdf_film_count']=int(fem.get('pvdf_film_count',0))
-   audit['decision_basis']['pvdf_adhesive_model']=fem.get('pvdf_adhesive_model','none')
-   audit['decision_basis']['pvdf_film_energy_fraction']=float(fem.get('pvdf_fraction_of_total_energy',0.))
-   # Upgrade the recovery estimate with actual solved FEM displacement and strain.
-   from recovery_sim import recovery_for_candidate
-   baseline=fem.get('load_cases',{}).get('press_center',{})
-   displacement=baseline.get('mean_down_mm')
-   if displacement is not None:
-    unload=recovery_for_candidate(fam,g,fem_max_strain=fem.get('max_abs_principal_strain'),fem_displacement_mm=abs(displacement))
-    audit['unloading_recovery']=unload
-    audit['audit_score']=round(.93*audit['audit_score']+.07*unload['recovery_score_0_100_assumed'],5)
-    audit['decision_basis']['fem_recovery_5s_residual_fraction_assumed']=unload['residual_fraction_after_5s']
-    audit['feasible']=bool(audit['feasible'] and unload['strain_screen_passed'])
-   shell=fem.get('laminate_shell') if isinstance(fem,dict) else None
-   if isinstance(shell,dict) and not shell.get('failed'):
-    audit['laminate_shell']=shell
-    audit['audit_score']=round(.88*audit['audit_score']+.12*shell['shell_score'],5)
-    audit['feasible']=bool(audit['feasible'] and shell['feasible_shell_screen'])
-    audit['decision_basis']['laminate_shell_score']=float(shell['shell_score'])
-    audit['decision_basis']['laminate_shell_feasible']=bool(shell['feasible_shell_screen'])
-    audit['decision_basis']['laminate_shell_max_eq_stress_MPa']=float(shell['max_eq_stress_MPa'])
-    audit['decision_basis']['laminate_shell_max_interfacial_shear_MPa']=float(shell['max_interfacial_shear_MPa'])
-    audit['decision_basis']['laminate_shell_max_top_strain_abs']=float(shell['max_top_fiber_strain_abs'])
-  except (InvalidGeometry, ValueError, MemoryError, RuntimeError) as exc:
-   audit['fem']={'failed':True,'error':f'{type(exc).__name__}: {exc}','fem_backend':'actual_hex8_linear_3d'}
-   audit['audited_surrogate_score']=original_score
-   audit['audit_score']=0.0
-   audit['feasible']=False
-   audit['validation_level']='fem_failed_not_validated'
-  audit['limitations'].append('FEM solver is explicit (HEX8 solid or 3D space-frame beam); neither includes hyperelasticity nor true contact physics.')
-  shell=audit.get('fem',{}).get('laminate_shell') if isinstance(audit.get('fem'),dict) else None
-  if fem_backend=='hex8' and (not isinstance(shell,dict) or shell.get('failed')):
-   audit['feasible']=False
-   audit.setdefault('screening_failure_reasons',[]).append('laminate_shell_stage_missing_or_failed')
-   audit.setdefault('decision_basis',{})['laminate_shell_stage_status']='failed'
+   merge_fem_into_audit(audit,fem,fam,g,fem_backend=fem_backend,include_fields=True)
+  except (InvalidGeometry,ValueError,MemoryError,RuntimeError) as exc:
+   mark_fem_failure(audit,exc,fem_backend=fem_backend)
+ # A versioned, identical synthetic validation protocol is run for every
+ # finalist. The same seed gives common noise perturbations across candidates.
+ from evaluation_v30 import safe_evaluate_protocol
+ report=safe_evaluate_protocol(fam,g,candidate_id='audit-'+fam,seed=3322,
+                          monte_carlo_samples=8,fem=audit.get('fem'))
+ audit['validation_v30']=report
+ audit['decision_basis']['validation_protocol_hash']=report['protocol_hash']
+ audit['decision_basis']['validation_level']='T0'
+ audit['decision_basis']['validation_t0_pass']=report['pass_current_tier']
+ audit['decision_basis']['validation_position_mae_mm']=report['metrics'].get('decoder_holdout',{}).get('position_mae_mm')
+ audit['decision_basis']['validation_force_rmse_N']=report['metrics'].get('decoder_holdout',{}).get('force_rmse_norm_N')
+ audit['decision_basis']['validation_robust_snr_p10_assumed']=report['metrics'].get('robustness_monte_carlo',{}).get('assumed_snr_p10')
+ audit['feasible']=bool(audit['feasible'] and report['pass_current_tier'])
+ if not report['pass_current_tier']:
+  audit.setdefault('screening_failure_reasons',[]).append('validation_v30_t0_failed')
  from selection_refinement import enforce_score_band
  return enforce_score_band(audit)
+
+def evolution_worker_initializer():
+ """Ctrl+C is handled by the parent, not by each spawned child."""
+ import signal
+ signal.signal(signal.SIGINT, signal.SIG_IGN)
+
+
+class EvolutionStopped(Exception):
+ """Normal cancellation requested by user."""
+
 
 def evaluate_job(job):
  """Process-safe CPU-bound screening function (no UI state is shared)."""
@@ -527,30 +570,34 @@ def engine_provenance():
  """SHA-256 source fingerprint prevents incompatible historical score comparison."""
  h=hashlib.sha256()
  for name in ('seed_library.py','archetype_geometry.py','recovery_sim.py','advanced.py','engine.py','optimization.py','electromechanics.py',
-              'piezoelectric.py','spatial_validation.py','full_evaluation.py','geometry_fixes.py','physical_fem.py','laminate_fem.py','laminate_shell.py','pvdf_array.py',
-              'reference_fem.py','beam_fem.py','matrixfree_fem.py','selection_refinement.py'):
+              'piezoelectric.py','spatial_validation.py','full_evaluation.py','geometry_fixes.py','physical_fem.py','laminate_fem.py','laminate_shell.py','hybrid_geometry.py','hybrid_library.py','pvdf_array.py',
+              'reference_fem.py','beam_fem.py','matrixfree_fem.py','selection_refinement.py','search_space.py','orientation_study.py',
+              'audit_combine.py','validation_contract.py','sensor_metrics.py','evaluation_v30.py','electronics_budget.py','validation_protocol_v30.json'):
   data=(Path(__file__).parent/name).read_bytes()
   h.update(name.encode('utf-8')+b'\0'+data)
- return {'release':'1.9.1','model_type':'spatial_feasibility_guided_evolution_plus_PVDF_shell',
+ return {'release':'2.2.0','model_type':'spatial_feasibility_guided_evolution_plus_PVDF_shell',
          'sha256':h.hexdigest(),'schema':2}
 
 class EvolutionV5:
  def __init__(self,folder):
   self.lock=threading.RLock();self.folder=Path(folder);self.folder.mkdir(parents=True,exist_ok=True)
-  self.thread=None;self.stop_event=threading.Event();self.pause_event=threading.Event();self.records={};self.state=self.empty()
+  self.thread=None;self._pool=None;self.stop_event=threading.Event();self.pause_event=threading.Event();self.records={};self.state=self.empty()
  def empty(self):
-  return dict(id='',status='idle',mode='all',family='all',duration=60.,elapsed=0.,generation=0,evaluated=0,seed=42,best=None,champions={},gallery=[],history=[],diversity=0,stagnation=0,mutations={},error='',objective='balanced',physical_gate=False,gate_grid=3,cores=1,audit_top3=[],audit_history=[],audited_champion=None,phase='idle',audit_grid=5,stage_decisions=[])
+  return dict(id='',status='idle',mode='all',family='all',duration=60.,elapsed=0.,generation=0,evaluated=0,seed=42,best=None,champions={},gallery=[],history=[],diversity=0,stagnation=0,mutations={},error='',objective='balanced',physical_gate=False,gate_grid=3,cores=1,audit_top3=[],audit_history=[],audited_champion=None,phase='idle',audit_grid=5,stage_decisions=[],search_strategy='adaptive',search_precision=.8,qd_archive_size=0)
  def snapshot(self):
   with self.lock:
    d=copy.deepcopy(self.state);d['paused']=self.pause_event.is_set();return d
- def start(self,mode='all',duration=60,seed=42,population=24,exploration=.55,objective="balanced",physical_gate=False,gate_grid=3,cores=1,audit_grid=5,fem=False,fem_pitch=1.25,fem_backend='hex8'):
+ def start(self,mode='all',duration=60,seed=42,population=24,exploration=.55,objective="balanced",physical_gate=False,gate_grid=3,cores=1,audit_grid=5,fem=False,fem_pitch=1.25,fem_backend='hex8',search_strategy='adaptive',search_precision=.8):
   available = len(os.sched_getaffinity(0)) if hasattr(os, 'sched_getaffinity') else (os.cpu_count() or 1)
   if not (1<=int(cores)<=min(256,available)):raise ValueError(f'CPU workers must be 1..{min(256,available)}; requested {cores}')
   if not .12<=float(fem_pitch)<=2.0:raise ValueError('FEM pitch must be 0.12..2.0 mm')
   if fem_backend not in ('hex8','beam','auto'):raise ValueError('Invalid FEM backend: hex8, beam, auto')
   if gate_grid not in (3,5,7):raise ValueError('Gate grid must be 3, 5 or 7')
   if audit_grid not in (3,5,7):raise ValueError('Audit grid must be 3, 5 or 7')
-  if mode not in ('all',)+FAMILIES:raise ValueError('Unknown mode')
+  from search_space import SearchScope, SEARCH_STRATEGIES
+  SearchScope.parse(mode)
+  if search_strategy not in SEARCH_STRATEGIES:raise ValueError('Unknown search strategy')
+  if not 0<=float(search_precision)<=1:raise ValueError('Search precision must be 0..1')
   from optimization import PRESETS
   if objective not in PRESETS:raise ValueError("Unknown objective")
   if not (3<=duration<=3600):raise ValueError('Duration outside 3..3600s')
@@ -559,28 +606,67 @@ class EvolutionV5:
   with self.lock:
    if self.thread is not None and self.thread.is_alive():raise RuntimeError('Stop current run before starting a new run')
    self.stop_event.clear();self.pause_event.clear();self.records={};self.state=self.empty()
-   self.state.update(provenance=engine_provenance(),cores=int(cores),workers_active=0,evaluations_per_second=0,engine='multiprocessing spawn; BLAS threads capped to 1',id=str(uuid.uuid4())[:8],status='running',mode=mode,family=mode,duration=float(duration),seed=int(seed),objective=objective,physical_gate=bool(physical_gate),gate_grid=gate_grid,audit_grid=audit_grid,phase='initializing',fem_enabled=bool(fem),fem_pitch_mm=float(fem_pitch),fem_backend=fem_backend)
-   self.thread=threading.Thread(target=self._loop,args=(mode,float(duration),int(seed),population,exploration,objective,bool(physical_gate),gate_grid,int(cores),audit_grid,bool(fem),float(fem_pitch),fem_backend),daemon=True);self.thread.start()
+   self.state.update(provenance=engine_provenance(),cores=int(cores),workers_active=0,evaluations_per_second=0,engine='multiprocessing spawn; BLAS threads capped to 1',id=str(uuid.uuid4())[:8],status='running',mode=mode,family=mode,duration=float(duration),seed=int(seed),objective=objective,physical_gate=bool(physical_gate),gate_grid=gate_grid,audit_grid=audit_grid,phase='initializing',fem_enabled=bool(fem),fem_pitch_mm=float(fem_pitch),fem_backend=fem_backend,search_strategy=search_strategy,search_precision=float(search_precision))
+   self.thread=threading.Thread(target=self._loop,args=(mode,float(duration),int(seed),population,exploration,objective,bool(physical_gate),gate_grid,int(cores),audit_grid,bool(fem),float(fem_pitch),fem_backend,search_strategy,float(search_precision)),daemon=True);self.thread.start()
   return self.snapshot()
  def pause(self):
   with self.lock:
    if self.state['status']=='running':self.pause_event.set();self.state['status']='paused'
    elif self.state['status']=='paused':self.pause_event.clear();self.state['status']='running'
   return self.snapshot()
- def stop(self):self.stop_event.set();return self.snapshot()
- def _loop(self,mode,duration,seed,population,exploration,objective,physical_gate,gate_grid,cores,audit_grid,fem_enabled,fem_pitch,fem_backend):
-  rng=random.Random(seed);families=FAMILIES if mode=='all' else (mode,)
-  pop=[(families[i%len(families)],new_genome(families[i%len(families)],rng)) for i in range(population)]
+ def stop(self):
+  self.stop_event.set()
+  self.pause_event.clear()
+  with self.lock:
+   if self.state.get('status') in ('running','paused'):
+    self.state.update(status='stopping',phase='stopping')
+  return self.snapshot()
+
+ def shutdown(self,timeout=8.0):
+  """Stop controller, then terminate nonresponsive Python 3.14 workers."""
+  self.stop()
+  thread=self.thread
+  if thread is None or not thread.is_alive():return True
+  thread.join(timeout=max(0.,float(timeout)))
+  if thread.is_alive():
+   with self.lock:pool=self._pool
+   if pool is not None:
+    terminate=getattr(pool,'terminate_workers',None)
+    if callable(terminate):
+     try:terminate()
+     except (OSError,RuntimeError,ValueError):
+      import logging
+      logging.getLogger(__name__).exception('Worker termination failed')
+   thread.join(timeout=3.)
+  return not thread.is_alive()
+
+ def _check_stop(self):
+  if self.stop_event.is_set():raise EvolutionStopped('User stopped evolution')
+
+ def _loop(self,mode,duration,seed,population,exploration,objective,physical_gate,gate_grid,cores,audit_grid,fem_enabled,fem_pitch,fem_backend,search_strategy='adaptive',search_precision=.8):
+  from search_space import SearchScope, local_refinement, EliteArchive
+  scope=SearchScope.parse(mode)
+  rng=random.Random(seed);families=scope.families
+  pop=[scope.generate(rng) for _ in range(population)]
   # Curated top-10 start the actual evolution; no synthetic fitness is substituted.
   from seed_library import top_candidates,seed_genome
-  curated=[x for x in top_candidates(10) if x.family in families]
+  curated=[x for x in top_candidates(10) if x.family in families and scope.allow_single]
   for i,spec in enumerate(curated[:len(pop)]):
-   pop[i]=(spec.family,seed_genome(spec,rng,mutate=True))
-  archive=[];champions={};records={};history=[];stats={k:0 for k in ('random','guided','cross-family','topology','macro','crossover')};best_score=-1e9;stall=0;active=0.;last=time.monotonic();gen=0;seen=0
+   pop[i]=(spec.family,scope.repair(spec.family,seed_genome(spec,rng,mutate=True),rng))
+  # Ten engineering-prior two-stage architectures are genuine generation-0
+  # members; they receive the EXACT same screening/FEM as other candidates.
+  from hybrid_library import ranked as hybrid_ranked,genome_for as hybrid_genome_for
+  slot=len(curated)
+  for spec in hybrid_ranked():
+   if spec.id not in scope.hybrid_ids or slot>=len(pop):continue
+   pop[slot]=(spec.upper_family,scope.repair(spec.upper_family,hybrid_genome_for(spec,rng),rng))
+   slot+=1
+  archive=[];qd=EliteArchive();champions={};records={};history=[];stats={k:0 for k in ('random','guided','cross-family','topology','macro','crossover','precise','qd-elite')};best_score=-1e9;stall=0;active=0.;last=time.monotonic();gen=0;seen=0
   pool=None;incumbent=None;audit_history=[];decision_history=[];audits_by_fingerprint={}
   try:
    if cores>1:
-    pool=concurrent.futures.ProcessPoolExecutor(max_workers=min(cores,population),mp_context=multiprocessing.get_context('spawn'))
+    pool=concurrent.futures.ProcessPoolExecutor(max_workers=min(cores,population),mp_context=multiprocessing.get_context('spawn'),initializer=evolution_worker_initializer)
+    with self.lock:self._pool=pool
    while active<duration and not self.stop_event.is_set():
     now=time.monotonic();active+=0 if self.pause_event.is_set() else max(0.,now-last);last=now
     if self.pause_event.is_set():time.sleep(.05);continue
@@ -588,6 +674,7 @@ class EvolutionV5:
     with self.lock:self.state['phase']='fast_screening'
     jobs=[(fam,p,objective,physical_gate,gate_grid) for fam,p in pop]
     results=list(pool.map(evaluate_job,jobs,chunksize=max(1,population//max(1,cores*4)))) if pool else list(map(evaluate_job,jobs))
+    self._check_stop()
     for (fam,p),(score,met,desc) in zip(pop,results):
      desc=np.asarray(desc,float);seen+=1
      # Descriptor distance uses a bounded distance between normalized log-mechanics.
@@ -605,6 +692,7 @@ class EvolutionV5:
      if score>best_score:best_score=score;stall=0
      if fam not in champions or score>champions[fam]['fitness']:champions[fam]=copy.deepcopy(candidate)
     scored.sort(key=lambda x:x[0],reverse=True)
+    self._check_stop()
     # Stage 2: FULL AND IDENTICAL AUDIT of top three by fast fitness. The
     # incumbent receives no special treatment except deterministic tie retention.
     # Promotion NEVER depends only on the fast screening / novelty score.
@@ -629,6 +717,7 @@ class EvolutionV5:
     # Ultrafine meshes are memory hungry: serialize expensive FEM audits, while
     # keeping the fast population screening parallel across --cores workers.
     evaluations=list(pool.map(audit_job,audit_jobs,chunksize=1)) if pool and audit_jobs and (not fem_enabled or fem_backend=='beam' or (fem_backend=='auto' and fem_pitch<.7) or fem_pitch>=.4) else list(map(audit_job,audit_jobs))
+    self._check_stop()
     for (i,key),a in zip(audit_indices,evaluations):
      audits_by_fingerprint[key]=a;top[i]['audit']=copy.deepcopy(a);finalists[i]=top[i]
     # FEM results affect survival/reproduction, not only the final displayed champion.
@@ -647,7 +736,27 @@ class EvolutionV5:
        if individual['id']==c['id']:
         individual['selection']=c['selection']
      scored.sort(key=lambda t:t[1]['selection'],reverse=True)
+    for _selection,_candidate,_desc in scored:
+     qd.insert(_candidate)
     incumbent,decision=promote(incumbent,finalists)
+    # Multi-objective audit: keep the Pareto set separate from scalar utility.
+    # This is explicitly a T0 model-discovery metric, never hardware evidence.
+    from sensor_metrics import pareto_front
+    pareto_items=[]
+    for c in finalists:
+     report=(c['audit'].get('validation_v30') or {})
+     m=report.get('metrics',{})
+     d=m.get('decoder_holdout',{})
+     robust=m.get('robustness_monte_carlo',{})
+     if d and robust:
+      pareto_items.append({'id':c['id'],
+                           'force_rmse_N':float(d['force_rmse_norm_N']),
+                           'position_mae_mm':float(d['position_mae_mm']),
+                           'robust_signal_p10':float(robust['assumed_snr_p10'])})
+    decision['pareto_front_T0']=[p['id'] for p in pareto_front(pareto_items,
+                      {'force_rmse_N':'min','position_mae_mm':'min',
+                       'robust_signal_p10':'max'})] if pareto_items else []
+    decision['pareto_status']='synthetic_surrogate_only'
     decision['generation']=gen+1;decision['top3']=[{'id':c['id'],'family':c['family'],
        'topology':c['genome']['topology'],'score':c['audit']['audit_score'],
        'feasible':c['audit']['feasible']} for c in finalists]
@@ -657,6 +766,7 @@ class EvolutionV5:
        'screened_three':[x['id'] for x in finalists],
        'decision':decision})
     decision_history.append(decision)
+    self._check_stop()
     # Durable per-generation Top-3 snapshots, independently inspectable after restart.
     # The staged record is written atomically so a crash never creates a half JSON file.
     self._save_stage(gen+1, active, finalists, incumbent, decision)
@@ -675,12 +785,12 @@ class EvolutionV5:
      if identity not in keys:gallery.append(item);keys.add(identity)
      if len(gallery)>=16:break
     family_counts={fam:sum(v[1]['family']==fam for v in scored) for fam in families}
-    diversity=len(set((x[1]['family'],x[1]['genome']['topology']) for x in scored))
+    diversity=len(set((x[1]['family'],x[1]['genome'].get('hybrid_id','none') if x[1]['genome'].get('hybrid_id','none')!='none' else x[1]['genome']['topology']) for x in scored))
     if gen<=3 or gen%4==0:
      with self.lock:
       for c in gallery+finalists+[incumbent]:self.records[c["id"]]=copy.deepcopy(c)
      history.append({'generation':gen,'elapsed':round(active,2),'best':round(max(x['fitness'] for x in champions.values()),4),'median':round(float(np.median([x[1]['fitness'] for x in scored])),4),'diversity':diversity})
-     with self.lock:self.state.update(elapsed=min(duration,active),generation=gen,evaluated=seen,workers_active=min(cores,population),evaluations_per_second=round(seen/max(active,.001),2),best=copy.deepcopy(incumbent),champions=copy.deepcopy(champions),gallery=copy.deepcopy(gallery),history=copy.deepcopy(history[-600:]),diversity=diversity,stagnation=stall,mutations=stats.copy())
+     with self.lock:self.state.update(elapsed=min(duration,active),generation=gen,evaluated=seen,workers_active=min(cores,population),evaluations_per_second=round(seen/max(active,.001),2),best=copy.deepcopy(incumbent),champions=copy.deepcopy(champions),gallery=copy.deepcopy(gallery),history=copy.deepcopy(history[-600:]),diversity=diversity,stagnation=stall,mutations=stats.copy(),qd_archive_size=len(qd))
     elites=sorted_current[:max(2,population//8)]
     def tournament(fam=None):
      pool=[x[1] for x in scored if fam is None or x[1]['family']==fam]
@@ -690,17 +800,40 @@ class EvolutionV5:
     stagnating=stall>=25;scale=(.28 if stagnating else .06)+.5*exploration
     while len(next_pop)<population:
      action=rng.random()
-     if action<.09+.10*exploration:
+     # Adaptive search splits compute budget across the global search space,
+     # distinct QD niches and local trust-region refinement around elites.
+     adaptive_local=(.30 if stall < 12 else .12)
+     local_rate={'adaptive':adaptive_local,'explore':.08,'precision':.53}[search_strategy]
+     qd_rate={'adaptive':.14,'explore':.19,'precision':.11}[search_strategy]
+     if action<local_rate:
+      # Prefer actually audited/feasible finalists as local refinement seeds;
+      # otherwise use the highest-scoring fast candidate.
+      viable=[c for c in finalists if c['audit'].get('feasible')]
+      parent=rng.choice(viable[:3]) if viable and rng.random()<.70 else tournament()
+      fam=parent['family']
+      p=local_refinement(fam,parent['genome'],rng,precision=search_precision,stagnation=stall)
+      op='precise'
+     elif action<local_rate+qd_rate and len(qd)>0:
+      parent=qd.sample(rng)
+      fam=parent['family']
+      p=local_refinement(fam,parent['genome'],rng,precision=max(.2,search_precision-.16),stagnation=stall)
+      op='qd-elite'
+     elif action<local_rate+qd_rate+.12+.05*exploration:
       from selection_refinement import guided_child
       a=tournament();fam=a['family'];p=guided_child(fam,a['genome'],a.get('metrics',{}),rng);op='guided'
-     elif action<.12+.16*exploration or (stagnating and action<.45):
-      fam=rng.choice(families);p=new_genome(fam,rng);op='random'
-     elif mode=='all' and action<.23+.17*exploration:
+     elif action<local_rate+qd_rate+.22+.10*exploration or (stagnating and rng.random()<.30):
+      fam,p=scope.generate(rng);op='random'
+     elif len(families)>1 and action<local_rate+qd_rate+.32+.12*exploration:
       a=tournament();fam=rng.choice([x for x in families if x!=a['family']]);p=transmute(a['family'],a['genome'],fam,rng);op='cross-family'
-     elif action<.44+.2*exploration:
-      a=tournament();fam=a['family'];p=jump(fam,a['genome'],rng,'topology' if rng.random()<.5 else 'wide');op='topology' if p['topology']!=a['genome']['topology'] else 'macro'
+     elif action<local_rate+qd_rate+.47+.13*exploration:
+      a=tournament();fam=a['family'];p=jump(fam,a['genome'],rng,'topology' if rng.random()<.5 else 'wide');op='topology' if p['topology']!=a['genome']['topology'] or p.get('hybrid_id')!=a['genome'].get('hybrid_id') else 'macro'
+      if a['genome'].get('hybrid_id')=='procedural' and rng.random()<.55:
+       from search_space import procedural_topology_mutation
+       p=procedural_topology_mutation(fam,p,rng);op='topology'
      else:
       a=tournament();fam=a['family'];b=tournament(fam);p=cross(fam,a['genome'],b['genome'],rng);p=jump(fam,p,rng,'wide' if rng.random()<scale else 'local');op='crossover'
+     p=scope.repair(fam,p,rng)
+     assert scope.accepts(fam,p), 'Evolution operator violated active search scope'
      stats[op]=stats.get(op,0)+1;next_pop.append((fam,p))
     pop=next_pop
     if stagnating:stall=0
@@ -721,13 +854,25 @@ class EvolutionV5:
     self.state['status']=terminal['status']
     self.state['phase']=terminal['phase']
   except Exception as exc:
-   import traceback
-   traceback.print_exc()
-   with self.lock:self.state.update(status='failed',error=f'{type(exc).__name__}: {exc}. Check server terminal logs; reduce --cores if worker initialization fails.',workers_active=0)
+   if self.stop_event.is_set() or isinstance(exc,EvolutionStopped):
+    # Expected pool interruption: retain the last fully committed generation.
+    with self.lock:self.state.update(status='stopped',phase='interrupted',error='',workers_active=0)
+    try:self._write_result(self.snapshot())
+    except OSError:
+     import logging
+     logging.getLogger(__name__).exception('Failed to persist stopped evolution')
+   else:
+    import traceback
+    traceback.print_exc()
+    with self.lock:self.state.update(status='failed',error=f'{type(exc).__name__}: {exc}. Check server terminal logs; reduce --cores if worker initialization fails.',workers_active=0)
   finally:
+   with self.lock:
+    if self._pool is pool:self._pool=None
    if pool:
-    try:pool.shutdown(wait=True,cancel_futures=True)
-    except Exception:import traceback;traceback.print_exc()
+    try:pool.shutdown(wait=not self.stop_event.is_set(),cancel_futures=True)
+    except (RuntimeError,ValueError,OSError):
+     import logging
+     logging.getLogger(__name__).warning('Worker pool already terminated',exc_info=True)
  def _save_stage(self,generation,elapsed,finalists,incumbent,decision):
   run_id=self.state['id']
   if not run_id:return

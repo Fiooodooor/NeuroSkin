@@ -1,0 +1,3956 @@
+{
+  "audit_version": "1.3-multifidelity-fem-combined",
+  "family": "quadrant",
+  "objective": "balanced",
+  "quick_fitness": 51.96797684363008,
+  "audit_score": 30.06166,
+  "feasible": false,
+  "decision_basis": {
+    "fitness_0_100": 51.96797684363008,
+    "coverage_min": 0.0,
+    "coverage_min_operating_0p1_0p4_N": 0.0,
+    "coverage_low_force_0p025_N": 0.0,
+    "assumed_signal_snr_min": 3.7952,
+    "operating_mean_point_quality": 0.8662,
+    "screening_failure_reasons": [
+      "excessive_lateral_motion",
+      "excessive_tilt",
+      "excessive_vertical_deflection",
+      "operating_coverage_below_80_percent",
+      "operating_tilt_excess",
+      "unilateral_contact_risk",
+      "unloading_strain_limit"
+    ],
+    "force_holdout_rmse_N": 0.00132,
+    "condition_number": 209.85878505501012,
+    "piezo_strain_max_proxy": 0.0058493866614023554,
+    "recovery_5s_residual_fraction_assumed": 0.0007115551826074171,
+    "recovery_strain_screen_passed": false,
+    "manufacturing_flags": [],
+    "fem_score": 79.9713,
+    "fem_feasible": true,
+    "fem_pressure_valid": true,
+    "pvdf_stiffness_included": true,
+    "pvdf_film_count": 4,
+    "pvdf_adhesive_model": "embedded_membrane_shear_lag",
+    "pvdf_film_energy_fraction": 6.092077348186208e-05,
+    "hybrid_architecture": "h09_kirigami_helix",
+    "hybrid_lower_compression_share": 0.030871170236184426,
+    "hybrid_mode_rank": 3,
+    "hybrid_stage_balance_score": 16.8426,
+    "hybrid_stage_mode_separation_score": 100.0,
+    "fem_recovery_5s_residual_fraction_assumed": 0.0007115551826074171,
+    "laminate_shell_score": 53.52387,
+    "laminate_shell_feasible": true,
+    "laminate_shell_max_eq_stress_MPa": 57.175219757165195,
+    "laminate_shell_max_interfacial_shear_MPa": 0.24171846672379102,
+    "laminate_shell_max_top_strain_abs": 0.023858356984037415
+  },
+  "pressure_spatial": {
+    "0.025": {
+      "status": "FAIL",
+      "total_points": 5,
+      "passing_points": 0,
+      "coverage_fraction": 0.0,
+      "mean_point_quality": 0.703415,
+      "min_point_quality": 0.640055,
+      "test_radius_mm": 3.3801,
+      "applied_vertical_force_N": 0.025,
+      "min_snr_proxy": 0.9427,
+      "median_snr_proxy": 1.3382,
+      "max_vertical_deflection_mm": 0.15465,
+      "max_lateral_mm": 0.28841,
+      "max_tilt_rad": 1.271907,
+      "rms_tilt_rad": 0.865909,
+      "failure_reasons": [
+        "excessive_tilt",
+        "unilateral_contact_risk",
+        "weak_pressure_signal"
+      ],
+      "points": [
+        {
+          "x_mm": 0.0,
+          "y_mm": -3.38009,
+          "signal_norm_pF": 0.0013382,
+          "signal_sum_pF": 0.0013882,
+          "snr_proxy": 1.3382,
+          "vertical_deflection_mm": 0.133313,
+          "lateral_mm": 0.161826,
+          "tilt_rad": 0.512871,
+          "negative_reaction_fraction": 0.01576,
+          "pressure_channels_pF": [
+            0.0013377,
+            2.98e-05,
+            1.98e-05,
+            9e-07
+          ],
+          "passed": false,
+          "flags": [
+            "weak_pressure_signal",
+            "excessive_tilt"
+          ],
+          "point_quality": 0.730789,
+          "signal_quality": 0.44606
+        },
+        {
+          "x_mm": -3.38009,
+          "y_mm": 0.0,
+          "signal_norm_pF": 0.0011149,
+          "signal_sum_pF": 0.0013865,
+          "snr_proxy": 1.1149,
+          "vertical_deflection_mm": 0.132879,
+          "lateral_mm": 0.285329,
+          "tilt_rad": 1.268101,
+          "negative_reaction_fraction": 0.2436,
+          "pressure_channels_pF": [
+            0.0008419,
+            -0.0002216,
+            0.0006926,
+            7.36e-05
+          ],
+          "passed": false,
+          "flags": [
+            "weak_pressure_signal",
+            "excessive_tilt"
+          ],
+          "point_quality": 0.640055,
+          "signal_quality": 0.371635
+        },
+        {
+          "x_mm": 0.0,
+          "y_mm": 0.0,
+          "signal_norm_pF": 0.0009427,
+          "signal_sum_pF": 0.0013852,
+          "snr_proxy": 0.9427,
+          "vertical_deflection_mm": 0.143767,
+          "lateral_mm": 0.007967,
+          "tilt_rad": 0.004466,
+          "negative_reaction_fraction": 0.0,
+          "pressure_channels_pF": [
+            0.0006589,
+            1.96e-05,
+            3.36e-05,
+            0.0006731
+          ],
+          "passed": false,
+          "flags": [
+            "weak_pressure_signal"
+          ],
+          "point_quality": 0.725696,
+          "signal_quality": 0.314241
+        },
+        {
+          "x_mm": 3.38009,
+          "y_mm": 0.0,
+          "signal_norm_pF": 0.0015192,
+          "signal_sum_pF": 0.0013898,
+          "snr_proxy": 1.5192,
+          "vertical_deflection_mm": 0.154655,
+          "lateral_mm": 0.288415,
+          "tilt_rad": 1.271907,
+          "negative_reaction_fraction": 0.28496,
+          "pressure_channels_pF": [
+            0.0004762,
+            0.0002613,
+            -0.0006226,
+            0.0012749
+          ],
+          "passed": false,
+          "flags": [
+            "weak_pressure_signal",
+            "excessive_tilt",
+            "unilateral_contact_risk"
+          ],
+          "point_quality": 0.687706,
+          "signal_quality": 0.506408
+        },
+        {
+          "x_mm": 0.0,
+          "y_mm": 3.38009,
+          "signal_norm_pF": 0.0013492,
+          "signal_sum_pF": 0.0013882,
+          "snr_proxy": 1.3492,
+          "vertical_deflection_mm": 0.15422,
+          "lateral_mm": 0.173434,
+          "tilt_rad": 0.510007,
+          "negative_reaction_fraction": 0.01576,
+          "pressure_channels_pF": [
+            -1.69e-05,
+            9.5e-06,
+            4.74e-05,
+            0.0013482
+          ],
+          "passed": false,
+          "flags": [
+            "weak_pressure_signal",
+            "excessive_tilt"
+          ],
+          "point_quality": 0.732829,
+          "signal_quality": 0.449724
+        }
+      ],
+      "assumptions": {
+        "model": "linear rigid-pad/rod surrogate; fixed-bonded mechanical feet, unilateral electrical contact warning",
+        "electrode": "assumed parallel plate, electrode gap compression derived from basal force",
+        "noise": "assumed RMS noise, not measured",
+        "pass_meaning": "plausibility screening only; never a validated physical result"
+      },
+      "thresholds": {
+        "snr": 3.0,
+        "max_vertical_mm": 2.0,
+        "max_tilt_rad": 0.35,
+        "max_lateral_mm": 4.0,
+        "max_negative_reaction_fraction": 0.25
+      }
+    },
+    "0.1": {
+      "status": "FAIL",
+      "total_points": 5,
+      "passing_points": 1,
+      "coverage_fraction": 0.2,
+      "mean_point_quality": 0.893172,
+      "min_point_quality": 0.854185,
+      "test_radius_mm": 3.3801,
+      "applied_vertical_force_N": 0.1,
+      "min_snr_proxy": 3.7952,
+      "median_snr_proxy": 5.4217,
+      "max_vertical_deflection_mm": 0.61862,
+      "max_lateral_mm": 1.15366,
+      "max_tilt_rad": 5.087629,
+      "rms_tilt_rad": 3.463635,
+      "failure_reasons": [
+        "excessive_tilt",
+        "unilateral_contact_risk"
+      ],
+      "points": [
+        {
+          "x_mm": 0.0,
+          "y_mm": -3.38009,
+          "signal_norm_pF": 0.0054217,
+          "signal_sum_pF": 0.005622,
+          "snr_proxy": 5.4217,
+          "vertical_deflection_mm": 0.533253,
+          "lateral_mm": 0.647302,
+          "tilt_rad": 2.051485,
+          "negative_reaction_fraction": 0.01576,
+          "pressure_channels_pF": [
+            0.0054198,
+            0.0001191,
+            7.94e-05,
+            3.7e-06
+          ],
+          "passed": false,
+          "flags": [
+            "excessive_tilt"
+          ],
+          "point_quality": 0.875591,
+          "signal_quality": 1.0
+        },
+        {
+          "x_mm": -3.38009,
+          "y_mm": 0.0,
+          "signal_norm_pF": 0.0044913,
+          "signal_sum_pF": 0.0055936,
+          "snr_proxy": 4.4913,
+          "vertical_deflection_mm": 0.531516,
+          "lateral_mm": 1.141314,
+          "tilt_rad": 5.072402,
+          "negative_reaction_fraction": 0.2436,
+          "pressure_channels_pF": [
+            0.0033948,
+            -0.0008847,
+            0.0027888,
+            0.0002947
+          ],
+          "passed": false,
+          "flags": [
+            "excessive_tilt"
+          ],
+          "point_quality": 0.86035,
+          "signal_quality": 1.0
+        },
+        {
+          "x_mm": 0.0,
+          "y_mm": 0.0,
+          "signal_norm_pF": 0.0037952,
+          "signal_sum_pF": 0.0055756,
+          "snr_proxy": 3.7952,
+          "vertical_deflection_mm": 0.575067,
+          "lateral_mm": 0.031868,
+          "tilt_rad": 0.017862,
+          "negative_reaction_fraction": 0.0,
+          "pressure_channels_pF": [
+            0.0026525,
+            7.86e-05,
+            0.0001346,
+            0.0027099
+          ],
+          "passed": true,
+          "flags": [],
+          "point_quality": 1.0,
+          "signal_quality": 1.0
+        },
+        {
+          "x_mm": 3.38009,
+          "y_mm": 0.0,
+          "signal_norm_pF": 0.0061268,
+          "signal_sum_pF": 0.0056481,
+          "snr_proxy": 6.1268,
+          "vertical_deflection_mm": 0.618619,
+          "lateral_mm": 1.153659,
+          "tilt_rad": 5.087629,
+          "negative_reaction_fraction": 0.28496,
+          "pressure_channels_pF": [
+            0.0019136,
+            0.0010478,
+            -0.0024756,
+            0.0051623
+          ],
+          "passed": false,
+          "flags": [
+            "excessive_tilt",
+            "unilateral_contact_risk"
+          ],
+          "point_quality": 0.854185,
+          "signal_quality": 1.0
+        },
+        {
+          "x_mm": 0.0,
+          "y_mm": 3.38009,
+          "signal_norm_pF": 0.0054668,
+          "signal_sum_pF": 0.0056235,
+          "snr_proxy": 5.4668,
+          "vertical_deflection_mm": 0.616882,
+          "lateral_mm": 0.693735,
+          "tilt_rad": 2.040026,
+          "negative_reaction_fraction": 0.01576,
+          "pressure_channels_pF": [
+            -6.74e-05,
+            3.81e-05,
+            0.0001898,
+            0.005463
+          ],
+          "passed": false,
+          "flags": [
+            "excessive_tilt"
+          ],
+          "point_quality": 0.875735,
+          "signal_quality": 1.0
+        }
+      ],
+      "assumptions": {
+        "model": "linear rigid-pad/rod surrogate; fixed-bonded mechanical feet, unilateral electrical contact warning",
+        "electrode": "assumed parallel plate, electrode gap compression derived from basal force",
+        "noise": "assumed RMS noise, not measured",
+        "pass_meaning": "plausibility screening only; never a validated physical result"
+      },
+      "thresholds": {
+        "snr": 3.0,
+        "max_vertical_mm": 2.0,
+        "max_tilt_rad": 0.35,
+        "max_lateral_mm": 4.0,
+        "max_negative_reaction_fraction": 0.25
+      }
+    },
+    "0.4": {
+      "status": "FAIL",
+      "total_points": 5,
+      "passing_points": 0,
+      "coverage_fraction": 0.0,
+      "mean_point_quality": 0.839228,
+      "min_point_quality": 0.775602,
+      "test_radius_mm": 3.3801,
+      "applied_vertical_force_N": 0.4,
+      "min_snr_proxy": 15.5784,
+      "median_snr_proxy": 22.868,
+      "max_vertical_deflection_mm": 2.47448,
+      "max_lateral_mm": 4.61464,
+      "max_tilt_rad": 20.350517,
+      "rms_tilt_rad": 13.854542,
+      "failure_reasons": [
+        "excessive_lateral_motion",
+        "excessive_tilt",
+        "excessive_vertical_deflection",
+        "unilateral_contact_risk"
+      ],
+      "points": [
+        {
+          "x_mm": 0.0,
+          "y_mm": -3.38009,
+          "signal_norm_pF": 0.022868,
+          "signal_sum_pF": 0.0236702,
+          "snr_proxy": 22.868,
+          "vertical_deflection_mm": 2.133011,
+          "lateral_mm": 2.589209,
+          "tilt_rad": 8.205941,
+          "negative_reaction_fraction": 0.01576,
+          "pressure_channels_pF": [
+            0.0228608,
+            0.0004769,
+            0.0003178,
+            1.47e-05
+          ],
+          "passed": false,
+          "flags": [
+            "excessive_vertical_deflection",
+            "excessive_tilt"
+          ],
+          "point_quality": 0.83769,
+          "signal_quality": 1.0
+        },
+        {
+          "x_mm": -3.38009,
+          "y_mm": 0.0,
+          "signal_norm_pF": 0.0184927,
+          "signal_sum_pF": 0.0231667,
+          "snr_proxy": 18.4927,
+          "vertical_deflection_mm": 2.126063,
+          "lateral_mm": 4.565257,
+          "tilt_rad": 20.289609,
+          "negative_reaction_fraction": 0.2436,
+          "pressure_channels_pF": [
+            0.0140335,
+            -0.003509,
+            0.0114599,
+            0.0011823
+          ],
+          "passed": false,
+          "flags": [
+            "excessive_vertical_deflection",
+            "excessive_tilt",
+            "excessive_lateral_motion"
+          ],
+          "point_quality": 0.822418,
+          "signal_quality": 1.0
+        },
+        {
+          "x_mm": 0.0,
+          "y_mm": 0.0,
+          "signal_norm_pF": 0.0155784,
+          "signal_sum_pF": 0.0228658,
+          "snr_proxy": 15.5784,
+          "vertical_deflection_mm": 2.300269,
+          "lateral_mm": 0.127471,
+          "tilt_rad": 0.071448,
+          "negative_reaction_fraction": 0.0,
+          "pressure_channels_pF": [
+            0.0108852,
+            0.0003146,
+            0.000539,
+            0.011127
+          ],
+          "passed": false,
+          "flags": [
+            "excessive_vertical_deflection"
+          ],
+          "point_quality": 0.960839,
+          "signal_quality": 1.0
+        },
+        {
+          "x_mm": 3.38009,
+          "y_mm": 0.0,
+          "signal_norm_pF": 0.025377,
+          "signal_sum_pF": 0.0240747,
+          "snr_proxy": 25.377,
+          "vertical_deflection_mm": 2.474476,
+          "lateral_mm": 4.614636,
+          "tilt_rad": 20.350517,
+          "negative_reaction_fraction": 0.28496,
+          "pressure_channels_pF": [
+            0.0077967,
+            0.0042334,
+            -0.009674,
+            0.0217186
+          ],
+          "passed": false,
+          "flags": [
+            "excessive_vertical_deflection",
+            "excessive_tilt",
+            "excessive_lateral_motion",
+            "unilateral_contact_risk"
+          ],
+          "point_quality": 0.775602,
+          "signal_quality": 1.0
+        },
+        {
+          "x_mm": 0.0,
+          "y_mm": 3.38009,
+          "signal_norm_pF": 0.0230678,
+          "signal_sum_pF": 0.0236966,
+          "snr_proxy": 23.0678,
+          "vertical_deflection_mm": 2.467528,
+          "lateral_mm": 2.77494,
+          "tilt_rad": 8.160104,
+          "negative_reaction_fraction": 0.01576,
+          "pressure_channels_pF": [
+            -0.0002695,
+            0.0001525,
+            0.0007604,
+            0.0230532
+          ],
+          "passed": false,
+          "flags": [
+            "excessive_vertical_deflection",
+            "excessive_tilt"
+          ],
+          "point_quality": 0.799592,
+          "signal_quality": 1.0
+        }
+      ],
+      "assumptions": {
+        "model": "linear rigid-pad/rod surrogate; fixed-bonded mechanical feet, unilateral electrical contact warning",
+        "electrode": "assumed parallel plate, electrode gap compression derived from basal force",
+        "noise": "assumed RMS noise, not measured",
+        "pass_meaning": "plausibility screening only; never a validated physical result"
+      },
+      "thresholds": {
+        "snr": 3.0,
+        "max_vertical_mm": 2.0,
+        "max_tilt_rad": 0.35,
+        "max_lateral_mm": 4.0,
+        "max_negative_reaction_fraction": 0.25
+      }
+    }
+  },
+  "spatial_operating_summary": {
+    "operating_force_N": [
+      0.1,
+      0.4
+    ],
+    "low_force_diagnostic_N": 0.025,
+    "low_force_coverage": 0.0,
+    "low_force_min_snr_assumed": 0.9427,
+    "operating_worst_coverage": 0.0,
+    "operating_min_snr_assumed": 3.7952,
+    "operating_max_tilt_rad": 20.350517,
+    "operating_mean_margin_quality": 0.8662,
+    "screen_feasible": false,
+    "failing_conditions": [
+      "excessive_lateral_motion",
+      "excessive_tilt",
+      "excessive_vertical_deflection",
+      "operating_coverage_below_80_percent",
+      "operating_tilt_excess",
+      "unilateral_contact_risk"
+    ],
+    "note": "Synthetic 0.1--0.4N operating-band screen; 0.025N is a diagnostic, not an uncalibrated pass/fail requirement."
+  },
+  "screening_failure_reasons": [
+    "excessive_lateral_motion",
+    "excessive_tilt",
+    "excessive_vertical_deflection",
+    "operating_coverage_below_80_percent",
+    "operating_tilt_excess",
+    "unilateral_contact_risk",
+    "unloading_strain_limit"
+  ],
+  "load_cases": {
+    "normal": {
+      "pressure_delta_pF": [
+        0.0026525,
+        7.86e-05,
+        0.0001346,
+        0.0027099
+      ],
+      "lateral_delta_pF": [
+        -0.000509,
+        -0.0012083
+      ],
+      "hall_delta_mT": 6.3e-06,
+      "piezo_peak_V": 0.18960263068339445,
+      "piezo_strain_proxy": -0.004680105339902385,
+      "u_mm": [
+        -0.012372595269604419,
+        -0.029367805265072797,
+        -0.5750673588749788
+      ],
+      "rotation_rad": [
+        -0.012370844113187167,
+        0.01288477314156565,
+        1.2598086471523782e-06
+      ],
+      "signal_snr_assumed": 5.7883
+    },
+    "shear_x": {
+      "pressure_delta_pF": [
+        -1.2e-06,
+        2e-07,
+        1.6e-06,
+        -6e-07
+      ],
+      "lateral_delta_pF": [
+        0.0205,
+        -0.002844
+      ],
+      "hall_delta_mT": -0.1028754,
+      "piezo_peak_V": 0.016569288699386762,
+      "piezo_strain_proxy": -0.0004127266762464796,
+      "u_mm": [
+        0.4947012596898355,
+        -0.06911693323393428,
+        0.0037117785808813103
+      ],
+      "rotation_rad": [
+        -0.020693623135732777,
+        -0.09970162950917405,
+        -0.02057507895604842
+      ],
+      "signal_snr_assumed": 86.0532
+    },
+    "shear_y": {
+      "pressure_delta_pF": [
+        3.3e-06,
+        -8.8e-06,
+        1.01e-05,
+        -4.6e-06
+      ],
+      "lateral_delta_pF": [
+        -0.002844,
+        0.0145789
+      ],
+      "hall_delta_mT": 0.0428366,
+      "piezo_peak_V": 0.034407645880088954,
+      "piezo_strain_proxy": 0.0007361455240902966,
+      "u_mm": [
+        -0.06911693323393396,
+        0.35306472706850506,
+        0.008810341579521843
+      ],
+      "rotation_rad": [
+        0.05576450983995606,
+        0.0205988492356504,
+        0.00856731069830792
+      ],
+      "signal_snr_assumed": 53.9464
+    },
+    "torsion": {
+      "pressure_delta_pF": [
+        0.0,
+        -0.0,
+        0.0,
+        -0.0
+      ],
+      "lateral_delta_pF": [
+        -0.0005643,
+        0.000235
+      ],
+      "hall_delta_mT": 0.0989729,
+      "piezo_peak_V": 0.0006664551840349776,
+      "piezo_strain_proxy": -1.660082324379877e-05,
+      "u_mm": [
+        -0.01371671930403228,
+        0.005711540465538624,
+        -2.519617294299705e-07
+      ],
+      "rotation_rad": [
+        0.001168810169909053,
+        0.002812534678230326,
+        0.01979457249679953
+      ],
+      "signal_snr_assumed": 49.5284
+    },
+    "bend_x": {
+      "pressure_delta_pF": [
+        0.0012164,
+        3.38e-05,
+        5.05e-05,
+        0.0009186
+      ],
+      "lateral_delta_pF": [
+        -0.0007712,
+        0.0010462
+      ],
+      "hall_delta_mT": 0.0058466,
+      "piezo_peak_V": 0.07815910485307011,
+      "piezo_strain_proxy": -0.0016722002837685273,
+      "u_mm": [
+        -0.018744786864996952,
+        0.025429217787274933,
+        -0.22755277472735413
+      ],
+      "rotation_rad": [
+        0.05086072714212672,
+        0.11256338020222928,
+        0.0011693140933679072
+      ],
+      "signal_snr_assumed": 5.4445
+    },
+    "stretch_x": {
+      "pressure_delta_pF": [
+        0.001018,
+        -0.0003907,
+        -0.0009963,
+        0.0003764
+      ],
+      "lateral_delta_pF": [
+        -0.0072948,
+        0.0001423
+      ],
+      "hall_delta_mT": 0.0352079,
+      "piezo_peak_V": 0.14501780596891803,
+      "piezo_strain_proxy": 0.0024398142462009275,
+      "u_mm": [
+        -0.17714839840140745,
+        0.0034590874104074897,
+        -0.3108198300296924
+      ],
+      "rotation_rad": [
+        -0.10407480273522084,
+        -0.22568093971820455,
+        0.007041581927378719
+      ],
+      "signal_snr_assumed": 30.0619
+    },
+    "offcenter": {
+      "pressure_delta_pF": [
+        0.0003882,
+        0.0009144,
+        -0.0021521,
+        0.0065303
+      ],
+      "lateral_delta_pF": [
+        -0.0366701,
+        -0.0080374
+      ],
+      "hall_delta_mT": 0.1525059,
+      "piezo_peak_V": 0.234828960387424,
+      "piezo_strain_proxy": -0.0058493866614023554,
+      "u_mm": [
+        -0.8714314027897923,
+        -0.1951427118416084,
+        -0.63846336652605
+      ],
+      "rotation_rad": [
+        1.0406805721968426,
+        3.1498448899962126,
+        0.03050117828301142
+      ],
+      "signal_snr_assumed": 146.7025
+    },
+    "compression": {
+      "pressure_delta_pF": [
+        -0.0010114,
+        0.0003916,
+        0.0010027,
+        -0.0003755
+      ],
+      "lateral_delta_pF": [
+        0.0072948,
+        -0.0001423
+      ],
+      "hall_delta_mT": -0.0352079,
+      "piezo_peak_V": 0.14624582875955355,
+      "piezo_strain_proxy": -0.0024604747952916657,
+      "u_mm": [
+        0.17714839840140745,
+        -0.0034590874104074897,
+        0.3108198300296924
+      ],
+      "rotation_rad": [
+        0.10407480273522084,
+        0.22568093971820455,
+        -0.007041581927378719
+      ],
+      "signal_snr_assumed": 30.0618
+    }
+  },
+  "piezo_frequency_sweep": {
+    "2.0": {
+      "peak_V": 0.18958516527341093,
+      "dynamic_snr_proxy": 89.34077712921999,
+      "local_strain_proxy": -0.004680105339902385
+    },
+    "25.0": {
+      "peak_V": 0.18960263068339445,
+      "dynamic_snr_proxy": 89.34900759017698,
+      "local_strain_proxy": -0.004680105339902385
+    },
+    "150.0": {
+      "peak_V": 0.18960274007225703,
+      "dynamic_snr_proxy": 89.3490591389676,
+      "local_strain_proxy": -0.004680105339902385
+    }
+  },
+  "unloading_recovery": {
+    "model": "linear_SLS_creep_superposition_assumed",
+    "hold_s": 1.0,
+    "tau_s_assumed": 0.8,
+    "relaxed_to_initial_modulus_ratio_assumed": 0.55,
+    "loaded_deflection_mm_input": 0.0995816,
+    "peak_creep_deflection_mm_estimate": 0.1577142313898987,
+    "strain_estimate": 0.019157142499275033,
+    "strain_screen_passed": true,
+    "times_after_release_s": [
+      0.0,
+      0.1,
+      0.25,
+      0.5,
+      1.0,
+      2.0,
+      5.0,
+      10.0
+    ],
+    "residual_mm_after_release": [
+      0.0581326313898987,
+      0.05130186714067762,
+      0.042530741676644016,
+      0.031116155321325077,
+      0.01665527774731123,
+      0.004771816967643441,
+      0.00011222237871642782,
+      2.1664015517968967e-07
+    ],
+    "residual_fraction_after_5s": 0.0007115551826074171,
+    "recovery_5s_passed_assumed": true,
+    "recovery_score_0_100_assumed": 99.92884448173925,
+    "fully_recovered_at_infinite_time_in_model": true,
+    "warning": "No permanent set, debonding, fatigue or hysteresis modeled; calibrate tau, moduli and strain range using real load/unload tests."
+  },
+  "observability": {
+    "rank_5_unknowns": 5,
+    "smin_whitened": 1.7623577371546182,
+    "condition_whitened": 209.85878505501012,
+    "singular_values_whitened": [
+      369.84625355156504,
+      217.8672954908655,
+      28.357941988981743,
+      4.160415905918272,
+      1.7623577371546182
+    ],
+    "assumption": "Independent synthetic capacitive/Hall readouts, no calibration; measured hardware may have lower effective rank."
+  },
+  "force_reconstruction": {
+    "holdout_rmse_N": [
+      0.002289,
+      0.000817,
+      0.000856
+    ],
+    "holdout_mean_rmse_N": 0.00132,
+    "train_count": 70,
+    "holdout_count": 30,
+    "training": "Ridge on synthetic signals; fixed seed, independently generated positions, no real-world generalization claim"
+  },
+  "manufacturability": {
+    "member_count": 12,
+    "minimum_member_diameter_mm": 0.8934,
+    "longest_slenderness_ratio": 17.761,
+    "max_lateral_extent_mm": 6.773,
+    "max_turn_sine": 0.99995,
+    "flags": [],
+    "passed": true
+  },
+  "screening_metrics": {
+    "fitness": 51.968,
+    "kz_N_mm_proxy": 0.1739,
+    "kx_N_mm_proxy": 0.0606,
+    "ky_N_mm_proxy": 0.085,
+    "volume_struts_mm3_proxy": 145.1,
+    "compress_disp_0p1N_mm_proxy": 0.57507,
+    "torsion_rad_proxy": 0.019795,
+    "coupling_proxy": 0,
+    "slenderness_proxy": 5.11,
+    "minimum_strut_radius_mm": 0.4467,
+    "manufacturing_screen_factor": 1.0,
+    "score_softness": 0.0,
+    "score_balance": 0.869,
+    "score_material": 0.7244,
+    "score_family_function": 0.9153,
+    "tier_count": 4,
+    "topology": "hybrid",
+    "material_E_MPa_assumed": 0.86096,
+    "physics": "6DOF composite-rod surrogate with PVDF membrane and bond shear-lag; not calibrated / not nonlinear FEM",
+    "normal_snr_proxy": 5.788,
+    "shear_snr_proxy": 86.053,
+    "substrate_strain_signal_snr_proxy": 30.062,
+    "offcentre_similarity_proxy": -0.9952,
+    "electric_response_status": "Assumed electrostatic/magnetic transfer; no field solving or actual circuit noise.",
+    "piezo_score": 53.9449,
+    "piezo_impact_SNR_proxy": 89.349,
+    "piezo_shear_SNR_proxy": 6.3617,
+    "piezo_strain_nuisance_SNR_proxy": 79.8338,
+    "piezo_valid": true,
+    "piezo_overstrain_factor": 0.7225,
+    "piezo_channels": 4,
+    "piezo_layout_imbalance": 0.0,
+    "piezo_wiring": "independent",
+    "piezo_model": "PVDF multi-channel d31/d33 + RC highpass, small-displacement beam strain surrogate, assumed noise",
+    "fitness_geometry": 51.8647,
+    "fitness_electrical": 77.1334,
+    "fitness_robustness": 12.2663,
+    "fitness_preset": "balanced",
+    "fitness_weights": {
+      "geometry": 0.36,
+      "electrical": 0.28,
+      "robustness": 0.18,
+      "piezo": 0.18
+    },
+    "score_explanation": "Weighted engineering utility of approximate geometry, assumed SNR, piezo transient response and nuisance sensitivity; NOT a success probability, accuracy or FEM outcome.",
+    "hybrid_stage_screen": {
+      "hybrid_id": "h09_kirigami_helix",
+      "stage_signature_rank_max2": 1,
+      "stage_readout_diversity_score_0_100": 50.0,
+      "stage_readouts_assumed_pF": [
+        [
+          0.07201491362524531,
+          0.003213946380578925
+        ],
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0
+        ]
+      ],
+      "note": "Two series stages, independent electrodes. Two channels alone cannot identify Fx,Fy,Fz uniquely."
+    },
+    "physical_plausibility_gate_enabled": false
+  },
+  "limitations": [
+    "6-DOF beam proxy; no hyperelasticity or real contact FEM",
+    "synthetic electrical response and assumed noise (not measured)",
+    "STL is an assembly visualization, not a printable watertight union",
+    "strain and manufacturing thresholds are tentative design assumptions",
+    "Unloading recovery uses an assumed standard-linear-solid compliance, not viscoelastic FEM or experimental calibration",
+    "FEM solver is explicit (HEX8 solid or 3D space-frame beam); neither includes hyperelasticity nor true contact physics."
+  ],
+  "audit_score_before_feasibility_band": 60.13535,
+  "score_band": "failed_screen",
+  "audit_policy_version": "1.9.1-spatial-operating-band-feasibility-first",
+  "fem": {
+    "fem_backend": "actual_hex8_linear_3d",
+    "fem_linear_solver": "direct_sparse",
+    "mesh_pitch_mm": 1.25,
+    "elements": 516,
+    "nodes": 942,
+    "volume_mm3": 1007.81,
+    "inflated_features": 12,
+    "mesh_warning": "12/12 flexures had radius below 1.44 mm and were inflated by voxel resolution.",
+    "elastic_E_MPa": 0.86096,
+    "poisson": 0.35,
+    "setup_time_s": 0.0494,
+    "load_cases": {
+      "press_center": {
+        "load_force_N": [
+          0.0,
+          0.0,
+          -0.1
+        ],
+        "offset_mm": [
+          0.0,
+          0.0
+        ],
+        "torque_z_Nmm": 0.0,
+        "loaded_nodes": 8,
+        "contact_patch_radius_used_mm": 3.1,
+        "contact_patch_mode": "requested",
+        "mean_contact_displacement_mm": [
+          -0.0007204907403429352,
+          -0.00024588615566321914,
+          -0.09958157600449578
+        ],
+        "mean_down_mm": 0.0995816,
+        "max_displacement_mm": 0.1446657,
+        "max_principal_strain": 0.0083357,
+        "max_abs_principal_strain": 0.0167284,
+        "max_von_mises_MPa": 0.0145131,
+        "energy_Nmm": 0.0049791,
+        "force_reaction_N": [
+          1.8976587337106443e-16,
+          2.7066429609742815e-16,
+          0.10000000000000116
+        ],
+        "moment_reaction_Nmm": [
+          -1.8612227644515533e-15,
+          1.3097162243624894e-16,
+          -3.664061241914762e-16
+        ],
+        "pvdf_stiffness_included": true,
+        "pvdf_adhesive_model": "embedded_membrane_shear_lag",
+        "laminate_energy_Nmm": 3e-07,
+        "substrate_energy_Nmm": 0.0049788,
+        "pvdf_laminate_response": {
+          "film_count": 4,
+          "per_film": [
+            {
+              "film_index": 0,
+              "member_index": 8,
+              "effective_strain": -1.2423267675463036e-05,
+              "max_abs_effective_strain": 2.1090688647675058e-05,
+              "effective_film_force_N": -0.0010953167503861088,
+              "estimated_charge_pC": 0.025192285258880502,
+              "charge_amp_V_assumed": 0.0003489148715091838,
+              "mechanical_energy_Nmm": 3.7900899502425025e-08,
+              "shear_lag_transfer": 0.5643523069291866
+            },
+            {
+              "film_index": 1,
+              "member_index": 11,
+              "effective_strain": 4.928761104657622e-06,
+              "max_abs_effective_strain": 4.430746052077686e-05,
+              "effective_film_force_N": 0.00037227296601825377,
+              "estimated_charge_pC": -0.008562278218419837,
+              "charge_amp_V_assumed": -0.00011858813814251801,
+              "mechanical_energy_Nmm": 1.8436910263110307e-07,
+              "shear_lag_transfer": 0.5628855605927228
+            },
+            {
+              "film_index": 2,
+              "member_index": 2,
+              "effective_strain": -1.2382716027038838e-05,
+              "max_abs_effective_strain": 2.7662591791042915e-05,
+              "effective_film_force_N": -0.0007881756855712119,
+              "estimated_charge_pC": 0.018128040768137874,
+              "charge_amp_V_assumed": 0.00025107460281311334,
+              "mechanical_energy_Nmm": 3.7715490375754e-08,
+              "shear_lag_transfer": 0.3203909606581811
+            },
+            {
+              "film_index": 3,
+              "member_index": 6,
+              "effective_strain": -1.3026954945993136e-05,
+              "max_abs_effective_strain": 2.96365115264088e-05,
+              "effective_film_force_N": -0.0008291823153372252,
+              "estimated_charge_pC": 0.01907119325275618,
+              "charge_amp_V_assumed": 0.0002641373291439118,
+              "mechanical_energy_Nmm": 4.3343839227555804e-08,
+              "shear_lag_transfer": 0.3203909606581811
+            }
+          ],
+          "max_abs_effective_film_strain": 4.430746052077686e-05,
+          "total_laminate_energy_Nmm": 3.033293317368364e-07,
+          "total_estimated_charge_pC": 0.05382924106135472,
+          "film_mass_g": 0.002387107979579324,
+          "adhesive_mass_g": 0.0013247881689067737
+        },
+        "force_equilibrium_relative": 0.0,
+        "moment_equilibrium_relative": 1.9e-05,
+        "free_residual_relative": 0.0,
+        "solver_mode": "direct_sparse",
+        "cg_iterations": 0,
+        "compute_device": "cpu",
+        "solve_s": 0.0023842
+      },
+      "press_x_minus": {
+        "load_force_N": [
+          0.0,
+          0.0,
+          -0.1
+        ],
+        "offset_mm": [
+          -1.4,
+          0.0
+        ],
+        "torque_z_Nmm": 0.0,
+        "loaded_nodes": 9,
+        "contact_patch_radius_used_mm": 3.1,
+        "contact_patch_mode": "requested",
+        "mean_contact_displacement_mm": [
+          0.02318644688855656,
+          -0.0016945279474502753,
+          -0.09454797167568126
+        ],
+        "mean_down_mm": 0.094548,
+        "max_displacement_mm": 0.1493541,
+        "max_principal_strain": 0.0091909,
+        "max_abs_principal_strain": 0.0191196,
+        "max_von_mises_MPa": 0.0158443,
+        "energy_Nmm": 0.0047274,
+        "force_reaction_N": [
+          2.2894622937925935e-16,
+          3.1047653868427477e-16,
+          0.10000000000000085
+        ],
+        "moment_reaction_Nmm": [
+          -1.8201315021143527e-15,
+          0.20833333333333495,
+          -4.539554496196807e-16
+        ],
+        "pvdf_stiffness_included": true,
+        "pvdf_adhesive_model": "embedded_membrane_shear_lag",
+        "laminate_energy_Nmm": 2e-07,
+        "substrate_energy_Nmm": 0.0047272,
+        "pvdf_laminate_response": {
+          "film_count": 4,
+          "per_film": [
+            {
+              "film_index": 0,
+              "member_index": 8,
+              "effective_strain": -1.2004177689024251e-05,
+              "max_abs_effective_strain": 2.2948624678731985e-05,
+              "effective_film_force_N": -0.001058367028778474,
+              "estimated_charge_pC": 0.0243424416619049,
+              "charge_amp_V_assumed": 0.0003371444796453842,
+              "mechanical_energy_Nmm": 4.394150494295301e-08,
+              "shear_lag_transfer": 0.5643523069291866
+            },
+            {
+              "film_index": 1,
+              "member_index": 11,
+              "effective_strain": 5.736755435908706e-06,
+              "max_abs_effective_strain": 2.1716221624125742e-05,
+              "effective_film_force_N": 0.0004333013745439844,
+              "estimated_charge_pC": -0.009965931614511642,
+              "charge_amp_V_assumed": -0.0001380288335501789,
+              "mechanical_energy_Nmm": 5.0398114007369454e-08,
+              "shear_lag_transfer": 0.5628855605927228
+            },
+            {
+              "film_index": 2,
+              "member_index": 2,
+              "effective_strain": -2.8570788204316986e-05,
+              "max_abs_effective_strain": 4.3615223570172e-05,
+              "effective_film_force_N": -0.0018185671488448489,
+              "estimated_charge_pC": 0.04182704442343153,
+              "charge_amp_V_assumed": 0.0005793074221190789,
+              "mechanical_energy_Nmm": 1.0761009737273497e-07,
+              "shear_lag_transfer": 0.3203909606581811
+            },
+            {
+              "film_index": 3,
+              "member_index": 6,
+              "effective_strain": 2.068826366412323e-06,
+              "max_abs_effective_strain": 1.2211428580252646e-05,
+              "effective_film_force_N": 0.00013168343973279082,
+              "estimated_charge_pC": -0.003028719113854189,
+              "charge_amp_V_assumed": -4.194796659327778e-05,
+              "mechanical_energy_Nmm": 1.3165920024688358e-08,
+              "shear_lag_transfer": 0.3203909606581811
+            }
+          ],
+          "max_abs_effective_film_strain": 4.3615223570172e-05,
+          "total_laminate_energy_Nmm": 2.151156363477637e-07,
+          "total_estimated_charge_pC": 0.053174835356970596,
+          "film_mass_g": 0.002387107979579324,
+          "adhesive_mass_g": 0.0013247881689067737
+        },
+        "force_equilibrium_relative": 0.0,
+        "moment_equilibrium_relative": 0.0,
+        "free_residual_relative": 0.0,
+        "solver_mode": "direct_sparse",
+        "cg_iterations": 0,
+        "compute_device": "cpu",
+        "solve_s": 0.0020243
+      },
+      "press_x_plus": {
+        "load_force_N": [
+          0.0,
+          0.0,
+          -0.1
+        ],
+        "offset_mm": [
+          1.4,
+          0.0
+        ],
+        "torque_z_Nmm": 0.0,
+        "loaded_nodes": 9,
+        "contact_patch_radius_used_mm": 3.1,
+        "contact_patch_mode": "requested",
+        "mean_contact_displacement_mm": [
+          -0.026784723494112636,
+          0.0021170142259378574,
+          -0.10214725043715475
+        ],
+        "mean_down_mm": 0.1021473,
+        "max_displacement_mm": 0.1671854,
+        "max_principal_strain": 0.009524,
+        "max_abs_principal_strain": 0.0184059,
+        "max_von_mises_MPa": 0.0149819,
+        "energy_Nmm": 0.0051074,
+        "force_reaction_N": [
+          1.1257406682188553e-16,
+          1.8578481851896922e-16,
+          0.10000000000000123
+        ],
+        "moment_reaction_Nmm": [
+          -1.210782776123187e-15,
+          -0.2083333333333347,
+          -9.882502802205373e-17
+        ],
+        "pvdf_stiffness_included": true,
+        "pvdf_adhesive_model": "embedded_membrane_shear_lag",
+        "laminate_energy_Nmm": 5e-07,
+        "substrate_energy_Nmm": 0.0051069,
+        "pvdf_laminate_response": {
+          "film_count": 4,
+          "per_film": [
+            {
+              "film_index": 0,
+              "member_index": 8,
+              "effective_strain": -8.635256122924167e-06,
+              "max_abs_effective_strain": 1.2771239060123223e-05,
+              "effective_film_force_N": -0.0007613408100345482,
+              "estimated_charge_pC": 0.01751083863079461,
+              "charge_amp_V_assumed": 0.00024252631105500832,
+              "mechanical_energy_Nmm": 1.6571600308408146e-08,
+              "shear_lag_transfer": 0.5643523069291866
+            },
+            {
+              "film_index": 1,
+              "member_index": 11,
+              "effective_strain": -6.928765629008439e-07,
+              "max_abs_effective_strain": 6.61644755981282e-05,
+              "effective_film_force_N": -5.2333478470255084e-05,
+              "estimated_charge_pC": 0.0012036700048158669,
+              "charge_amp_V_assumed": 1.6670911779301198e-05,
+              "mechanical_energy_Nmm": 3.169965207408427e-07,
+              "shear_lag_transfer": 0.5628855605927228
+            },
+            {
+              "film_index": 2,
+              "member_index": 2,
+              "effective_strain": 1.9311474614426286e-06,
+              "max_abs_effective_strain": 1.103091049846377e-05,
+              "effective_film_force_N": 0.00012292000164083837,
+              "estimated_charge_pC": -0.0028271600377392826,
+              "charge_amp_V_assumed": -3.915635962227655e-05,
+              "mechanical_energy_Nmm": 1.0627963769202455e-08,
+              "shear_lag_transfer": 0.3203909606581811
+            },
+            {
+              "film_index": 3,
+              "member_index": 6,
+              "effective_strain": -3.009870585209742e-05,
+              "max_abs_effective_strain": 4.652579062502197e-05,
+              "effective_film_force_N": -0.0019158210579958029,
+              "estimated_charge_pC": 0.044063884333903465,
+              "charge_amp_V_assumed": 0.0006102878076588865,
+              "mechanical_energy_Nmm": 1.2113759763289865e-07,
+              "shear_lag_transfer": 0.3203909606581811
+            }
+          ],
+          "max_abs_effective_film_strain": 6.61644755981282e-05,
+          "total_laminate_energy_Nmm": 4.6533368245135677e-07,
+          "total_estimated_charge_pC": 0.05995123293177466,
+          "film_mass_g": 0.002387107979579324,
+          "adhesive_mass_g": 0.0013247881689067737
+        },
+        "force_equilibrium_relative": 0.0,
+        "moment_equilibrium_relative": 0.0,
+        "free_residual_relative": 0.0,
+        "solver_mode": "direct_sparse",
+        "cg_iterations": 0,
+        "compute_device": "cpu",
+        "solve_s": 0.0021845
+      },
+      "press_y_minus": {
+        "load_force_N": [
+          0.0,
+          0.0,
+          -0.1
+        ],
+        "offset_mm": [
+          0.0,
+          -1.4
+        ],
+        "torque_z_Nmm": 0.0,
+        "loaded_nodes": 9,
+        "contact_patch_radius_used_mm": 3.1,
+        "contact_patch_mode": "requested",
+        "mean_contact_displacement_mm": [
+          -0.008309259672274465,
+          0.03801930196334832,
+          -0.09926731432280583
+        ],
+        "mean_down_mm": 0.0992673,
+        "max_displacement_mm": 0.1585767,
+        "max_principal_strain": 0.0100222,
+        "max_abs_principal_strain": 0.0190992,
+        "max_von_mises_MPa": 0.015497,
+        "energy_Nmm": 0.0049634,
+        "force_reaction_N": [
+          1.799911131597498e-16,
+          2.422344822557848e-16,
+          0.100000000000001
+        ],
+        "moment_reaction_Nmm": [
+          -0.2083333333333359,
+          -4.228388472693467e-17,
+          -1.5712799984746173e-16
+        ],
+        "pvdf_stiffness_included": true,
+        "pvdf_adhesive_model": "embedded_membrane_shear_lag",
+        "laminate_energy_Nmm": 2e-07,
+        "substrate_energy_Nmm": 0.0049632,
+        "pvdf_laminate_response": {
+          "film_count": 4,
+          "per_film": [
+            {
+              "film_index": 0,
+              "member_index": 8,
+              "effective_strain": -1.6322371892353258e-05,
+              "max_abs_effective_strain": 2.8528907143349345e-05,
+              "effective_film_force_N": -0.0014390873485755093,
+              "estimated_charge_pC": 0.03309900901723671,
+              "charge_amp_V_assumed": 0.0004584235356043943,
+              "mechanical_energy_Nmm": 7.027837303926681e-08,
+              "shear_lag_transfer": 0.5643523069291866
+            },
+            {
+              "film_index": 1,
+              "member_index": 11,
+              "effective_strain": -5.570278179353277e-07,
+              "max_abs_effective_strain": 2.226818170214022e-05,
+              "effective_film_force_N": -4.207272244164999e-05,
+              "estimated_charge_pC": 0.0009676726161579497,
+              "charge_amp_V_assumed": 1.3402331827387011e-05,
+              "mechanical_energy_Nmm": 3.5326736622205824e-08,
+              "shear_lag_transfer": 0.5628855605927228
+            },
+            {
+              "film_index": 2,
+              "member_index": 2,
+              "effective_strain": -1.2353200076360554e-05,
+              "max_abs_effective_strain": 1.959712897909836e-05,
+              "effective_film_force_N": -0.0007862969576241005,
+              "estimated_charge_pC": 0.018084830025354312,
+              "charge_amp_V_assumed": 0.00025047613107419763,
+              "mechanical_energy_Nmm": 2.1048599322804623e-08,
+              "shear_lag_transfer": 0.3203909606581811
+            },
+            {
+              "film_index": 3,
+              "member_index": 6,
+              "effective_strain": -1.1924689650383138e-05,
+              "max_abs_effective_strain": 3.5141032885502347e-05,
+              "effective_film_force_N": -0.0007590217218816615,
+              "estimated_charge_pC": 0.017457499603278213,
+              "charge_amp_V_assumed": 0.0002417875618807647,
+              "mechanical_energy_Nmm": 6.45329031531021e-08,
+              "shear_lag_transfer": 0.3203909606581811
+            }
+          ],
+          "max_abs_effective_film_strain": 3.5141032885502347e-05,
+          "total_laminate_energy_Nmm": 1.9118661213743946e-07,
+          "total_estimated_charge_pC": 0.06960901126202719,
+          "film_mass_g": 0.002387107979579324,
+          "adhesive_mass_g": 0.0013247881689067737
+        },
+        "force_equilibrium_relative": 0.0,
+        "moment_equilibrium_relative": 0.0,
+        "free_residual_relative": 0.0,
+        "solver_mode": "direct_sparse",
+        "cg_iterations": 0,
+        "compute_device": "cpu",
+        "solve_s": 0.0021204
+      },
+      "press_y_plus": {
+        "load_force_N": [
+          0.0,
+          0.0,
+          -0.1
+        ],
+        "offset_mm": [
+          0.0,
+          1.4
+        ],
+        "torque_z_Nmm": 0.0,
+        "loaded_nodes": 9,
+        "contact_patch_radius_used_mm": 3.1,
+        "contact_patch_mode": "requested",
+        "mean_contact_displacement_mm": [
+          0.007665115479659053,
+          -0.03747287334881573,
+          -0.0959928755201173
+        ],
+        "mean_down_mm": 0.0959929,
+        "max_displacement_mm": 0.1555037,
+        "max_principal_strain": 0.0101866,
+        "max_abs_principal_strain": 0.0191571,
+        "max_von_mises_MPa": 0.0155298,
+        "energy_Nmm": 0.0047996,
+        "force_reaction_N": [
+          1.9394343986692264e-16,
+          2.5908027351077834e-16,
+          0.10000000000000099
+        ],
+        "moment_reaction_Nmm": [
+          0.20833333333333262,
+          4.4246290659133436e-16,
+          -3.441257695468991e-16
+        ],
+        "pvdf_stiffness_included": true,
+        "pvdf_adhesive_model": "embedded_membrane_shear_lag",
+        "laminate_energy_Nmm": 4e-07,
+        "substrate_energy_Nmm": 0.0047992,
+        "pvdf_laminate_response": {
+          "film_count": 4,
+          "per_film": [
+            {
+              "film_index": 0,
+              "member_index": 8,
+              "effective_strain": -2.8872500490999955e-06,
+              "max_abs_effective_strain": 5.698868004059187e-06,
+              "effective_film_force_N": -0.0002545588989906772,
+              "estimated_charge_pC": 0.005854854676785576,
+              "charge_amp_V_assumed": 8.109013716949168e-05,
+              "mechanical_energy_Nmm": 4.191772933327563e-09,
+              "shear_lag_transfer": 0.5643523069291866
+            },
+            {
+              "film_index": 1,
+              "member_index": 11,
+              "effective_strain": 1.04131466778382e-05,
+              "max_abs_effective_strain": 5.8292074297228035e-05,
+              "effective_film_force_N": 0.0007865126584606979,
+              "estimated_charge_pC": -0.01808979114459605,
+              "charge_amp_V_assumed": -0.00025054484291454817,
+              "mechanical_energy_Nmm": 3.6773996105099583e-07,
+              "shear_lag_transfer": 0.5628855605927228
+            },
+            {
+              "film_index": 2,
+              "member_index": 2,
+              "effective_strain": -1.0147976673591406e-05,
+              "max_abs_effective_strain": 3.020961080077136e-05,
+              "effective_film_force_N": -0.0006459316723732766,
+              "estimated_charge_pC": 0.014856428464585361,
+              "charge_amp_V_assumed": 0.00020576254895251743,
+              "mechanical_energy_Nmm": 4.7846304670420054e-08,
+              "shear_lag_transfer": 0.3203909606581811
+            },
+            {
+              "film_index": 3,
+              "member_index": 6,
+              "effective_strain": -1.1720519395292417e-05,
+              "max_abs_effective_strain": 1.8489056363982897e-05,
+              "effective_film_force_N": -0.0007460260244572846,
+              "estimated_charge_pC": 0.017158598562517547,
+              "charge_amp_V_assumed": 0.0002376477620508066,
+              "mechanical_energy_Nmm": 1.8817250498236045e-08,
+              "shear_lag_transfer": 0.3203909606581811
+            }
+          ],
+          "max_abs_effective_film_strain": 5.8292074297228035e-05,
+          "total_laminate_energy_Nmm": 4.385952891529679e-07,
+          "total_estimated_charge_pC": 0.019780090559292432,
+          "film_mass_g": 0.002387107979579324,
+          "adhesive_mass_g": 0.0013247881689067737
+        },
+        "force_equilibrium_relative": 0.0,
+        "moment_equilibrium_relative": 0.0,
+        "free_residual_relative": 0.0,
+        "solver_mode": "direct_sparse",
+        "cg_iterations": 0,
+        "compute_device": "cpu",
+        "solve_s": 0.0046736
+      },
+      "shear_x": {
+        "load_force_N": [
+          0.03,
+          0.0,
+          -0.04
+        ],
+        "offset_mm": [
+          0.0,
+          0.0
+        ],
+        "torque_z_Nmm": 0.0,
+        "loaded_nodes": 8,
+        "contact_patch_radius_used_mm": 3.1,
+        "contact_patch_mode": "requested",
+        "mean_contact_displacement_mm": [
+          0.041923117887163665,
+          -0.0008693939621767749,
+          -0.03961648317969545
+        ],
+        "mean_down_mm": 0.0396165,
+        "max_displacement_mm": 0.0890178,
+        "max_principal_strain": 0.006714,
+        "max_abs_principal_strain": 0.0104672,
+        "max_von_mises_MPa": 0.0093311,
+        "energy_Nmm": 0.0014212,
+        "force_reaction_N": [
+          -0.02999999999999955,
+          -3.074051972175307e-17,
+          0.040000000000000466
+        ],
+        "moment_reaction_Nmm": [
+          -1.75694962051276e-16,
+          -0.2249999999999985,
+          7.792703114739563e-17
+        ],
+        "pvdf_stiffness_included": true,
+        "pvdf_adhesive_model": "embedded_membrane_shear_lag",
+        "laminate_energy_Nmm": 1e-07,
+        "substrate_energy_Nmm": 0.0014211,
+        "pvdf_laminate_response": {
+          "film_count": 4,
+          "per_film": [
+            {
+              "film_index": 0,
+              "member_index": 8,
+              "effective_strain": -5.721140072156214e-06,
+              "max_abs_effective_strain": 1.113605020836443e-05,
+              "effective_film_force_N": -0.000504413228148876,
+              "estimated_charge_pC": 0.011601504247424147,
+              "charge_amp_V_assumed": 0.0001606816262282642,
+              "mechanical_energy_Nmm": 1.3674264835157906e-08,
+              "shear_lag_transfer": 0.5643523069291866
+            },
+            {
+              "film_index": 1,
+              "member_index": 11,
+              "effective_strain": 3.115928727457545e-06,
+              "max_abs_effective_strain": 2.6557231460584023e-05,
+              "effective_film_force_N": 0.0002353483978308341,
+              "estimated_charge_pC": -0.005413013150109184,
+              "charge_amp_V_assumed": -7.497060184653521e-05,
+              "mechanical_energy_Nmm": 6.81917055722017e-08,
+              "shear_lag_transfer": 0.5628855605927228
+            },
+            {
+              "film_index": 2,
+              "member_index": 2,
+              "effective_strain": -1.651588620030324e-05,
+              "max_abs_effective_strain": 2.0444560536745115e-05,
+              "effective_film_force_N": -0.0010512572443973803,
+              "estimated_charge_pC": 0.024178916621139745,
+              "charge_amp_V_assumed": 0.000334879646661763,
+              "mechanical_energy_Nmm": 3.0442022852887145e-08,
+              "shear_lag_transfer": 0.3203909606581811
+            },
+            {
+              "film_index": 3,
+              "member_index": 6,
+              "effective_strain": 6.270446423434981e-06,
+              "max_abs_effective_strain": 1.4077276088062474e-05,
+              "effective_film_force_N": 0.00039912192105808023,
+              "estimated_charge_pC": -0.009179804184335845,
+              "charge_amp_V_assumed": -0.00012714091494847352,
+              "mechanical_energy_Nmm": 1.1714385488988607e-08,
+              "shear_lag_transfer": 0.3203909606581811
+            }
+          ],
+          "max_abs_effective_film_strain": 2.6557231460584023e-05,
+          "total_laminate_energy_Nmm": 1.2402237874919955e-07,
+          "total_estimated_charge_pC": 0.021187603534118863,
+          "film_mass_g": 0.002387107979579324,
+          "adhesive_mass_g": 0.0013247881689067737
+        },
+        "force_equilibrium_relative": 0.0,
+        "moment_equilibrium_relative": 0.0,
+        "free_residual_relative": 0.0,
+        "solver_mode": "direct_sparse",
+        "cg_iterations": 0,
+        "compute_device": "cpu",
+        "solve_s": 0.0020583
+      },
+      "shear_y": {
+        "load_force_N": [
+          0.0,
+          0.03,
+          -0.04
+        ],
+        "offset_mm": [
+          0.0,
+          0.0
+        ],
+        "torque_z_Nmm": 0.0,
+        "loaded_nodes": 8,
+        "contact_patch_radius_used_mm": 3.1,
+        "contact_patch_mode": "requested",
+        "mean_contact_displacement_mm": [
+          -0.001059235796048652,
+          0.0419033222346016,
+          -0.03975886455509936
+        ],
+        "mean_down_mm": 0.0397589,
+        "max_displacement_mm": 0.0947241,
+        "max_principal_strain": 0.0065559,
+        "max_abs_principal_strain": 0.0103017,
+        "max_von_mises_MPa": 0.0092474,
+        "energy_Nmm": 0.0014237,
+        "force_reaction_N": [
+          -1.1022947962388563e-16,
+          -0.030000000000000294,
+          0.040000000000000376
+        ],
+        "moment_reaction_Nmm": [
+          0.22500000000000164,
+          -7.082550691761558e-16,
+          -5.955793584005997e-16
+        ],
+        "pvdf_stiffness_included": true,
+        "pvdf_adhesive_model": "embedded_membrane_shear_lag",
+        "laminate_energy_Nmm": 2e-07,
+        "substrate_energy_Nmm": 0.0014236,
+        "pvdf_laminate_response": {
+          "film_count": 4,
+          "per_film": [
+            {
+              "film_index": 0,
+              "member_index": 8,
+              "effective_strain": -1.036491681078461e-05,
+              "max_abs_effective_strain": 1.550802499913873e-05,
+              "effective_film_force_N": -0.0009138390394367647,
+              "estimated_charge_pC": 0.021018297907045586,
+              "charge_amp_V_assumed": 0.00029110486159620636,
+              "mechanical_energy_Nmm": 2.5911231952463582e-08,
+              "shear_lag_transfer": 0.5643523069291866
+            },
+            {
+              "film_index": 1,
+              "member_index": 11,
+              "effective_strain": 1.8206458280031493e-06,
+              "max_abs_effective_strain": 2.600818102887736e-05,
+              "effective_film_force_N": 0.00013751472389664013,
+              "estimated_charge_pC": -0.003162838649622723,
+              "charge_amp_V_assumed": -4.380553132425244e-05,
+              "mechanical_energy_Nmm": 5.386898522905894e-08,
+              "shear_lag_transfer": 0.5628855605927228
+            },
+            {
+              "film_index": 2,
+              "member_index": 2,
+              "effective_strain": -2.319251570362827e-05,
+              "max_abs_effective_strain": 3.378105384998516e-05,
+              "effective_film_force_N": -0.0014762332371115253,
+              "estimated_charge_pC": 0.03395336445356508,
+              "charge_amp_V_assumed": 0.0004702564167513956,
+              "mechanical_energy_Nmm": 6.751594388827449e-08,
+              "shear_lag_transfer": 0.3203909606581811
+            },
+            {
+              "film_index": 3,
+              "member_index": 6,
+              "effective_strain": 1.1638618710428644e-05,
+              "max_abs_effective_strain": 1.3560456379465386e-05,
+              "effective_film_force_N": 0.000740812941293599,
+              "estimated_charge_pC": -0.017038697649752778,
+              "charge_amp_V_assumed": -0.00023598712621958896,
+              "mechanical_energy_Nmm": 1.4871105633340512e-08,
+              "shear_lag_transfer": 0.3203909606581811
+            }
+          ],
+          "max_abs_effective_film_strain": 3.378105384998516e-05,
+          "total_laminate_energy_Nmm": 1.6216726670286e-07,
+          "total_estimated_charge_pC": 0.03477012606123517,
+          "film_mass_g": 0.002387107979579324,
+          "adhesive_mass_g": 0.0013247881689067737
+        },
+        "force_equilibrium_relative": 0.0,
+        "moment_equilibrium_relative": 0.0,
+        "free_residual_relative": 0.0,
+        "solver_mode": "direct_sparse",
+        "cg_iterations": 0,
+        "compute_device": "cpu",
+        "solve_s": 0.0021122
+      },
+      "torsion_z": {
+        "load_force_N": [
+          0.0,
+          0.0,
+          -0.04
+        ],
+        "offset_mm": [
+          0.0,
+          0.0
+        ],
+        "torque_z_Nmm": 0.02,
+        "loaded_nodes": 8,
+        "contact_patch_radius_used_mm": 3.1,
+        "contact_patch_mode": "requested",
+        "mean_contact_displacement_mm": [
+          -0.0002847954438996419,
+          -7.480983617129617e-05,
+          -0.04077824668866746
+        ],
+        "mean_down_mm": 0.0407782,
+        "max_displacement_mm": 0.0629807,
+        "max_principal_strain": 0.0037723,
+        "max_abs_principal_strain": 0.0072914,
+        "max_von_mises_MPa": 0.0063534,
+        "energy_Nmm": 0.0008705,
+        "force_reaction_N": [
+          7.820146982230602e-17,
+          1.0190653388416487e-16,
+          0.04000000000000048
+        ],
+        "moment_reaction_Nmm": [
+          -7.071979720579824e-16,
+          7.787282103877136e-17,
+          -0.020000000000000132
+        ],
+        "pvdf_stiffness_included": true,
+        "pvdf_adhesive_model": "embedded_membrane_shear_lag",
+        "laminate_energy_Nmm": 0.0,
+        "substrate_energy_Nmm": 0.0008705,
+        "pvdf_laminate_response": {
+          "film_count": 4,
+          "per_film": [
+            {
+              "film_index": 0,
+              "member_index": 8,
+              "effective_strain": -5.236582193829005e-06,
+              "max_abs_effective_strain": 8.52691142948735e-06,
+              "effective_film_force_N": -0.0004616914278521948,
+              "estimated_charge_pC": 0.01061890284060048,
+              "charge_amp_V_assumed": 0.00014707252963049651,
+              "mechanical_energy_Nmm": 6.2211703550248365e-09,
+              "shear_lag_transfer": 0.5643523069291866
+            },
+            {
+              "film_index": 1,
+              "member_index": 11,
+              "effective_strain": 1.716994773103988e-06,
+              "max_abs_effective_strain": 1.7161341108178708e-05,
+              "effective_film_force_N": 0.00012968588317604447,
+              "estimated_charge_pC": -0.002982775313049023,
+              "charge_amp_V_assumed": -4.1311641814090574e-05,
+              "mechanical_energy_Nmm": 2.690957989686516e-08,
+              "shear_lag_transfer": 0.5628855605927228
+            },
+            {
+              "film_index": 2,
+              "member_index": 2,
+              "effective_strain": -9.852130588231386e-07,
+              "max_abs_effective_strain": 7.715471815836854e-06,
+              "effective_film_force_N": -6.271006912990903e-05,
+              "estimated_charge_pC": 0.0014423315899879077,
+              "charge_amp_V_assumed": 1.9976391034904913e-05,
+              "mechanical_energy_Nmm": 4.2548396358167725e-09,
+              "shear_lag_transfer": 0.3203909606581811
+            },
+            {
+              "film_index": 3,
+              "member_index": 6,
+              "effective_strain": -1.3824355168034764e-06,
+              "max_abs_effective_strain": 8.627061701089071e-06,
+              "effective_film_force_N": -8.799378576035523e-05,
+              "estimated_charge_pC": 0.0020238570724881704,
+              "charge_amp_V_assumed": 2.8030558686661327e-05,
+              "mechanical_energy_Nmm": 5.0137437646203136e-09,
+              "shear_lag_transfer": 0.3203909606581811
+            }
+          ],
+          "max_abs_effective_film_strain": 1.7161341108178708e-05,
+          "total_laminate_energy_Nmm": 4.239933365232633e-08,
+          "total_estimated_charge_pC": 0.011102316190027535,
+          "film_mass_g": 0.002387107979579324,
+          "adhesive_mass_g": 0.0013247881689067737
+        },
+        "force_equilibrium_relative": 0.0,
+        "moment_equilibrium_relative": 0.0,
+        "free_residual_relative": 0.0,
+        "solver_mode": "direct_sparse",
+        "cg_iterations": 0,
+        "compute_device": "cpu",
+        "solve_s": 0.0020247
+      }
+    },
+    "capacitance_delta_pF_assumed": {
+      "press_center": 0.06445135485065992,
+      "press_x_minus": 0.06056623642657096,
+      "press_x_plus": 0.06646276236811142,
+      "press_y_minus": 0.06420644255922005,
+      "press_y_plus": 0.06167329143984081,
+      "shear_x": 0.02282459911518831,
+      "shear_y": 0.022912605602851875,
+      "torsion_z": 0.023544033255579626
+    },
+    "fem_capacitor_assumption": {
+      "electrode_area_mm2": 7.67591,
+      "dielectric_gap_mm": 0.58561,
+      "dielectric_eps_r_assumed": 2.71047,
+      "note": "Top-pad FEM displacement is NOT resolved capacitor-dielectric compression; synthetic gap transfer only."
+    },
+    "max_abs_principal_strain": 0.019157142499275033,
+    "pressure_uniformity": 0.9265269963073979,
+    "pressure_valid": true,
+    "force_equilibrium_max": 1.2921164325865467e-14,
+    "moment_equilibrium_max": 1.9014618567410927e-05,
+    "fem_score": 79.9713,
+    "feasible_linear": true,
+    "pvdf_stiffness_included": true,
+    "hybrid_stages": {
+      "architecture": "h09_kirigami_helix",
+      "interface_z_mm": 2.8520000000000003,
+      "lower_compression_mm": 0.0010847555042776008,
+      "upper_compression_mm": 0.03405338457847661,
+      "total_compression_mm": 0.03513814008275421,
+      "lower_compression_share": 0.030871170236184426,
+      "upper_compression_share": 0.9691288297638156,
+      "continuity_error_mm": 0.0,
+      "stage_response_rank_max3": 3,
+      "stage_response_condition": 1.7105060265912906,
+      "stage_response_singular_values": [
+        1.700064507116524,
+        1.4566921772529893,
+        0.9938956546703466
+      ],
+      "stage_displacements_by_load": {
+        "press_center": {
+          "lower_displacement_xyz_mm": [
+            5.9575878893782356e-05,
+            -2.2234268833269686e-05,
+            -0.0010847555042776008
+          ],
+          "upper_displacement_xyz_mm": [
+            -0.0007706722176047331,
+            -0.00017770255064538114,
+            -0.03405338457847661
+          ],
+          "total_displacement_xyz_mm": [
+            -0.0007110963387109507,
+            -0.00019993681947865082,
+            -0.03513814008275421
+          ]
+        },
+        "press_x_minus": {
+          "lower_displacement_xyz_mm": [
+            0.00010775909155591579,
+            -9.549954392382308e-05,
+            -0.0011467298243777117
+          ],
+          "upper_displacement_xyz_mm": [
+            0.005666922420300158,
+            0.0006654577106719576,
+            -0.03049457645942783
+          ],
+          "total_displacement_xyz_mm": [
+            0.005774681511856073,
+            0.0005699581667481346,
+            -0.03164130628380554
+          ]
+        },
+        "press_x_plus": {
+          "lower_displacement_xyz_mm": [
+            -2.453273063719471e-07,
+            5.6178296093960334e-05,
+            -0.0011385196306794628
+          ],
+          "upper_displacement_xyz_mm": [
+            -0.006892714565977042,
+            -0.000708842525487478,
+            -0.03274872580111634
+          ],
+          "total_displacement_xyz_mm": [
+            -0.006892959893283413,
+            -0.0006526642293935176,
+            -0.033887245431795804
+          ]
+        },
+        "press_y_minus": {
+          "lower_displacement_xyz_mm": [
+            -1.3396121448313681e-05,
+            5.229241796488563e-05,
+            -0.001135777525095326
+          ],
+          "upper_displacement_xyz_mm": [
+            -0.0035276909110587007,
+            0.010657665878434098,
+            -0.03214145791946095
+          ],
+          "total_displacement_xyz_mm": [
+            -0.0035410870325070145,
+            0.010709958296398984,
+            -0.033277235444556276
+          ]
+        },
+        "press_y_plus": {
+          "lower_displacement_xyz_mm": [
+            0.00012122215293648955,
+            -8.827990924777828e-05,
+            -0.001150025418394656
+          ],
+          "upper_displacement_xyz_mm": [
+            0.002255938174374193,
+            -0.010778470784094845,
+            -0.031196848044091886
+          ],
+          "total_displacement_xyz_mm": [
+            0.0023771603273106826,
+            -0.010866750693342623,
+            -0.03234687346248654
+          ]
+        },
+        "shear_x": {
+          "lower_displacement_xyz_mm": [
+            0.0016119896093743703,
+            -8.188995175738181e-05,
+            -0.00043894880187747066
+          ],
+          "upper_displacement_xyz_mm": [
+            0.02412869406614109,
+            -0.000641409876354994,
+            -0.013517687536156843
+          ],
+          "total_displacement_xyz_mm": [
+            0.02574068367551546,
+            -0.0007232998281123758,
+            -0.013956636338034314
+          ]
+        },
+        "shear_y": {
+          "lower_displacement_xyz_mm": [
+            3.1387147488564484e-06,
+            0.0015921485965629909,
+            -0.00044383404533541234
+          ],
+          "upper_displacement_xyz_mm": [
+            -0.0011491727107019022,
+            0.02434511872273985,
+            -0.013613706302081864
+          ],
+          "total_displacement_xyz_mm": [
+            -0.0011460339959530458,
+            0.02593726731930284,
+            -0.014057540347417278
+          ]
+        },
+        "torsion_z": {
+          "lower_displacement_xyz_mm": [
+            2.3624193013628527e-05,
+            -9.513101027723864e-06,
+            -0.0004179979510365213
+          ],
+          "upper_displacement_xyz_mm": [
+            -0.0002927838093060835,
+            -2.053695101893823e-05,
+            -0.013932120395843434
+          ],
+          "total_displacement_xyz_mm": [
+            -0.00026915961629245494,
+            -3.0050052046662094e-05,
+            -0.014350118346879956
+          ]
+        }
+      },
+      "midplane_sample_nodes": 153,
+      "upper_sample_nodes": 155,
+      "lower_sample_nodes": 153,
+      "readout_channels": {
+        "upper_dynamic": "PVDF (selected upper members)",
+        "lower_dynamic": "PVDF (selected lower members)",
+        "static": "two independently modeled capacitive electrodes (assumed)"
+      },
+      "source": "Connected HEX8 stage displacement samples and normalized 3-axis mechanical transfer; no sensor calibration",
+      "balance_score_0_100": 16.8426,
+      "mode_separation_score_0_100": 100.0
+    },
+    "pvdf_adhesive_model": "embedded_membrane_shear_lag",
+    "pvdf_film_count": 4,
+    "pvdf_total_laminate_energy_Nmm": 3.033293317368364e-07,
+    "pvdf_max_abs_effective_strain": 6.61644755981282e-05,
+    "pvdf_film_strain_guard": 1.0,
+    "pvdf_fraction_of_total_energy": 6.092077348186208e-05,
+    "pvdf_mean_dynamic_charge_pC_assumed": 0.05382924106135472,
+    "pvdf_mass_g_estimate": 0.002387107979579324,
+    "adhesive_mass_g_estimate": 0.0013247881689067737,
+    "laminate_shell": {
+      "model": "reduced_ribbon_shell_postprocess",
+      "coupling": "postprocessed_from_substrate_displacement",
+      "film_count": 4,
+      "poisson_ratio_assumed": 0.29,
+      "total_shell_energy_Nmm": 0.14019730531774127,
+      "total_estimated_charge_pC": 0.4536034062110623,
+      "max_eq_stress_MPa": 57.175219757165195,
+      "max_interfacial_shear_MPa": 0.24171846672379102,
+      "max_top_fiber_strain_abs": 0.023858356984037415,
+      "shell_score": 53.52387,
+      "feasible_shell_screen": true,
+      "warnings": [],
+      "per_film": [
+        {
+          "film_index": 0,
+          "member_index": 8,
+          "span_mm": 5.595694092595417,
+          "width_mm": 0.8029615792154011,
+          "thickness_mm": 0.08802807,
+          "membrane_strain_mean": -7.076124318417448e-05,
+          "membrane_strain_max_abs": 0.00023034799878507363,
+          "curvature_max_1_mm": 0.5368289679701563,
+          "top_fiber_strain_max_abs": 0.023858356984037415,
+          "top_stress_MPa_max_abs": 57.574491359790855,
+          "eq_stress_MPa_max_abs": 56.759363860389236,
+          "interfacial_shear_MPa_max_abs": 0.24171846672379102,
+          "shell_energy_Nmm": 0.050065319422263194,
+          "estimated_charge_pC": 0.2542593147262516,
+          "mesh": {
+            "vertices_mm": [
+              [
+                -2.786196,
+                -6.949729,
+                4.117661
+              ],
+              [
+                -2.350306,
+                -7.108987,
+                3.462387
+              ],
+              [
+                -2.324743,
+                -6.347408,
+                3.68675
+              ],
+              [
+                -1.802914,
+                -6.51487,
+                4.273605
+              ],
+              [
+                -3.471425,
+                -6.785272,
+                4.132619
+              ],
+              [
+                -3.125534,
+                -6.951384,
+                4.837965
+              ],
+              [
+                -3.399354,
+                -4.741161,
+                4.579515
+              ],
+              [
+                -3.145088,
+                -4.913516,
+                5.321398
+              ]
+            ],
+            "faces": [
+              [
+                0,
+                2,
+                1
+              ],
+              [
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                4,
+                3
+              ],
+              [
+                3,
+                4,
+                5
+              ],
+              [
+                4,
+                6,
+                5
+              ],
+              [
+                5,
+                6,
+                7
+              ]
+            ],
+            "displacement_mm": [
+              [
+                -0.00082577,
+                -0.00227249,
+                0.00038982
+              ],
+              [
+                -0.00082577,
+                -0.00227249,
+                0.00038982
+              ],
+              [
+                -0.00065167,
+                -0.00229876,
+                -0.00077847
+              ],
+              [
+                -0.00065167,
+                -0.00229876,
+                -0.00077847
+              ],
+              [
+                -0.00029645,
+                -0.00144519,
+                0.00088431
+              ],
+              [
+                -0.00029645,
+                -0.00144519,
+                0.00088431
+              ],
+              [
+                -0.00132345,
+                -0.00062797,
+                -0.00235958
+              ],
+              [
+                -0.00132345,
+                -0.00062797,
+                -0.00235958
+              ]
+            ],
+            "field": [
+              56.46430153,
+              56.46430153,
+              56.75936386,
+              56.75936386,
+              36.08480609,
+              36.08480609,
+              36.10451222,
+              36.10451222
+            ]
+          }
+        },
+        {
+          "film_index": 1,
+          "member_index": 11,
+          "span_mm": 5.579033880605571,
+          "width_mm": 0.6896755124904658,
+          "thickness_mm": 0.08802807,
+          "membrane_strain_mean": 4.215261488527309e-05,
+          "membrane_strain_max_abs": 0.0001205341896783698,
+          "curvature_max_1_mm": 0.5355608295058291,
+          "top_fiber_strain_max_abs": 0.023692727284176963,
+          "top_stress_MPa_max_abs": 57.1747972094384,
+          "eq_stress_MPa_max_abs": 57.175219757165195,
+          "interfacial_shear_MPa_max_abs": 0.12690986266855317,
+          "shell_energy_Nmm": 0.057897793896796515,
+          "estimated_charge_pC": -0.13009361430004907,
+          "mesh": {
+            "vertices_mm": [
+              [
+                3.408754,
+                6.340778,
+                3.444544
+              ],
+              [
+                2.881774,
+                6.597003,
+                3.080822
+              ],
+              [
+                3.066219,
+                6.678428,
+                4.109057
+              ],
+              [
+                2.42953,
+                6.935451,
+                4.04411
+              ],
+              [
+                2.72606,
+                5.50427,
+                4.76637
+              ],
+              [
+                2.576126,
+                5.576017,
+                4.097024
+              ],
+              [
+                1.379345,
+                5.92529,
+                4.621163
+              ],
+              [
+                1.458568,
+                5.906287,
+                3.936316
+              ]
+            ],
+            "faces": [
+              [
+                0,
+                2,
+                1
+              ],
+              [
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                4,
+                3
+              ],
+              [
+                3,
+                4,
+                5
+              ],
+              [
+                4,
+                6,
+                5
+              ],
+              [
+                5,
+                6,
+                7
+              ]
+            ],
+            "displacement_mm": [
+              [
+                0.00083522,
+                0.00250519,
+                -0.00058834
+              ],
+              [
+                0.00083522,
+                0.00250519,
+                -0.00058834
+              ],
+              [
+                0.00072551,
+                0.00192943,
+                -0.00026462
+              ],
+              [
+                0.00072551,
+                0.00192943,
+                -0.00026462
+              ],
+              [
+                0.0007953,
+                0.00147278,
+                -0.00234953
+              ],
+              [
+                0.0007953,
+                0.00147278,
+                -0.00234953
+              ],
+              [
+                0.00096971,
+                0.00236636,
+                -0.00216888
+              ],
+              [
+                0.00096971,
+                0.00236636,
+                -0.00216888
+              ]
+            ],
+            "field": [
+              57.17521976,
+              57.17521976,
+              56.91400891,
+              56.91400891,
+              56.22091529,
+              56.22091529,
+              56.40345098,
+              56.40345098
+            ]
+          }
+        },
+        {
+          "film_index": 2,
+          "member_index": 2,
+          "span_mm": 3.375647390121887,
+          "width_mm": 1.0210994650078773,
+          "thickness_mm": 0.08802807,
+          "membrane_strain_mean": -3.631594527854417e-05,
+          "membrane_strain_max_abs": 4.289271916227736e-05,
+          "curvature_max_1_mm": 0.22685306226346091,
+          "top_fiber_strain_max_abs": 0.010027611341483425,
+          "top_stress_MPa_max_abs": 24.198423341802105,
+          "eq_stress_MPa_max_abs": 24.02329755700941,
+          "interfacial_shear_MPa_max_abs": 0.07021545174073629,
+          "shell_energy_Nmm": 0.016117559823980693,
+          "estimated_charge_pC": 0.16594037005058448,
+          "mesh": {
+            "vertices_mm": [
+              [
+                -0.62319,
+                6.967235,
+                1.567045
+              ],
+              [
+                -0.994689,
+                6.923967,
+                0.616907
+              ],
+              [
+                -1.916929,
+                5.922867,
+                2.106167
+              ],
+              [
+                -2.438255,
+                5.727992,
+                1.250078
+              ],
+              [
+                -1.915667,
+                4.891404,
+                2.799081
+              ],
+              [
+                -2.663167,
+                4.528041,
+                2.205907
+              ]
+            ],
+            "faces": [
+              [
+                0,
+                2,
+                1
+              ],
+              [
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                4,
+                3
+              ],
+              [
+                3,
+                4,
+                5
+              ]
+            ],
+            "displacement_mm": [
+              [
+                -9.671e-05,
+                0.00096296,
+                -0.00029554
+              ],
+              [
+                -9.671e-05,
+                0.00096296,
+                -0.00029554
+              ],
+              [
+                -0.000308,
+                0.00122329,
+                -0.00054557
+              ],
+              [
+                -0.000308,
+                0.00122329,
+                -0.00054557
+              ],
+              [
+                -0.00077265,
+                0.00131562,
+                -0.00055364
+              ],
+              [
+                -0.00077265,
+                0.00131562,
+                -0.00055364
+              ]
+            ],
+            "field": [
+              23.99171595,
+              23.99171595,
+              24.00749946,
+              24.00749946,
+              24.02329756,
+              24.02329756
+            ]
+          }
+        },
+        {
+          "film_index": 3,
+          "member_index": 6,
+          "span_mm": 3.3756473901218866,
+          "width_mm": 1.0210994650078773,
+          "thickness_mm": 0.08802807,
+          "membrane_strain_mean": -3.5781288759954724e-05,
+          "membrane_strain_max_abs": 4.707825816588863e-05,
+          "curvature_max_1_mm": 0.22684636417722617,
+          "top_fiber_strain_max_abs": 0.010031502070685068,
+          "top_stress_MPa_max_abs": 24.20781236867236,
+          "eq_stress_MPa_max_abs": 24.03521930133174,
+          "interfacial_shear_MPa_max_abs": 0.07706718596642516,
+          "shell_energy_Nmm": 0.016116632174700867,
+          "estimated_charge_pC": 0.16349733573427533,
+          "mesh": {
+            "vertices_mm": [
+              [
+                0.62319,
+                -6.967235,
+                1.567045
+              ],
+              [
+                0.994689,
+                -6.923967,
+                0.616907
+              ],
+              [
+                1.916929,
+                -5.922867,
+                2.106167
+              ],
+              [
+                2.438255,
+                -5.727992,
+                1.250078
+              ],
+              [
+                1.915667,
+                -4.891404,
+                2.799081
+              ],
+              [
+                2.663167,
+                -4.528041,
+                2.205907
+              ]
+            ],
+            "faces": [
+              [
+                0,
+                2,
+                1
+              ],
+              [
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                4,
+                3
+              ],
+              [
+                3,
+                4,
+                5
+              ]
+            ],
+            "displacement_mm": [
+              [
+                0.00011221,
+                -0.00097623,
+                -0.00035427
+              ],
+              [
+                0.00011221,
+                -0.00097623,
+                -0.00035427
+              ],
+              [
+                0.00032099,
+                -0.00121434,
+                -0.00066571
+              ],
+              [
+                0.00032099,
+                -0.00121434,
+                -0.00066571
+              ],
+              [
+                0.00082155,
+                -0.00125601,
+                -0.00073489
+              ],
+              [
+                0.00082155,
+                -0.00125601,
+                -0.00073489
+              ]
+            ],
+            "field": [
+              23.98096733,
+              23.98096733,
+              24.00807179,
+              24.00807179,
+              24.0352193,
+              24.0352193
+            ]
+          }
+        }
+      ],
+      "graphics": {
+        "mode": "ribbon_mesh3d",
+        "field_name": "eq_stress_MPa",
+        "deformation_embedded": true,
+        "films": [
+          {
+            "film_index": 0,
+            "member_index": 8,
+            "name": "PVDF film 1",
+            "vertices_mm": [
+              [
+                -2.786196,
+                -6.949729,
+                4.117661
+              ],
+              [
+                -2.350306,
+                -7.108987,
+                3.462387
+              ],
+              [
+                -2.324743,
+                -6.347408,
+                3.68675
+              ],
+              [
+                -1.802914,
+                -6.51487,
+                4.273605
+              ],
+              [
+                -3.471425,
+                -6.785272,
+                4.132619
+              ],
+              [
+                -3.125534,
+                -6.951384,
+                4.837965
+              ],
+              [
+                -3.399354,
+                -4.741161,
+                4.579515
+              ],
+              [
+                -3.145088,
+                -4.913516,
+                5.321398
+              ]
+            ],
+            "faces": [
+              [
+                0,
+                2,
+                1
+              ],
+              [
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                4,
+                3
+              ],
+              [
+                3,
+                4,
+                5
+              ],
+              [
+                4,
+                6,
+                5
+              ],
+              [
+                5,
+                6,
+                7
+              ]
+            ],
+            "displacement_mm": [
+              [
+                -0.00082577,
+                -0.00227249,
+                0.00038982
+              ],
+              [
+                -0.00082577,
+                -0.00227249,
+                0.00038982
+              ],
+              [
+                -0.00065167,
+                -0.00229876,
+                -0.00077847
+              ],
+              [
+                -0.00065167,
+                -0.00229876,
+                -0.00077847
+              ],
+              [
+                -0.00029645,
+                -0.00144519,
+                0.00088431
+              ],
+              [
+                -0.00029645,
+                -0.00144519,
+                0.00088431
+              ],
+              [
+                -0.00132345,
+                -0.00062797,
+                -0.00235958
+              ],
+              [
+                -0.00132345,
+                -0.00062797,
+                -0.00235958
+              ]
+            ],
+            "field": [
+              56.46430153,
+              56.46430153,
+              56.75936386,
+              56.75936386,
+              36.08480609,
+              36.08480609,
+              36.10451222,
+              36.10451222
+            ]
+          },
+          {
+            "film_index": 1,
+            "member_index": 11,
+            "name": "PVDF film 2",
+            "vertices_mm": [
+              [
+                3.408754,
+                6.340778,
+                3.444544
+              ],
+              [
+                2.881774,
+                6.597003,
+                3.080822
+              ],
+              [
+                3.066219,
+                6.678428,
+                4.109057
+              ],
+              [
+                2.42953,
+                6.935451,
+                4.04411
+              ],
+              [
+                2.72606,
+                5.50427,
+                4.76637
+              ],
+              [
+                2.576126,
+                5.576017,
+                4.097024
+              ],
+              [
+                1.379345,
+                5.92529,
+                4.621163
+              ],
+              [
+                1.458568,
+                5.906287,
+                3.936316
+              ]
+            ],
+            "faces": [
+              [
+                0,
+                2,
+                1
+              ],
+              [
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                4,
+                3
+              ],
+              [
+                3,
+                4,
+                5
+              ],
+              [
+                4,
+                6,
+                5
+              ],
+              [
+                5,
+                6,
+                7
+              ]
+            ],
+            "displacement_mm": [
+              [
+                0.00083522,
+                0.00250519,
+                -0.00058834
+              ],
+              [
+                0.00083522,
+                0.00250519,
+                -0.00058834
+              ],
+              [
+                0.00072551,
+                0.00192943,
+                -0.00026462
+              ],
+              [
+                0.00072551,
+                0.00192943,
+                -0.00026462
+              ],
+              [
+                0.0007953,
+                0.00147278,
+                -0.00234953
+              ],
+              [
+                0.0007953,
+                0.00147278,
+                -0.00234953
+              ],
+              [
+                0.00096971,
+                0.00236636,
+                -0.00216888
+              ],
+              [
+                0.00096971,
+                0.00236636,
+                -0.00216888
+              ]
+            ],
+            "field": [
+              57.17521976,
+              57.17521976,
+              56.91400891,
+              56.91400891,
+              56.22091529,
+              56.22091529,
+              56.40345098,
+              56.40345098
+            ]
+          },
+          {
+            "film_index": 2,
+            "member_index": 2,
+            "name": "PVDF film 3",
+            "vertices_mm": [
+              [
+                -0.62319,
+                6.967235,
+                1.567045
+              ],
+              [
+                -0.994689,
+                6.923967,
+                0.616907
+              ],
+              [
+                -1.916929,
+                5.922867,
+                2.106167
+              ],
+              [
+                -2.438255,
+                5.727992,
+                1.250078
+              ],
+              [
+                -1.915667,
+                4.891404,
+                2.799081
+              ],
+              [
+                -2.663167,
+                4.528041,
+                2.205907
+              ]
+            ],
+            "faces": [
+              [
+                0,
+                2,
+                1
+              ],
+              [
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                4,
+                3
+              ],
+              [
+                3,
+                4,
+                5
+              ]
+            ],
+            "displacement_mm": [
+              [
+                -9.671e-05,
+                0.00096296,
+                -0.00029554
+              ],
+              [
+                -9.671e-05,
+                0.00096296,
+                -0.00029554
+              ],
+              [
+                -0.000308,
+                0.00122329,
+                -0.00054557
+              ],
+              [
+                -0.000308,
+                0.00122329,
+                -0.00054557
+              ],
+              [
+                -0.00077265,
+                0.00131562,
+                -0.00055364
+              ],
+              [
+                -0.00077265,
+                0.00131562,
+                -0.00055364
+              ]
+            ],
+            "field": [
+              23.99171595,
+              23.99171595,
+              24.00749946,
+              24.00749946,
+              24.02329756,
+              24.02329756
+            ]
+          },
+          {
+            "film_index": 3,
+            "member_index": 6,
+            "name": "PVDF film 4",
+            "vertices_mm": [
+              [
+                0.62319,
+                -6.967235,
+                1.567045
+              ],
+              [
+                0.994689,
+                -6.923967,
+                0.616907
+              ],
+              [
+                1.916929,
+                -5.922867,
+                2.106167
+              ],
+              [
+                2.438255,
+                -5.727992,
+                1.250078
+              ],
+              [
+                1.915667,
+                -4.891404,
+                2.799081
+              ],
+              [
+                2.663167,
+                -4.528041,
+                2.205907
+              ]
+            ],
+            "faces": [
+              [
+                0,
+                2,
+                1
+              ],
+              [
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                4,
+                3
+              ],
+              [
+                3,
+                4,
+                5
+              ]
+            ],
+            "displacement_mm": [
+              [
+                0.00011221,
+                -0.00097623,
+                -0.00035427
+              ],
+              [
+                0.00011221,
+                -0.00097623,
+                -0.00035427
+              ],
+              [
+                0.00032099,
+                -0.00121434,
+                -0.00066571
+              ],
+              [
+                0.00032099,
+                -0.00121434,
+                -0.00066571
+              ],
+              [
+                0.00082155,
+                -0.00125601,
+                -0.00073489
+              ],
+              [
+                0.00082155,
+                -0.00125601,
+                -0.00073489
+              ]
+            ],
+            "field": [
+              23.98096733,
+              23.98096733,
+              24.00807179,
+              24.00807179,
+              24.0352193,
+              24.0352193
+            ]
+          }
+        ],
+        "note": "Reduced ribbon-shell visualization for PVDF strips; geometry follows the solved substrate displacement field."
+      },
+      "limitations": [
+        "Post-processed thin-ribbon shell, not a fully coupled shell-solid contact solve",
+        "Adhesive enters via reduced shear-lag transfer and an interfacial shear proxy",
+        "No peel, delamination, electrode layers, nonlinear material law or electric-field feedback"
+      ]
+    },
+    "laminate_shell_inspection": null,
+    "notes": [
+      "Real 3-D linear HEX8 displacement/strain/stress solve on voxelized struts",
+      "Voxel-inflated thin members; verify pitch convergence",
+      "Larger strains require hyperelasticity and contact",
+      "Electrical capacitance is a separate parallel-plate estimate using FEM displacement, not coupled field FEM",
+      "PVDF is mechanically embedded in the primary solve as an effective axial membrane with approximate adhesive shear-lag. A final reduced ribbon-shell post-process is also reported, but it is still not a fully coupled film+bond shell/solid multiphysics solve."
+    ]
+  },
+  "audited_surrogate_score": 25.31694,
+  "audited_surrogate_feasible": false,
+  "validation_level": "linear_continuum_fem_plus_synthetic_electronics",
+  "laminate_shell": {
+    "model": "reduced_ribbon_shell_postprocess",
+    "coupling": "postprocessed_from_substrate_displacement",
+    "film_count": 4,
+    "poisson_ratio_assumed": 0.29,
+    "total_shell_energy_Nmm": 0.14019730531774127,
+    "total_estimated_charge_pC": 0.4536034062110623,
+    "max_eq_stress_MPa": 57.175219757165195,
+    "max_interfacial_shear_MPa": 0.24171846672379102,
+    "max_top_fiber_strain_abs": 0.023858356984037415,
+    "shell_score": 53.52387,
+    "feasible_shell_screen": true,
+    "warnings": [],
+    "per_film": [
+      {
+        "film_index": 0,
+        "member_index": 8,
+        "span_mm": 5.595694092595417,
+        "width_mm": 0.8029615792154011,
+        "thickness_mm": 0.08802807,
+        "membrane_strain_mean": -7.076124318417448e-05,
+        "membrane_strain_max_abs": 0.00023034799878507363,
+        "curvature_max_1_mm": 0.5368289679701563,
+        "top_fiber_strain_max_abs": 0.023858356984037415,
+        "top_stress_MPa_max_abs": 57.574491359790855,
+        "eq_stress_MPa_max_abs": 56.759363860389236,
+        "interfacial_shear_MPa_max_abs": 0.24171846672379102,
+        "shell_energy_Nmm": 0.050065319422263194,
+        "estimated_charge_pC": 0.2542593147262516,
+        "mesh": {
+          "vertices_mm": [
+            [
+              -2.786196,
+              -6.949729,
+              4.117661
+            ],
+            [
+              -2.350306,
+              -7.108987,
+              3.462387
+            ],
+            [
+              -2.324743,
+              -6.347408,
+              3.68675
+            ],
+            [
+              -1.802914,
+              -6.51487,
+              4.273605
+            ],
+            [
+              -3.471425,
+              -6.785272,
+              4.132619
+            ],
+            [
+              -3.125534,
+              -6.951384,
+              4.837965
+            ],
+            [
+              -3.399354,
+              -4.741161,
+              4.579515
+            ],
+            [
+              -3.145088,
+              -4.913516,
+              5.321398
+            ]
+          ],
+          "faces": [
+            [
+              0,
+              2,
+              1
+            ],
+            [
+              1,
+              2,
+              3
+            ],
+            [
+              2,
+              4,
+              3
+            ],
+            [
+              3,
+              4,
+              5
+            ],
+            [
+              4,
+              6,
+              5
+            ],
+            [
+              5,
+              6,
+              7
+            ]
+          ],
+          "displacement_mm": [
+            [
+              -0.00082577,
+              -0.00227249,
+              0.00038982
+            ],
+            [
+              -0.00082577,
+              -0.00227249,
+              0.00038982
+            ],
+            [
+              -0.00065167,
+              -0.00229876,
+              -0.00077847
+            ],
+            [
+              -0.00065167,
+              -0.00229876,
+              -0.00077847
+            ],
+            [
+              -0.00029645,
+              -0.00144519,
+              0.00088431
+            ],
+            [
+              -0.00029645,
+              -0.00144519,
+              0.00088431
+            ],
+            [
+              -0.00132345,
+              -0.00062797,
+              -0.00235958
+            ],
+            [
+              -0.00132345,
+              -0.00062797,
+              -0.00235958
+            ]
+          ],
+          "field": [
+            56.46430153,
+            56.46430153,
+            56.75936386,
+            56.75936386,
+            36.08480609,
+            36.08480609,
+            36.10451222,
+            36.10451222
+          ]
+        }
+      },
+      {
+        "film_index": 1,
+        "member_index": 11,
+        "span_mm": 5.579033880605571,
+        "width_mm": 0.6896755124904658,
+        "thickness_mm": 0.08802807,
+        "membrane_strain_mean": 4.215261488527309e-05,
+        "membrane_strain_max_abs": 0.0001205341896783698,
+        "curvature_max_1_mm": 0.5355608295058291,
+        "top_fiber_strain_max_abs": 0.023692727284176963,
+        "top_stress_MPa_max_abs": 57.1747972094384,
+        "eq_stress_MPa_max_abs": 57.175219757165195,
+        "interfacial_shear_MPa_max_abs": 0.12690986266855317,
+        "shell_energy_Nmm": 0.057897793896796515,
+        "estimated_charge_pC": -0.13009361430004907,
+        "mesh": {
+          "vertices_mm": [
+            [
+              3.408754,
+              6.340778,
+              3.444544
+            ],
+            [
+              2.881774,
+              6.597003,
+              3.080822
+            ],
+            [
+              3.066219,
+              6.678428,
+              4.109057
+            ],
+            [
+              2.42953,
+              6.935451,
+              4.04411
+            ],
+            [
+              2.72606,
+              5.50427,
+              4.76637
+            ],
+            [
+              2.576126,
+              5.576017,
+              4.097024
+            ],
+            [
+              1.379345,
+              5.92529,
+              4.621163
+            ],
+            [
+              1.458568,
+              5.906287,
+              3.936316
+            ]
+          ],
+          "faces": [
+            [
+              0,
+              2,
+              1
+            ],
+            [
+              1,
+              2,
+              3
+            ],
+            [
+              2,
+              4,
+              3
+            ],
+            [
+              3,
+              4,
+              5
+            ],
+            [
+              4,
+              6,
+              5
+            ],
+            [
+              5,
+              6,
+              7
+            ]
+          ],
+          "displacement_mm": [
+            [
+              0.00083522,
+              0.00250519,
+              -0.00058834
+            ],
+            [
+              0.00083522,
+              0.00250519,
+              -0.00058834
+            ],
+            [
+              0.00072551,
+              0.00192943,
+              -0.00026462
+            ],
+            [
+              0.00072551,
+              0.00192943,
+              -0.00026462
+            ],
+            [
+              0.0007953,
+              0.00147278,
+              -0.00234953
+            ],
+            [
+              0.0007953,
+              0.00147278,
+              -0.00234953
+            ],
+            [
+              0.00096971,
+              0.00236636,
+              -0.00216888
+            ],
+            [
+              0.00096971,
+              0.00236636,
+              -0.00216888
+            ]
+          ],
+          "field": [
+            57.17521976,
+            57.17521976,
+            56.91400891,
+            56.91400891,
+            56.22091529,
+            56.22091529,
+            56.40345098,
+            56.40345098
+          ]
+        }
+      },
+      {
+        "film_index": 2,
+        "member_index": 2,
+        "span_mm": 3.375647390121887,
+        "width_mm": 1.0210994650078773,
+        "thickness_mm": 0.08802807,
+        "membrane_strain_mean": -3.631594527854417e-05,
+        "membrane_strain_max_abs": 4.289271916227736e-05,
+        "curvature_max_1_mm": 0.22685306226346091,
+        "top_fiber_strain_max_abs": 0.010027611341483425,
+        "top_stress_MPa_max_abs": 24.198423341802105,
+        "eq_stress_MPa_max_abs": 24.02329755700941,
+        "interfacial_shear_MPa_max_abs": 0.07021545174073629,
+        "shell_energy_Nmm": 0.016117559823980693,
+        "estimated_charge_pC": 0.16594037005058448,
+        "mesh": {
+          "vertices_mm": [
+            [
+              -0.62319,
+              6.967235,
+              1.567045
+            ],
+            [
+              -0.994689,
+              6.923967,
+              0.616907
+            ],
+            [
+              -1.916929,
+              5.922867,
+              2.106167
+            ],
+            [
+              -2.438255,
+              5.727992,
+              1.250078
+            ],
+            [
+              -1.915667,
+              4.891404,
+              2.799081
+            ],
+            [
+              -2.663167,
+              4.528041,
+              2.205907
+            ]
+          ],
+          "faces": [
+            [
+              0,
+              2,
+              1
+            ],
+            [
+              1,
+              2,
+              3
+            ],
+            [
+              2,
+              4,
+              3
+            ],
+            [
+              3,
+              4,
+              5
+            ]
+          ],
+          "displacement_mm": [
+            [
+              -9.671e-05,
+              0.00096296,
+              -0.00029554
+            ],
+            [
+              -9.671e-05,
+              0.00096296,
+              -0.00029554
+            ],
+            [
+              -0.000308,
+              0.00122329,
+              -0.00054557
+            ],
+            [
+              -0.000308,
+              0.00122329,
+              -0.00054557
+            ],
+            [
+              -0.00077265,
+              0.00131562,
+              -0.00055364
+            ],
+            [
+              -0.00077265,
+              0.00131562,
+              -0.00055364
+            ]
+          ],
+          "field": [
+            23.99171595,
+            23.99171595,
+            24.00749946,
+            24.00749946,
+            24.02329756,
+            24.02329756
+          ]
+        }
+      },
+      {
+        "film_index": 3,
+        "member_index": 6,
+        "span_mm": 3.3756473901218866,
+        "width_mm": 1.0210994650078773,
+        "thickness_mm": 0.08802807,
+        "membrane_strain_mean": -3.5781288759954724e-05,
+        "membrane_strain_max_abs": 4.707825816588863e-05,
+        "curvature_max_1_mm": 0.22684636417722617,
+        "top_fiber_strain_max_abs": 0.010031502070685068,
+        "top_stress_MPa_max_abs": 24.20781236867236,
+        "eq_stress_MPa_max_abs": 24.03521930133174,
+        "interfacial_shear_MPa_max_abs": 0.07706718596642516,
+        "shell_energy_Nmm": 0.016116632174700867,
+        "estimated_charge_pC": 0.16349733573427533,
+        "mesh": {
+          "vertices_mm": [
+            [
+              0.62319,
+              -6.967235,
+              1.567045
+            ],
+            [
+              0.994689,
+              -6.923967,
+              0.616907
+            ],
+            [
+              1.916929,
+              -5.922867,
+              2.106167
+            ],
+            [
+              2.438255,
+              -5.727992,
+              1.250078
+            ],
+            [
+              1.915667,
+              -4.891404,
+              2.799081
+            ],
+            [
+              2.663167,
+              -4.528041,
+              2.205907
+            ]
+          ],
+          "faces": [
+            [
+              0,
+              2,
+              1
+            ],
+            [
+              1,
+              2,
+              3
+            ],
+            [
+              2,
+              4,
+              3
+            ],
+            [
+              3,
+              4,
+              5
+            ]
+          ],
+          "displacement_mm": [
+            [
+              0.00011221,
+              -0.00097623,
+              -0.00035427
+            ],
+            [
+              0.00011221,
+              -0.00097623,
+              -0.00035427
+            ],
+            [
+              0.00032099,
+              -0.00121434,
+              -0.00066571
+            ],
+            [
+              0.00032099,
+              -0.00121434,
+              -0.00066571
+            ],
+            [
+              0.00082155,
+              -0.00125601,
+              -0.00073489
+            ],
+            [
+              0.00082155,
+              -0.00125601,
+              -0.00073489
+            ]
+          ],
+          "field": [
+            23.98096733,
+            23.98096733,
+            24.00807179,
+            24.00807179,
+            24.0352193,
+            24.0352193
+          ]
+        }
+      }
+    ],
+    "graphics": {
+      "mode": "ribbon_mesh3d",
+      "field_name": "eq_stress_MPa",
+      "deformation_embedded": true,
+      "films": [
+        {
+          "film_index": 0,
+          "member_index": 8,
+          "name": "PVDF film 1",
+          "vertices_mm": [
+            [
+              -2.786196,
+              -6.949729,
+              4.117661
+            ],
+            [
+              -2.350306,
+              -7.108987,
+              3.462387
+            ],
+            [
+              -2.324743,
+              -6.347408,
+              3.68675
+            ],
+            [
+              -1.802914,
+              -6.51487,
+              4.273605
+            ],
+            [
+              -3.471425,
+              -6.785272,
+              4.132619
+            ],
+            [
+              -3.125534,
+              -6.951384,
+              4.837965
+            ],
+            [
+              -3.399354,
+              -4.741161,
+              4.579515
+            ],
+            [
+              -3.145088,
+              -4.913516,
+              5.321398
+            ]
+          ],
+          "faces": [
+            [
+              0,
+              2,
+              1
+            ],
+            [
+              1,
+              2,
+              3
+            ],
+            [
+              2,
+              4,
+              3
+            ],
+            [
+              3,
+              4,
+              5
+            ],
+            [
+              4,
+              6,
+              5
+            ],
+            [
+              5,
+              6,
+              7
+            ]
+          ],
+          "displacement_mm": [
+            [
+              -0.00082577,
+              -0.00227249,
+              0.00038982
+            ],
+            [
+              -0.00082577,
+              -0.00227249,
+              0.00038982
+            ],
+            [
+              -0.00065167,
+              -0.00229876,
+              -0.00077847
+            ],
+            [
+              -0.00065167,
+              -0.00229876,
+              -0.00077847
+            ],
+            [
+              -0.00029645,
+              -0.00144519,
+              0.00088431
+            ],
+            [
+              -0.00029645,
+              -0.00144519,
+              0.00088431
+            ],
+            [
+              -0.00132345,
+              -0.00062797,
+              -0.00235958
+            ],
+            [
+              -0.00132345,
+              -0.00062797,
+              -0.00235958
+            ]
+          ],
+          "field": [
+            56.46430153,
+            56.46430153,
+            56.75936386,
+            56.75936386,
+            36.08480609,
+            36.08480609,
+            36.10451222,
+            36.10451222
+          ]
+        },
+        {
+          "film_index": 1,
+          "member_index": 11,
+          "name": "PVDF film 2",
+          "vertices_mm": [
+            [
+              3.408754,
+              6.340778,
+              3.444544
+            ],
+            [
+              2.881774,
+              6.597003,
+              3.080822
+            ],
+            [
+              3.066219,
+              6.678428,
+              4.109057
+            ],
+            [
+              2.42953,
+              6.935451,
+              4.04411
+            ],
+            [
+              2.72606,
+              5.50427,
+              4.76637
+            ],
+            [
+              2.576126,
+              5.576017,
+              4.097024
+            ],
+            [
+              1.379345,
+              5.92529,
+              4.621163
+            ],
+            [
+              1.458568,
+              5.906287,
+              3.936316
+            ]
+          ],
+          "faces": [
+            [
+              0,
+              2,
+              1
+            ],
+            [
+              1,
+              2,
+              3
+            ],
+            [
+              2,
+              4,
+              3
+            ],
+            [
+              3,
+              4,
+              5
+            ],
+            [
+              4,
+              6,
+              5
+            ],
+            [
+              5,
+              6,
+              7
+            ]
+          ],
+          "displacement_mm": [
+            [
+              0.00083522,
+              0.00250519,
+              -0.00058834
+            ],
+            [
+              0.00083522,
+              0.00250519,
+              -0.00058834
+            ],
+            [
+              0.00072551,
+              0.00192943,
+              -0.00026462
+            ],
+            [
+              0.00072551,
+              0.00192943,
+              -0.00026462
+            ],
+            [
+              0.0007953,
+              0.00147278,
+              -0.00234953
+            ],
+            [
+              0.0007953,
+              0.00147278,
+              -0.00234953
+            ],
+            [
+              0.00096971,
+              0.00236636,
+              -0.00216888
+            ],
+            [
+              0.00096971,
+              0.00236636,
+              -0.00216888
+            ]
+          ],
+          "field": [
+            57.17521976,
+            57.17521976,
+            56.91400891,
+            56.91400891,
+            56.22091529,
+            56.22091529,
+            56.40345098,
+            56.40345098
+          ]
+        },
+        {
+          "film_index": 2,
+          "member_index": 2,
+          "name": "PVDF film 3",
+          "vertices_mm": [
+            [
+              -0.62319,
+              6.967235,
+              1.567045
+            ],
+            [
+              -0.994689,
+              6.923967,
+              0.616907
+            ],
+            [
+              -1.916929,
+              5.922867,
+              2.106167
+            ],
+            [
+              -2.438255,
+              5.727992,
+              1.250078
+            ],
+            [
+              -1.915667,
+              4.891404,
+              2.799081
+            ],
+            [
+              -2.663167,
+              4.528041,
+              2.205907
+            ]
+          ],
+          "faces": [
+            [
+              0,
+              2,
+              1
+            ],
+            [
+              1,
+              2,
+              3
+            ],
+            [
+              2,
+              4,
+              3
+            ],
+            [
+              3,
+              4,
+              5
+            ]
+          ],
+          "displacement_mm": [
+            [
+              -9.671e-05,
+              0.00096296,
+              -0.00029554
+            ],
+            [
+              -9.671e-05,
+              0.00096296,
+              -0.00029554
+            ],
+            [
+              -0.000308,
+              0.00122329,
+              -0.00054557
+            ],
+            [
+              -0.000308,
+              0.00122329,
+              -0.00054557
+            ],
+            [
+              -0.00077265,
+              0.00131562,
+              -0.00055364
+            ],
+            [
+              -0.00077265,
+              0.00131562,
+              -0.00055364
+            ]
+          ],
+          "field": [
+            23.99171595,
+            23.99171595,
+            24.00749946,
+            24.00749946,
+            24.02329756,
+            24.02329756
+          ]
+        },
+        {
+          "film_index": 3,
+          "member_index": 6,
+          "name": "PVDF film 4",
+          "vertices_mm": [
+            [
+              0.62319,
+              -6.967235,
+              1.567045
+            ],
+            [
+              0.994689,
+              -6.923967,
+              0.616907
+            ],
+            [
+              1.916929,
+              -5.922867,
+              2.106167
+            ],
+            [
+              2.438255,
+              -5.727992,
+              1.250078
+            ],
+            [
+              1.915667,
+              -4.891404,
+              2.799081
+            ],
+            [
+              2.663167,
+              -4.528041,
+              2.205907
+            ]
+          ],
+          "faces": [
+            [
+              0,
+              2,
+              1
+            ],
+            [
+              1,
+              2,
+              3
+            ],
+            [
+              2,
+              4,
+              3
+            ],
+            [
+              3,
+              4,
+              5
+            ]
+          ],
+          "displacement_mm": [
+            [
+              0.00011221,
+              -0.00097623,
+              -0.00035427
+            ],
+            [
+              0.00011221,
+              -0.00097623,
+              -0.00035427
+            ],
+            [
+              0.00032099,
+              -0.00121434,
+              -0.00066571
+            ],
+            [
+              0.00032099,
+              -0.00121434,
+              -0.00066571
+            ],
+            [
+              0.00082155,
+              -0.00125601,
+              -0.00073489
+            ],
+            [
+              0.00082155,
+              -0.00125601,
+              -0.00073489
+            ]
+          ],
+          "field": [
+            23.98096733,
+            23.98096733,
+            24.00807179,
+            24.00807179,
+            24.0352193,
+            24.0352193
+          ]
+        }
+      ],
+      "note": "Reduced ribbon-shell visualization for PVDF strips; geometry follows the solved substrate displacement field."
+    },
+    "limitations": [
+      "Post-processed thin-ribbon shell, not a fully coupled shell-solid contact solve",
+      "Adhesive enters via reduced shear-lag transfer and an interfacial shear proxy",
+      "No peel, delamination, electrode layers, nonlinear material law or electric-field feedback"
+    ]
+  }
+}

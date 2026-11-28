@@ -45,13 +45,26 @@ def transduction(family,genome,mechanics):
         arc=max(.1,float(np.linalg.norm(np.diff(path,axis=0),axis=1).sum()))
         chord=path[-1]-path[0]
         chord/=max(.001,np.linalg.norm(chord))
-        anchor=path[-1]-np.array([p('pad_offset_x',0.),p('pad_offset_y',0.),h])
-        displacement=u+np.cross(rot,anchor)
+        if 'stage_displacements_mm' in mechanics:
+            from hybrid_geometry import mid_height
+            mid=mid_height(genome)
+            stage='upper' if path[0,2]>mid-.25 else 'lower'
+            uv=np.asarray(mechanics['stage_displacements_mm'][stage],float)
+            rv=np.asarray(mechanics['stage_rotations_rad'][stage],float)
+            target_h=h if stage=='upper' else mid
+            anchor=path[-1]-np.array([p('pad_offset_x',0.),p('pad_offset_y',0.),target_h])
+            displacement=uv+np.cross(rv,anchor)
+            stage_rot=rv
+        else:
+            stage='single'
+            anchor=path[-1]-np.array([p('pad_offset_x',0.),p('pad_offset_y',0.),h])
+            displacement=u+np.cross(rot,anchor)
+            stage_rot=rot
         axial=float(np.dot(displacement,chord)/arc)
         transverse=float(np.linalg.norm(displacement-np.dot(displacement,chord)*chord))
         bending=2.0*transverse*thickness/(arc*arc)
         local_strain=axial*math.cos(orientation)+bending*math.sin(orientation)
-        local_strain+=(rot[1]*math.cos(orientation)-rot[0]*math.sin(orientation))*(thickness/arc)*(.2+.6*pos)
+        local_strain+=(stage_rot[1]*math.cos(orientation)-stage_rot[0]*math.sin(orientation))*(thickness/arc)*(.2+.6*pos)
         local_strain+=float(mechanics.get('substrate_strain',0.))*math.cos(orientation)**2
         _,_,film_lo,film_hi=film_interval(path,genome)
         bond=effective_film_properties(genome,film_hi-film_lo,float(paths[idx][1]))
@@ -63,7 +76,7 @@ def transduction(family,genome,mechanics):
         capacitance=EPS0_PF_MM*EPSR*width*length/max(thickness,.001)
         feedback=p('piezo_feedback_pf',100.)
         initial=charge/feedback
-        channels.append({'member_index':int(idx),'base_xy_mm':path[0,:2].round(5).tolist(),
+        channels.append({'member_index':int(idx),'stage':stage,'base_xy_mm':path[0,:2].round(5).tolist(),
             'strain_proxy':float(strain),'strain_over_2_percent':bool(abs(strain)>.02),
             'charge_pC':float(charge),'capacitance_pF':float(capacitance),
             'initial_charge_amplifier_V':float(initial),

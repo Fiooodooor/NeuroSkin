@@ -213,10 +213,34 @@ def promote(incumbent, finalists):
     if not pool:return None,{'reason':'no_finalist'}
     for x in pool:
         if not x.get('audit'):raise ValueError('Promotion requires completed audit for every candidate')
-    def rank(x):return (int(bool(x['audit']['feasible'])),float(x['audit']['audit_score']))
+    reports=[x['audit'].get('validation_v30') for x in pool]
+    if any(reports):
+        # Never compare legacy fitness to a newly validated report. An older
+        # incumbent remains in place until explicitly revalidated.
+        if not all(reports):
+            if incumbent is not None:
+                return incumbent,{'reason':'incompatible_legacy_validation_protocol',
+                                  'previous':incumbent['id'],'selected':incumbent['id'],
+                                  'replaced':False,'requires_revalidation':True}
+            raise ValueError('Partial Top-3 validation: a finalist lacks a report')
+        from validation_contract import ValidationReport, candidate_comparable
+        for report in reports:ValidationReport.model_validate(report)
+        anchor=reports[0]
+        if any(not candidate_comparable(anchor,x)[0] for x in reports[1:]):
+            if incumbent is not None:
+                return incumbent,{'reason':'incomparable_fidelity_or_protocol',
+                                  'previous':incumbent['id'],'selected':incumbent['id'],
+                                  'replaced':False,'requires_revalidation':True}
+            raise ValueError('Top-3 validation protocol or fidelity differs')
+    def rank(x):return (int(bool(x['audit']['feasible']) and
+                            (not reports[0] or x['audit']['validation_v30']['pass_current_tier'])),
+                        float(x['audit']['audit_score']))
     candidate=max(pool,key=rank)
     previous=incumbent['id'] if incumbent else None
     if incumbent is not None and rank(candidate)<=rank(incumbent):candidate=incumbent
+    validated=bool(candidate['audit'].get('validation_v30',{}).get('pass_current_tier'))
     return candidate,{'previous':previous,'selected':candidate['id'],
                       'replaced':previous is not None and candidate['id']!=previous,
-                      'rule':'feasible first → audit score; incumbent retained on ties'}
+                      'validated_T0':validated,
+                      'status':'T0_synthetic_screen_pass' if validated else 'provisional_not_validated',
+                      'rule':'same fidelity and protocol → T0 screen → audit score; incumbent retained on ties'}

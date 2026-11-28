@@ -1,0 +1,24 @@
+name: NeuroSkin Validation v2.2
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+jobs:
+  fast-regression:
+    runs-on: windows-2022
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - name: Install full single-manifest environment
+        run: python -m pip install -r requirements.txt
+      - name: Dependency consistency
+        run: python -m pip check
+      - name: Compile Python
+        run: python -m compileall -q .
+      - name: Validation, API, FEM and archive regressions
+        run: python -m pytest -q tests/test_validation_v22.py tests/test_pipeline_v10.py tests/test_archive_api_v11.py tests/test_laminate_shell_v19.py tests/test_laminate_v18.py tests/test_physical_fem.py
+      - name: Import safety check
+        run: python -c "from validation_contract import load_protocol; assert load_protocol().schema_version == 'neuroskin.validation_protocol.v0.1'"

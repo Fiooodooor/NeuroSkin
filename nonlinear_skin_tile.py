@@ -79,6 +79,7 @@ class NonlinearSkinTile:
         self.H=(self.H+self.H.T)/2
         self.K0=(m.Km+m.B.T@csr_matrix(self.H)@m.B).tocsc()
         self.factor=splu(self.K0)
+        self._transfer=None
         iy,ix=np.indices((m.m-1,m.m-1));a=(iy*m.m+ix).ravel()
         self.cells=np.column_stack([a,a+1,a+m.m+1,a+m.m])
         # 3x3 Gauss integrates the quartic energy exactly for bilinear Q1.
@@ -123,14 +124,20 @@ class NonlinearSkinTile:
                 else:raise RuntimeError('Membrane line search failed')
             else:raise RuntimeError('Membrane Newton failed to converge')
         _,res,_,quartic=self.assemble(u,f,False)
+        return self.report(u,f,float(np.linalg.norm(res)),iterations,quartic)
+
+    def report(self,u,f,residual_norm,iterations,quartic):
+        m=self.linear
         pad=m.B@u;reaction=self.H@pad
         Em=float(u@m.Km@u/2);Es=float(np.sum(reaction**2/m.k)/2)
         sub=None if self.substrate is None else self.substrate.fields(reaction)
         Eb=0. if sub is None else sub['energy_Nmm']
         # Nonlinear work identity (Euler homogeneous energies), not 1/2 f^T u.
         error=abs(float(f@u)-2*(Em+Es+Eb)-4*quartic)
-        rhs=np.zeros((len(f),len(m.k)));rhs[m.center_ids,np.arange(len(m.k))]=1
-        transfer=self.H@(m.B@self.factor.solve(rhs))
+        if self._transfer is None:
+            rhs=np.zeros((len(f),len(m.k)));rhs[m.center_ids,np.arange(len(m.k))]=1
+            self._transfer=self.H@(m.B@self.factor.solve(rhs));self._transfer.setflags(write=False)
+        transfer=self._transfer
         w=u.reshape(m.m,m.m);gx=np.diff(w,axis=1)/m.step;gy=np.diff(w,axis=0)/m.step
         slope=float(max(np.hypot(a,b).max() for a in (gx[:-1],gx[1:]) for b in (gy[:,:-1],gy[:,1:])))
         return {'tier':'T0','reaction_N':reaction.reshape(m.n,m.n),'displacement_mm':pad.reshape(m.n,m.n),
@@ -139,7 +146,7 @@ class NonlinearSkinTile:
                 'membrane_energy_Nmm':Em+quartic,'membrane_stretch_energy_Nmm':quartic,
                 'spring_energy_Nmm':Es,'substrate_energy_Nmm':Eb,'energy_balance_error_Nmm':error,
                 'energy_balance_definition':'abs(f dot u - 2*quadratic_energy - 4*quartic_energy)',
-                'free_residual_N':float(np.linalg.norm(res)),'minimum_reaction_N':float(reaction.min()),
+                'free_residual_N':residual_norm,'minimum_reaction_N':float(reaction.min()),
                 'maximum_membrane_slope':slope,'small_slope_screen':bool(slope<=.1),'small_slope_screen_limit':.1,
                 'moderate_slope_screen':bool(slope<=.5),'iterations':iterations,
                 'substrate':sub,'inverse_basis':'zero_load_linearization',

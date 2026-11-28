@@ -73,6 +73,7 @@ class TileInput(Selection):
     pitch_mm: float = Field(20., ge=1., le=100.)
     coupling_N_mm: float = Field(.2, ge=0., le=100.)
     membrane_model: Literal['spring','tensioned_q1','nonlinear_coupled'] = 'spring'
+    membrane_kinematics: Literal['fixed_inplane','relaxed_inplane'] = 'fixed_inplane'
     membrane_young_MPa: float = Field(2., gt=0., le=100.)
     membrane_thickness_mm: float = Field(.5, gt=0., le=5.)
     substrate_young_MPa: float = Field(1., gt=0., le=1000.)
@@ -176,11 +177,15 @@ def tile_report(kz, req):
     if req.membrane_model=='nonlinear_coupled':
         from nonlinear_skin_tile import NonlinearSkinTile,Substrate3D
         substrate=Substrate3D(n,pitch,req.substrate_thickness_mm,req.substrate_young_MPa)
-        membrane=NonlinearSkinTile(k,pitch,req.pretension_N_mm,req.membrane_young_MPa,req.membrane_thickness_mm,
+        cls=NonlinearSkinTile
+        if req.membrane_kinematics=='relaxed_inplane':
+            from relaxed_membrane import RelaxedSkinTile
+            cls=RelaxedSkinTile
+        membrane=cls(k,pitch,req.pretension_N_mm,req.membrane_young_MPa,req.membrane_thickness_mm,
                                    subdivisions=req.membrane_subdivisions,substrate=substrate)
         result=membrane.solve([(c.x_mm,c.y_mm,c.force_N) for c in req.contacts]);transfer=result['transfer']
-        model='fixed_inplane_von_karman_Q1_with_condensed_linear_TET4_substrate'
-        limitations=['moderate rotation membrane with constrained in-plane displacement; no wrinkling or bending',
+        model=req.membrane_kinematics+'_von_karman_Q1_with_condensed_linear_TET4_substrate'
+        limitations=['moderate rotation membrane; '+('fixed in-plane perimeter with interior relaxation' if req.membrane_kinematics=='relaxed_inplane' else 'constrained in-plane displacement')+'; no wrinkling, bending or tangential pad coupling',
                      'linear elastic 3D substrate, clamped bottom, coarse TET4; no mesh convergence',
                      'bilateral receptor springs and point contacts; no detachment or sensor calibration',
                      'inverse uses zero-load linearization, not nonlinear inverse or independently calibrated decoder']
@@ -208,7 +213,7 @@ def tile_report(kz, req):
         if grid.sum()<=1e-12:return None
         iy,ix=np.indices(grid.shape)
         return [float((grid*ix).sum()*pitch/grid.sum()),float((grid*iy).sum()*pitch/grid.sum())]
-    extra={k:result[k] for k in ('membrane_surface','membrane_energy_Nmm','spring_energy_Nmm','energy_balance_error_Nmm','free_residual_N','minimum_reaction_N','maximum_membrane_slope','small_slope_screen','small_slope_screen_limit','moderate_slope_screen','membrane_stretch_energy_Nmm','substrate_energy_Nmm','energy_balance_definition','substrate','receptor_compression_mm','iterations','inverse_basis') if k in result}
+    extra={k:result[k] for k in ('membrane_surface','membrane_energy_Nmm','spring_energy_Nmm','energy_balance_error_Nmm','free_residual_N','minimum_reaction_N','maximum_membrane_slope','small_slope_screen','small_slope_screen_limit','moderate_slope_screen','membrane_stretch_energy_Nmm','substrate_energy_Nmm','energy_balance_definition','substrate','receptor_compression_mm','iterations','inverse_basis','membrane_kinematics','inplane_displacement_max_mm') if k in result}
     return {'tier':'T0','model':model,'kz_N_mm':float(kz),**extra,
             'pitch_mm':pitch,'input_contacts':[c.model_dump(mode='json') for c in req.contacts],'load_grid_N':f.tolist(),'reaction_N':result['reaction_N'].tolist(),
             'displacement_mm':result['displacement_mm'].tolist(),'noisy_reactions_N':y.reshape(n,n).tolist(),

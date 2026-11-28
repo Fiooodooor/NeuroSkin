@@ -42,6 +42,7 @@ class MembraneTile:
         self.K=(self.Km+self.B.T@diags(self.k)@self.B).tocsc()
         self.factor=splu(self.K)
         self.center_ids=np.asarray(center_ids,int)
+        self._transfer=None
 
     def point_load(self,x_mm,y_mm,force_N):
         x,y,F=map(float,(x_mm,y_mm,force_N))
@@ -60,9 +61,12 @@ class MembraneTile:
         u=self.factor.solve(f);pad=self.B@u;reactions=self.k*pad
         # Center-point basis, independent of actual contacts. One factorization
         # and a multiple-RHS solve replace N separate matrix assemblies.
-        rhs=np.zeros((len(f),self.n*self.n))
-        rhs[self.center_ids,np.arange(self.n*self.n)]=1.
-        transfer=self.k[:,None]*(self.B@self.factor.solve(rhs))
+        if self._transfer is None:
+            rhs=np.zeros((len(f),self.n*self.n))
+            rhs[self.center_ids,np.arange(self.n*self.n)]=1.
+            self._transfer=self.k[:,None]*(self.B@self.factor.solve(rhs))
+            self._transfer.setflags(write=False)
+        transfer=self._transfer
         Em=float(u@self.Km@u/2);Es=float(np.dot(pad,reactions)/2)
         # In a bilinear Q1 cell each gradient component varies linearly
         # along the other axis. The maximum gradient norm occurs at a corner.

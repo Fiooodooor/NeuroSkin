@@ -12,7 +12,8 @@ import math
 import numpy as np
 from scipy.optimize import nnls
 from membrane_tile import MembraneTile
-from nonlinear_skin_tile import NonlinearSkinTile,Substrate3D
+from nonlinear_skin_tile import Substrate3D
+from relaxed_membrane import RelaxedSkinTile
 from manual_evaluation import manual_worker_initializer
 
 OBJECTIVES=('force_rmse_N','position_mae_mm','power_mW','maximum_receptor_compression_mm')
@@ -70,7 +71,7 @@ def evaluate_design(job):
         actual=m
     else:
         sub=Substrate3D(n,pitch,d['substrate_thickness_mm'],d['substrate_young_MPa'])
-        actual=NonlinearSkinTile(k,pitch,d['pretension_N_mm'],d['membrane_young_MPa'],d['membrane_thickness_mm'],substrate=sub)
+        actual=RelaxedSkinTile(k,pitch,d['pretension_N_mm'],d['membrane_young_MPa'],d['membrane_thickness_mm'],substrate=sub)
     errors=[];positions=[];compressions=[];max_balance=0.;max_slope=0.;max_substrain=0.;condition=0.
     # Common noise seed for each scenario and grid size, independent of design.
     rng=np.random.default_rng(d['seed']+n)
@@ -152,7 +153,7 @@ def optimize(designs,excluded,finalists,workers=1,progress=lambda _:None):
                 'screening_pass_count':len(valid),'workers':workers,'scenario_fractions_and_forces':SCENARIOS,
                 'limitations':['synthetic reaction sensing and center-point inverse; no hardware calibration',
                                'fixed patch and common physical contact positions; centroid only, not contact multiplicity',
-                               'screen local substrate compliance; refined 3D linear substrate and nonlinear fixed-inplane membrane',
+                               'screen local substrate compliance; refined 3D linear substrate and nonlinear membrane with fixed-perimeter in-plane relaxation',
                                'same scenarios used for shortlist and refinement; not independent qualification',
                                'assumed per-taxel electronics; aggregate throughput reported, no shared-bus design',
                                'no automatic promotion of receptor, tile, or evidence tier']}

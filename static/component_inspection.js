@@ -36,13 +36,14 @@
     function select(id){selected=id;render();onChange();}
     clear.onclick=()=>select(null);check.onchange=onChange;
     function render(){
+      const expanded=new Set([...body.querySelectorAll('details[open]')].map(n=>n.dataset.stage));
       body.replaceChildren();const nodes=model?.component_tree?.nodes||[];
       clear.disabled=!selected;check.disabled=!nodes.length;
       const n=nodes.find(n=>n.id===selected);
-      info.textContent=n?[n.label,n.stage,n.role,n.member_index!=null?'member '+(n.member_index+1):null,n.nominal_radius_mm!=null?'nominal radius '+fmt(n.nominal_radius_mm)+' mm':null,n.centerline_length_mm!=null?'centerline '+fmt(n.centerline_length_mm)+' mm':null,n.bonded_to?'bonded to '+n.bonded_to:null,'concept geometry; no local FEM ownership'].filter(Boolean).join(' · '):nodes.length?nodes.length+' generated components · select to highlight in 3D. Centerlines show structural layout, not solved force flow.':'Select a design to inspect its components.';
+      info.textContent=n?[n.label,n.stage,n.role,n.member_index!=null?'member '+(n.member_index+1):null,n.nominal_radius_mm!=null?'nominal radius '+fmt(n.nominal_radius_mm)+' mm':null,n.centerline_length_mm!=null?'centerline '+fmt(n.centerline_length_mm)+' mm':null,n.bonded_to?'bonded to '+n.bonded_to:null,n.bounds_mm?'bounds '+n.bounds_mm[1].map((v,i)=>fmt(v-n.bounds_mm[0][i])).join(' × ')+' mm':null,'concept geometry; no local FEM ownership'].filter(Boolean).join(' · '):nodes.length?nodes.length+' generated components · select to highlight in 3D. Centerlines show structural layout, not solved force flow.':'Select a design to inspect its components.';
       for(const stage of model?.component_tree?.stage_order||[]){
         const group=nodes.filter(n=>n.stage===stage);if(!group.length)continue;
-        const section=make('details');section.open=group.some(n=>n.id===selected);
+        const section=make('details');section.dataset.stage=stage;section.open=expanded.has(stage)||group.some(n=>n.id===selected);
         section.append(make('summary',stage+' · '+group.length));
         const items=make('div');items.className='component-items';
         for(const n of group){const b=make('button',n.label+(n.role?' · '+n.role:''));b.type='button';b.dataset.componentId=n.id;b.setAttribute('aria-pressed',String(n.id===selected));b.onclick=()=>select(n.id);items.append(b);}

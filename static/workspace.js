@@ -92,7 +92,7 @@
   // Audit grid had a label in the old pipeline header. Its empty wrapper is harmless.
   const overview=make('section','workspace-overview');main.append(overview);overview.append(left,stage,right);
   stage.querySelector('.bar').classList.add('workspace-modelbar');
-  const componentInspector=window.NeuroComponents.inspector(stage,()=>updateMesh(true,true),'workspaceComponentTree');
+  const componentInspector=window.NeuroComponents.inspector(stage,()=>{if(componentInspector.selected()?.startsWith('piezo:'))el('showPiezo').checked=true;updateMesh(true,true);},'workspaceComponentTree');
   const empty=make('div','workspace-empty');empty.append(make('strong','','Start with a design'),make('p','','Run evolution or choose a reference architecture to inspect its geometry and sensor response.'),button('workspaceBrowse','Browse reference designs',()=>show('library')));el('model').before(empty);
   for(const id of ['piezoOverride','piezoWiring'])el(id).parentElement.classList.add('advanced-only');
   const results=make('section','workspace-stack');tests[0].classList.add('workspace-result');
@@ -133,7 +133,7 @@
   const pinnedFilmLabel=make('label','','PVDF layer');pinnedFilmLabel.prepend(pinnedFilm);
   pinnedActions.append(pinnedFilmLabel,pinnedReset);
   pinnedGeometry.append(make('summary','','Selected geometry · interactive 3D (inspection session)'),pinnedStatus,pinnedActions,pinnedPlot);
-  const pinnedInspector=window.NeuroComponents.inspector(pinnedGeometry,renderPinnedGeometry,'workspacePinnedComponentTree');
+  const pinnedInspector=window.NeuroComponents.inspector(pinnedGeometry,()=>{if(pinnedInspector.selected()?.startsWith('piezo:'))pinnedFilm.checked=true;renderPinnedGeometry();},'workspacePinnedComponentTree');
   lab.append(labBar,pinnedGeometry,frames);
   const views=[['overview','Overview',overview,false],['results','Results',results,false],['fem','FEM',femPanel,true],['signals','Signals',signals,true],['multiscale','Multiscale',lab,true],['library','Library',library,false],['runs','Runs',archive,false],['history','History',history,true]];
   let active='overview',bound=null,advanced=false,labBusy=false,frame=null;
@@ -151,7 +151,7 @@
   function renderPinnedGeometry(){
     const revision=++geometryRequest, key=bound?JSON.stringify(bound):null,item=openLabs.get(key);
     if(active!=='multiscale'||!pinnedGeometry.open||!item){
-      pinnedDraw=pinnedDraw.catch(()=>{}).then(()=>{if(revision===geometryRequest){purgePlot(pinnedPlot);pinnedStatus.textContent='Select an inspection session.';}});
+      pinnedDraw=pinnedDraw.catch(()=>{}).then(()=>{if(revision===geometryRequest){purgePlot(pinnedPlot);if(!item){pinnedInspector.set(null,null);pinnedStatus.textContent='Select an inspection session.';}}});
       return;
     }
     const p=item.context;
@@ -189,7 +189,8 @@
   const resetCases=button('workspaceResetFEMCameras','Reset all cameras',()=>{for(const {plot} of plots.values())if(plot._fullLayout)Plotly.relayout(plot,{'scene.camera':baseLayout.scene.camera});});
   const swatch=make('span','workspace-field-swatch');swatch.setAttribute('aria-label','Viridis low to high field scale');
   const forceLabel=make('label','','Boundary forces & reactions');const forceToggle=make('input');forceToggle.type='checkbox';forceToggle.id='workspaceBoundaryForces';forceToggle.checked=true;forceLabel.prepend(forceToggle);forceToggle.onchange=()=>renderFEMPreviews();
-  femActions.append(swatch,forceLabel,resetCases);
+  const sectionLabel=make('label','','Substrate section traction (HEX8)');const sectionToggle=make('input');sectionToggle.type='checkbox';sectionToggle.id='workspaceSectionForces';sectionLabel.prepend(sectionToggle);sectionToggle.onchange=()=>renderFEMPreviews();
+  femActions.append(swatch,forceLabel,sectionLabel,resetCases);
   for(const name of preview.order){
     const card=make('details','workspace-fem-card');card.open=true;card.dataset.case=name;
     const plot=make('div','workspace-fem-preview-plot');plot.id='femPreview-'+name;
@@ -210,12 +211,15 @@
     const valid=packet?.schema===1&&preview.order.every(name=>packet.cases?.[name]);
     const units={stress_vm_MPa:'von Mises stress [MPa]',principal_strain:'Principal strain [1]',displacement_mm:'Displacement [mm]'};
     const range=valid&&visible?preview.bounds(packet,key,scale):null;
-    const forceFactor=range&&forceToggle.checked?preview.forceScale(packet):0;
-    if(forceFactor)preview.extendBounds(range,packet,forceFactor);
+    const sectionsAvailable=valid&&preview.order.some(name=>packet.cases[name].boundary_vectors?.substrate_sections?.length);
+    sectionToggle.disabled=!sectionsAvailable;
+    const sectionOn=sectionsAvailable&&sectionToggle.checked;
+    const forceFactor=range&&(forceToggle.checked||sectionOn)?preview.forceScale(packet,forceToggle.checked,sectionOn):0;
+    if(forceFactor)preview.extendBounds(range,packet,forceFactor,forceToggle.checked,sectionOn);
     femLegend.textContent=valid?(femStale?'Settings changed — last solved fields only. ':'')+
       (range?units[key]+' · shared displayed range '+range.cmin.toPrecision(4)+' to '+range.cmax.toPrecision(4)+' · '+scale+'× visual scale · '+packet.display_surface_triangles+' triangles'+(packet.display_downsampled?' (sampled)':''):'Four standard load fields available.'):
       (femPreviewError?'FEM comparison fields unavailable: '+femPreviewError:'No solved fields. Select a receptor and run Evaluate All with FEM enabled.');
-    if(forceFactor)femLegend.textContent+=' · orange: applied force / cyan: support reaction · reference-coordinate arrows '+forceFactor.toPrecision(3)+' mm/N (visual scale only; free moments in hover/caption)';
+    if(forceFactor)femLegend.textContent+=(forceToggle.checked?' · orange: applied / cyan: support reaction':'')+(sectionOn?' · purple/pink: substrate cut traction on upper region (approximate, excludes film forces)':'')+' · reference-coordinate arrows '+forceFactor.toPrecision(3)+' mm/N (visual scale only; free moments in hover/caption)';
     femLegend.classList.toggle('workspace-stale',femStale&&valid);femActions.hidden=!valid;
     previewDraw=previewDraw.catch(()=>{}).then(async()=>{
       if(rev!==previewRevision)return;
@@ -225,9 +229,10 @@
         const c=packet.cases[name],m=c.metrics||{},l=c.load||{},fmt=n=>Number.isFinite(n)?Number(n).toPrecision(4):'—';
         caption.textContent='F ['+(l.load_force_N||[]).join(', ')+'] N · offset ['+(l.offset_mm||[]).join(', ')+'] mm · Mz '+(l.torque_z_Nmm??0)+' Nmm · max |u| '+fmt(m.max_displacement_mm)+' mm · max stress '+fmt(m.max_von_mises_MPa)+' MPa';
         const boundary=c.boundary_vectors;if(boundary){const a=boundary.applied,r=boundary.reaction;caption.textContent+=' · reaction ['+r.force_N.map(fmt).join(', ')+'] N · applied moment about origin ['+a.moment_about_origin_Nmm.map(fmt).join(', ')+'] Nmm · residual |F| '+fmt(Math.hypot(...boundary.force_balance_N))+' N';}else if(c.boundary_error)caption.textContent+=' · boundary display unavailable: '+c.boundary_error;
+        if(sectionOn)for(const s of boundary?.substrate_sections||[])caption.textContent+=' · cut z='+fmt(s.z_mm)+' mm, substrate F ['+s.force_N.map(fmt).join(', ')+'] N';
         if(!visible||!card.open){purgePlot(plot);continue;}
         const scene={...baseLayout.scene,xaxis:{...baseLayout.scene.xaxis,range:range.ranges[0]},yaxis:{...baseLayout.scene.yaxis,range:range.ranges[1]},zaxis:{...baseLayout.scene.zaxis,range:range.ranges[2]}};
-        try{const ts=preview.traces(packet,name,key,scale,ghost,range);if(forceFactor)ts.push(...preview.boundaryTraces(c,forceFactor));await Plotly.react(plot,ts,{...baseLayout,scene,showlegend:false,uirevision:'standard-'+name+'-'+selectionIdentity()},{responsive:true,displaylogo:false});}
+        try{const ts=preview.traces(packet,name,key,scale,ghost,range);if(forceFactor)ts.push(...preview.boundaryTraces(c,forceFactor,forceToggle.checked,sectionOn));await Plotly.react(plot,ts,{...baseLayout,scene,showlegend:false,uirevision:'standard-'+name+'-'+selectionIdentity()},{responsive:true,displaylogo:false});}
         catch(e){caption.textContent+=' · preview unavailable: '+e.message;}
       }
     });

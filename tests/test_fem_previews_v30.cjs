@@ -9,6 +9,10 @@ console.log('FEM shared scale tests passed');
 
 packet.cases.press_center.boundary_vectors={applied:{groups:[{position_mm:[0,0,0],force_N:[0,0,-.1],couple_Nmm:[0,0,0]}]},reaction:{groups:[{position_mm:[1,0,0],force_N:[0,0,.1],couple_Nmm:[0,0,0]}]}};
 const scale=P.forceScale(packet);assert(scale>0);
-const forces=P.boundaryTraces(packet.cases.press_center,scale);assert.equal(forces.length,4);assert(forces[0].z[1]<0&&forces[2].z[1]>0);
+const forces=P.boundaryTraces(packet.cases.press_center,scale);assert.equal(forces.length,4);assert(forces[0].z[1]<forces[0].z[0]&&forces[2].z[1]>0);
 assert.equal(P.boundaryTraces(packet.cases.shear_x,scale).length,0);
 const ext=P.extendBounds(P.bounds(packet,'stress_vm_MPa',1),packet,scale);assert(ext.ranges[2][1]>=forces[2].z[1]);
+
+packet.cases.press_center.boundary_vectors.substrate_sections=[{groups:[{position_mm:[0,0,1],force_N:[0,0,.2],couple_Nmm:[0,0,0]}]}];
+assert(P.forceScale(packet,false,true)>0);
+assert.equal(P.boundaryTraces(packet.cases.press_center,scale,false,true)[0].name,'section 1 boundary force');

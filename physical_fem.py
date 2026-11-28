@@ -346,8 +346,13 @@ class HexElasticSolver:
         boundary={}
         if include_boundary_vectors:
             try:
-                from force_visualization import boundary_wrenches
+                from force_visualization import boundary_wrenches, substrate_sections
                 boundary['boundary_vectors']=boundary_wrenches(mesh.nodes[selected],f.reshape(-1,3)[selected],mesh.nodes[mesh.bottom],R[mesh.bottom])
+                try:
+                    centers=.5*(mesh.nodes[mesh.elements[:,0]]+mesh.nodes[mesh.elements[:,6]])
+                    boundary['boundary_vectors']['substrate_sections']=substrate_sections(centers,sigma,mesh.pitch_mm,float(mesh.nodes[mesh.bottom,2].mean()),float(mesh.nodes[mesh.top,2].mean()))
+                except (ValueError,TypeError,MemoryError,ArithmeticError) as exc:
+                    boundary['boundary_vectors']['section_error']=str(exc)
             except (ValueError,TypeError,MemoryError,ArithmeticError) as exc:
                 boundary['boundary_error']=str(exc)
         return dict(load_force_N=load.tolist(),offset_mm=list(map(float,offset)),torque_z_Nmm=float(torque_z_Nmm),

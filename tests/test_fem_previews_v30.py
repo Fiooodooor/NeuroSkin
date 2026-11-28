@@ -44,6 +44,10 @@ def test_fem_preview_fields_reuse_standard_cases_without_changing_score(backend)
         assert np.linalg.norm(vectors['force_balance_N'])<1e-4
         assert np.linalg.norm(vectors['moment_balance_Nmm'])<1e-3
         assert 'boundary_vectors' not in b['load_cases'][name]
+        if backend=='hex8':
+            assert vectors['substrate_sections']
+            assert all(s['area_mm2']>0 for s in vectors['substrate_sections'])
+        else:assert 'substrate_sections' not in vectors
     assert not np.allclose(p['cases']['press_center']['displacement_mm'],p['cases']['shear_x']['displacement_mm'])
 
 

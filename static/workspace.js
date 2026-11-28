@@ -42,6 +42,22 @@
   group('Compute & population',['cores','population']);
   group('Validation & FEM',['physical_gate','enable_fem','fem_backend','fem_pitch','gate_grid','audit_grid']);
   group('Replay seed',['seed']);
+  const profiles=window.NeuroProfiles;let presets=[];try{presets=profiles.load(localStorage);}catch{}
+  const profilePanel=make('details','workspace-settings advanced-only');profilePanel.append(make('summary','','Evolution presets'));
+  const profileBody=make('div','workspace-settings-body'),profileSelect=make('select');profileSelect.id='workspaceProfileSelect';profileSelect.setAttribute('aria-label','Saved evolution presets');
+  const profileName=make('input');profileName.id='workspaceProfileName';profileName.placeholder='Preset name';profileName.maxLength=40;profileName.setAttribute('aria-label','Preset name');
+  const profileStatus=make('small','','For the next run only. Does not restore a seed or change a running experiment.');profileStatus.id='workspaceProfileStatus';profileStatus.setAttribute('role','status');
+  const profileButtons=make('div','workspace-profile-actions');
+  const profileSave=button('workspaceProfileSave','Save / replace',()=>profileAction(()=>{const name=profileName.value.trim();presets=profiles.save(localStorage,presets,name,profiles.validate(profiles.capture(el),el));refreshProfiles(name);profileStatus.textContent='Saved preset '+name;}));
+  const profileApply=button('workspaceProfileApply','Load preset',()=>profileAction(()=>{const preset=presets.find(x=>x.name===profileSelect.value);if(!preset)throw Error('Select a preset');profiles.apply(preset.values,el);for(const id of profiles.fields)el(id).dispatchEvent(new Event('input',{bubbles:true}));for(const id of profiles.fields)el(id).dispatchEvent(new Event('change',{bubbles:true}));update();profileStatus.textContent='Loaded '+preset.name+' for the next run. Seed unchanged.';}));
+  const profileDelete=button('workspaceProfileDelete','Delete',()=>profileAction(()=>{presets=profiles.remove(localStorage,presets,profileSelect.value);refreshProfiles();profileStatus.textContent='Preset deleted.';}));
+  profileButtons.append(profileSave,profileApply,profileDelete);profileBody.append(profileSelect,profileName,profileButtons,profileStatus);profilePanel.append(profileBody);left.insertBefore(profilePanel,summary);
+  function profileAllowed(){return !!state&&!archiveRunId&&!startPending&&!['running','paused','stopping'].includes(state.status)&&el('coreinfo').textContent.includes('logical CPUs available')&&el('mode').options.length>3;}
+  function profileAction(fn){try{if(!profileAllowed())throw Error('Presets require idle live context and loaded hardware/catalogue settings.');fn();}catch(e){profileStatus.textContent=e.message;}}
+  function refreshProfiles(name){profileSelect.replaceChildren(new Option('Select saved preset',''),...presets.map(p=>new Option(p.name,p.name)));profileSelect.value=name||'';profileName.value=name||'';updateProfileButtons();}
+  function updateProfileButtons(){const allowed=profileAllowed();profileSave.disabled=!allowed;profileApply.disabled=!allowed||!profileSelect.value;profileDelete.disabled=!allowed||!profileSelect.value;}
+  profileSelect.onchange=()=>{profileName.value=profileSelect.value;updateProfileButtons();};
+  refreshProfiles();
   // Audit grid had a label in the old pipeline header. Its empty wrapper is harmless.
   const overview=make('section','workspace-overview');main.append(overview);overview.append(left,stage,right);
   stage.querySelector('.bar').classList.add('workspace-modelbar');
@@ -149,7 +165,7 @@
     empty.hidden=!!p;el('model').classList.toggle('workspace-model-empty',!p);
     if(archiveRunId)el('start').disabled=true;
     summary.textContent=`${el('cores').value} CPU · population ${el('population').value} · ${el('enable_fem').checked?`${el('fem_backend').value.toUpperCase()} ${el('fem_pitch').value} mm`:'FEM off'} · ${el('physical_gate').checked?'gate on':'gate off'}`;
-    updateSessions(p);const mismatch=bound&&JSON.stringify(bound)!==JSON.stringify(p);labContext.textContent=bound?`${bound.run_id?'Archive '+bound.run_id:'Live / library'} · ${bound.family} · ${bound.expected_candidate_id}${mismatch?' — selection changed; use current candidate to rebind':''}${labBusy?' · computing':''}`:'Select a candidate in Overview or Library.';labContext.classList.toggle('workspace-stale',Boolean(mismatch));
+    updateProfileButtons();updateSessions(p);const mismatch=bound&&JSON.stringify(bound)!==JSON.stringify(p);labContext.textContent=bound?`${bound.run_id?'Archive '+bound.run_id:'Live / library'} · ${bound.family} · ${bound.expected_candidate_id}${mismatch?' — selection changed; use current candidate to rebind':''}${labBusy?' · computing':''}`:'Select a candidate in Overview or Library.';labContext.classList.toggle('workspace-stale',Boolean(mismatch));
   }
   function renderEvaluation(data){evaluationCards.replaceChildren();if(!data)return;
     const a=data.audit||{},v=data.validation_v30||{},m=v.metrics||{},d=m.decoder_holdout||{},f=data.fem;
@@ -166,7 +182,8 @@
   new MutationObserver(update).observe(el('viewtitle'),{childList:true,characterData:true,subtree:true});
   new MutationObserver(update).observe(el('archiveNotice'),{childList:true,characterData:true,subtree:true});
   new MutationObserver(updateRuns).observe(el('archiveSelect'),{childList:true,subtree:true});
-  new MutationObserver(updateLabels).observe(el('mode'),{childList:true,subtree:true});
+  new MutationObserver(()=>{updateLabels();updateProfileButtons();}).observe(el('mode'),{childList:true,subtree:true});
+  new MutationObserver(updateProfileButtons).observe(el('coreinfo'),{childList:true,subtree:true});
   // Native selects emit input before change; don't reset a pending context choice.
   const onControlChange=e=>{if(e.target!==runSwitch&&e.target!==sessions)update();};
   document.addEventListener('change',onControlChange);document.addEventListener('input',onControlChange);

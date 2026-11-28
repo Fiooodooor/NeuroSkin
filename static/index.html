@@ -474,4 +474,4 @@ async function loadHybridLibrary(){
 $('seed').value=String(crypto.getRandomValues(new Uint32Array(1))[0]>>>1);
 loadSeedLibrary();loadHybridLibrary();refreshSearchScopes();
 setInterval(poll,1100);fetch('/api/system').then(r=>r.json()).then(d=>{$('cores').max=d.logical_cores;$('cores').value=Math.max(1,Math.min(d.default_cores,d.logical_cores));$('coreinfo').textContent=`${d.logical_cores} logical CPUs available · ${d.hardware?.cpu?.physical_host||'unknown'} physical · ${d.hardware?.ram_total_mb?Math.round(d.hardware.ram_total_mb/1024)+' GB RAM':'RAM unknown'} · ${d.hardware?.nvidia_gpu?.available?(d.hardware.nvidia_gpu.name+' ('+d.hardware.nvidia_gpu.total_vram_mb+' MB VRAM)'):'GPU unverified'}; CPU evolution recommended.`}).catch(()=>{});poll();
-</script><script src="/static/workspace_reports.js"></script><script src="/static/workspace.js"></script></body></html>
+</script><script src="/static/workspace_reports.js"></script><script src="/static/workspace_profiles.js"></script><script src="/static/workspace.js"></script></body></html>

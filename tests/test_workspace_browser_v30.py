@@ -54,6 +54,16 @@ def test_workspace_modes_context_and_multiscale(app_url):
         expect(page.locator('.workspace-tabs button:visible')).to_have_count(8)
         page.locator('.workspace-settings').filter(has_text='Validation & FEM').locator('summary').click()
         page.locator('#fem_pitch').select_option('0.625')
+        page.locator('.workspace-settings').filter(has_text='Evolution presets').locator('summary').click()
+        expect(page.locator('#workspaceProfileSave')).to_be_enabled(timeout=20000)
+        page.locator('#workspaceProfileName').fill('Browser preset')
+        page.locator('#workspaceProfileSave').click()
+        expect(page.locator('#workspaceProfileStatus')).to_contain_text('Saved preset')
+        seed=page.locator('#seed').input_value()
+        page.locator('#fem_pitch').select_option('1.25')
+        page.locator('#workspaceProfileApply').click()
+        assert page.locator('#fem_pitch').input_value()=='0.625'
+        assert page.locator('#seed').input_value()==seed
         page.locator('#basicMode').click()
         expect(page.locator('#workspaceSettingsSummary')).to_contain_text('0.625 mm')
         assert page.locator('#fem_pitch').input_value()=='0.625'
@@ -105,5 +115,20 @@ def test_workspace_modes_context_and_multiscale(app_url):
         page.locator('#basicMode').click();page.set_viewport_size({'width':390,'height':844})
         expect(page.locator('#workspace-tab-multiscale')).to_be_hidden()
         page.wait_for_function('document.documentElement.scrollWidth <= innerWidth + 1')
+        page.set_viewport_size({'width':1500,'height':1000})
+        page.reload(wait_until='domcontentloaded')
+        expect(page.locator('#workspace-tab-overview')).to_be_visible(timeout=20000)
+        expect(page.locator('.workspace-tabs button:visible')).to_have_count(4)
+        page.locator('#advancedMode').click()
+        page.locator('.workspace-settings').filter(has_text='Evolution presets').locator('summary').click()
+        page.locator('#workspaceProfileSelect').select_option('Browser preset')
+        expect(page.locator('#workspaceProfileApply')).to_be_enabled(timeout=20000)
+        page.locator('#workspaceProfileApply').click()
+        assert page.locator('#fem_pitch').input_value()=='0.625'
+        page.locator('#workspace-tab-multiscale').click()
+        page.locator('#workspaceComparison > summary').click()
+        expect(page.locator('#workspaceReportStatus')).to_contain_text('1 saved locally')
+        expect(page.locator('#workspaceReportTable')).to_contain_text(result['candidate_id'])
+        expect(page.locator('.workspace-labframe')).to_have_count(0)
         assert not errors,errors
         browser.close()

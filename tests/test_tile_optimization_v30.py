@@ -1,5 +1,5 @@
 import pytest
-from tile_optimization import designs,optimize,pareto,evaluate_design
+from tile_optimization import designs,optimize,pareto,evaluate_design,SCENARIOS,HOLDOUT
 
 
 def receptor():
@@ -17,6 +17,9 @@ def test_fixed_patch_and_two_fidelity_search():
     assert not result['refined'][0].get('failed'),result['refined'][0]
     assert result['screening'][0]['metrics']['power_mW']==45
     assert result['refined'][0]['metrics']['max_balance_error_N']<1e-7
+    assert result['refined'][0]['holdout_metrics']['max_balance_error_N']<1e-7
+    assert not ({(x,y) for case in SCENARIOS for x,y,_ in case}&{(x,y) for case in HOLDOUT for x,y,_ in case})
+    assert result['holdout_policy'].startswith('reported only')
     with pytest.raises(ValueError,match='Mixed'):pareto(result['screening']+result['refined'])
 
 

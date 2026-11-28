@@ -246,3 +246,6 @@ Canonical development branch: `develop/v3`. Consolidate the full v2.2-derived in
 
 ## Revision 48 — nonlinear tile dimension regression fix
 - Windows CI for revision 45 found two incorrect node-count expressions (object multiplied by integer); replace both with squared integer grid dimension. Previous matrix-free revision 43 completed green CI. Exact-head tests pending.
+
+## Revision 49 — independent synthetic holdout cases for refined tiles
+- Keep common design scenarios for cross-fidelity comparison. After shortlist, report separate predeclared contact locations, loads and noise realizations on the same refined solver with cached transfer. Holdout metrics never change shortlist or refined Pareto membership. GUI shows separate held-out centroid and force errors. Not independent experimental validation. Previous revisions 42–44 passed full CI; revision 45 dimension regression fixed in 48, exact head pending.

@@ -21,6 +21,8 @@ OBJECTIVES=('force_rmse_N','position_mae_mm','power_mW','maximum_receptor_compre
 # Center-grid calibration uses different positions. Both single and multi-contact.
 SCENARIOS=(((.31,.37,.1),),((.63,.43,.4),),((.47,.69,.2),),
            ((.32,.62,.1),(.67,.34,.2)))
+# Disjoint, predeclared locations/load amplitudes; only evaluated after selection.
+HOLDOUT=(((.38,.29,.15),),((.58,.65,.3),),((.33,.44,.05),(.61,.71,.25)))
 
 
 def receptor_descriptor(candidate,genome):
@@ -72,11 +74,22 @@ def evaluate_design(job):
     else:
         sub=Substrate3D(n,pitch,d['substrate_thickness_mm'],d['substrate_young_MPa'])
         actual=RelaxedSkinTile(k,pitch,d['pretension_N_mm'],d['membrane_young_MPa'],d['membrane_thickness_mm'],substrate=sub)
+    metrics,passed=measure(actual,d,k,SCENARIOS,d['seed']+n,fidelity)
+    utility=sum(metrics[k]/s for k,s in zip(OBJECTIVES,(.02,5.,100.,1.)))
+    row={**d,'fidelity':fidelity,'metrics':metrics,'diagnostic_screen_pass':passed,'utility_cost':float(utility)}
+    if fidelity=='refined':
+        holdout,ok=measure(actual,d,k,HOLDOUT,d['seed']+100003+n,fidelity)
+        row.update(holdout_metrics=holdout,holdout_diagnostic_pass=ok)
+    return row
+
+
+def measure(actual,d,k,scenarios,noise_seed,fidelity):
+    n=d['size'];pitch=d['pitch_mm'];side=d['side_mm'];r=d['receptor']
     errors=[];positions=[];compressions=[];max_balance=0.;max_slope=0.;max_substrain=0.;condition=0.
     # Common noise seed for each scenario and grid size, independent of design.
-    rng=np.random.default_rng(d['seed']+n)
+    rng=np.random.default_rng(noise_seed)
     iy,ix=np.indices((n,n));centres=np.column_stack(((ix.ravel()+.5)*pitch,(iy.ravel()+.5)*pitch))
-    for scenario in SCENARIOS:
+    for scenario in scenarios:
         contacts=[(x*side-pitch/2,y*side-pitch/2,F) for x,y,F in scenario]
         # All predefined positions lie within even the 3x3 centre grid.
         a=actual.solve(contacts);reaction=np.asarray(a['reaction_N']).ravel()
@@ -106,9 +119,7 @@ def evaluate_design(job):
     passed=bool(max_balance<=1e-7 and max_slope<=(.1 if fidelity=='screen' else .5)
                 and (fidelity=='screen' or max_substrain<=.03) and r['readout_capacity']
                 and r['pvdf_saturated_outputs_assumed']==0)
-    # Explicit engineering scalar for deterministic shortlist only; Pareto retained.
-    utility=sum(metrics[k]/s for k,s in zip(OBJECTIVES,(.02,5.,100.,1.)))
-    return {**d,'fidelity':fidelity,'metrics':metrics,'diagnostic_screen_pass':passed,'utility_cost':float(utility)}
+    return metrics,passed
 
 
 def safe_evaluate(job):
@@ -150,11 +161,12 @@ def optimize(designs,excluded,finalists,workers=1,progress=lambda _:None):
         return {'tier':'T0','model':'bounded_multiscale_tile_search','objectives_minimize':list(OBJECTIVES),
                 'screening':screen,'screening_pareto_ids':front,'shortlist_ids':[r['id'] for r in shortlist],
                 'refined':refined,'refined_pareto_ids':refined_front,'excluded':excluded,
-                'screening_pass_count':len(valid),'workers':workers,'scenario_fractions_and_forces':SCENARIOS,
+                'screening_pass_count':len(valid),'workers':workers,'scenario_fractions_and_forces':SCENARIOS,'holdout_scenario_fractions_and_forces':HOLDOUT,
+                'holdout_policy':'reported only; not used for shortlist, refined Pareto, or selection',
                 'limitations':['synthetic reaction sensing and center-point inverse; no hardware calibration',
                                'fixed patch and common physical contact positions; centroid only, not contact multiplicity',
                                'screen local substrate compliance; refined 3D linear substrate and nonlinear membrane with fixed-perimeter in-plane relaxation',
-                               'same scenarios used for shortlist and refinement; not independent qualification',
+                               'same design cases for shortlist and refinement; separate predeclared holdout locations and noise only as synthetic diagnostic, not independent hardware qualification',
                                'assumed per-taxel electronics; aggregate throughput reported, no shared-bus design',
                                'no automatic promotion of receptor, tile, or evidence tier']}
     if workers==1:return run(None)

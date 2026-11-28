@@ -13,6 +13,7 @@ from neuroskin_multiscale import tile_response
 
 # One expensive nonlinear request per server process, no unbounded queue.
 CONTACT_SLOT = BoundedSemaphore(1)
+FUSION_SLOT = BoundedSemaphore(1)
 
 
 class Selection(BaseModel):
@@ -24,6 +25,12 @@ class Selection(BaseModel):
     generation: int | None = None
     piezo_count_override: int | None = None
     piezo_wiring_override: int | None = None
+
+
+class FusionInput(Selection):
+    grid: Literal[3,5] = 3
+    frequency_hz: float = Field(25., ge=0., le=150.)
+    seed: int = Field(3322, ge=0, le=2**32-1)
 
 
 class BoxInput(BaseModel):
@@ -129,7 +136,7 @@ def build_router(select_candidate, preview_genome):
 
     @router.get('/api/v30/capabilities')
     def capabilities():
-        return {'nonlinear_box':True,'nonlinear_voxel_candidate_diagnostic':True,'tile_T0':True,
+        return {'nonlinear_box':True,'nonlinear_voxel_candidate_diagnostic':True,'tile_T0':True,'sensor_fusion_T0':True,
                 'T2_qualified':False,'T3_required_for_release':False,'T3_required_for_evolution':False,
                 'hardware_certified':False}
 
@@ -160,6 +167,18 @@ def build_router(select_candidate, preview_genome):
             return out
         except (ValueError,RuntimeError,MemoryError,np.linalg.LinAlgError) as exc:raise HTTPException(422,str(exc)) from exc
         finally:CONTACT_SLOT.release()
+
+    @router.post('/api/v30/fusion')
+    def fusion(req:FusionInput):
+        c,g=resolve(req)
+        if not FUSION_SLOT.acquire(blocking=False):raise HTTPException(409,'Fusion solver busy')
+        try:
+            from sensor_fusion import evaluate_fusion
+            result=evaluate_fusion(c['family'],g,grid=req.grid,frequency_hz=req.frequency_hz,seed=req.seed)
+            result.update(candidate_id=c['id'],family=c['family'])
+            return result
+        except (ValueError,RuntimeError,ArithmeticError,np.linalg.LinAlgError) as exc:raise HTTPException(422,str(exc)) from exc
+        finally:FUSION_SLOT.release()
 
     @router.post('/api/v30/tile')
     def tile(req:TileInput):

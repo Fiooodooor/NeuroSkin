@@ -23,8 +23,10 @@ from sensor_metrics import (
     finite_difference_jacobian, whitened_identifiability,
 )
 from electronics_budget import budget_for_response
+from validation_design import shear_pairs
+from scipy.stats import beta
 
-ENGINE_SIGNATURE = 'neuroskin-v3-d31-rank5-readout'
+ENGINE_SIGNATURE = 'neuroskin-v3-independent-shear-decoder-v1'
 
 
 def solver_source_hash():
@@ -33,19 +35,21 @@ def solver_source_hash():
     root=Path(__file__).resolve().parent
     for name in ('electromechanics.py','advanced.py','sensor_metrics.py',
                  'evaluation_v30.py','laminate_fem.py','physical_fem.py','laminate_shell.py','piezoelectric.py','hybrid_geometry.py','pvdf_array.py','pvdf_physics.py','beam_fem.py','neuroskin_multiscale.py','symmetry_geometry.py',
-                 'electronics_budget.py','validation_contract.py','recovery_sim.py','full_evaluation.py','matrixfree_fem.py','audit_scheduler.py'):
+                 'electronics_budget.py','validation_contract.py','recovery_sim.py','full_evaluation.py','matrixfree_fem.py','audit_scheduler.py','validation_design.py'):
         h.update(name.encode('utf-8')+b'\0')
         h.update((root/name).read_bytes())
     return h.hexdigest()
 
 
 
-def _position_groups(family: str, genome: dict, grid: int = 5):
+def _position_groups(family: str, genome: dict, grid=5):
     rad = min(3.0, float(genome.get('pad_radius', 3.0)) * .8)
-    axis = np.linspace(-rad, rad, grid)
+    nx,ny=(grid,grid) if isinstance(grid,int) else grid
+    if any(type(n) is not int or not 3<=n<=9 for n in (nx,ny)):
+        raise ValueError('Synthetic validation grid must be 3..9 on each axis')
     positions = []
-    for x in axis:
-        for y in axis:
+    for x in np.linspace(-rad,rad,nx):
+        for y in np.linspace(-rad,rad,ny):
             if x*x + y*y <= rad*rad + 1e-10:
                 positions.append((float(x), float(y)))
     return positions
@@ -73,15 +77,21 @@ def simulate_load_dataset(family: str, genome: dict, protocol=None, *,
     by varying only their labels.
     """
     protocol = protocol or load_protocol()
-    positions = _position_groups(family, genome, grid=int(protocol.load_cases['contact_grid']['resolution'][0]))
+    positions = _position_groups(family, genome, grid=protocol.load_cases['contact_grid']['resolution'])
     forces = [float(f) for f in protocol.load_cases['normal_forces_N']]
-    shears = [-.025, .0, .025] if dense else [0.0, .025]
+    if not forces or len(forces)>16 or not np.isfinite(forces).all() or min(forces)<=0:
+        raise ValueError('Require 1..16 positive finite normal loads')
+    shears = shear_pairs(protocol.load_cases['shear_forces_N'],dense)
+    if len(positions)*len(forces)*len(shears)>10000:raise ValueError('Synthetic design exceeds 10000 samples')
+    from electromechanics import raw_mechanics,signals
     X, Y, groups, labels = [], [], [], []
     for idx, (x, y) in enumerate(positions):
         for fz in forces:
-            for i, fx in enumerate(shears):
-                fy = -fx if i % 2 else fx
-                v, _ = _respond(family, genome, fx, fy, -fz, x, y)
+            for fx,fy in shears:
+                # The static decoder deliberately excludes dynamic PVDF. Avoid
+                # computing a transient film response that is never consumed.
+                mechanics=raw_mechanics(family,genome,'normal',force=[fx,fy,-fz],offset=(x,y))
+                v=response_vector({'electrical':signals(family,genome,mechanics)})
                 X.append(v)
                 Y.append([fx, fy, -fz, x, y])
                 groups.append(idx)
@@ -99,33 +109,50 @@ def robust_screen(family: str, genome: dict, *, seed: int = 105, samples: int = 
         raise ValueError('Monte-Carlo sample count must be between 1 and 128')
     rng = np.random.default_rng(seed)
     result = []
+    failures=[]
     nominal, _ = _respond(family, genome, 0, 0, -.1, 0.0, 0.0)
-    original_strength = np.linalg.norm(nominal / NOISE_SIGMA)
-    for _ in range(samples):
+    zero, _ = _respond(family, genome, 0, 0, 0., 0.0, 0.0)
+    original_strength = np.linalg.norm((nominal-zero) / NOISE_SIGMA)
+    variations = {
+        'material_E': (.12, .35, 2.5),
+        'dielectric_gap_mm': (.06, .20, .8),
+        'piezo_bond_fraction': (.07, .50, 1.0),
+        'piezo_adhesive_thickness_um': (.08, 20.0, 130.0),
+    }
+    # Draw every axis even for genomes without the corresponding parameter.
+    # This preserves common random scenarios across all architectures.
+    scenarios=rng.standard_normal((samples,len(variations)+1))
+    for i,scenario in enumerate(scenarios):
         gp = copy.deepcopy(genome)
-        variations = {
-            'material_E': (.12, .35, 2.5),
-            'dielectric_gap_mm': (.06, .20, .8),
-            'piezo_bond_fraction': (.07, .50, 1.0),
-            'piezo_adhesive_thickness_um': (.08, 20.0, 130.0),
-        }
-        for key, (sigma, lo, hi) in variations.items():
+        for z,(key,(sigma,lo,hi)) in zip(scenario,variations.items()):
             if key in gp:
-                gp[key] = float(np.clip(float(gp[key]) * math.exp(rng.normal(0.0, sigma)), lo, hi))
-        noise_multiplier = float(math.exp(rng.normal(0, .15)))
-        v, _ = _respond(family, gp, 0, 0, -.1, 0.0, 0.0)
-        result.append(float(np.linalg.norm(v / (NOISE_SIGMA * noise_multiplier))))
-    v = np.asarray(result)
+                gp[key]=float(np.clip(float(gp[key])*math.exp(z*sigma),lo,hi))
+        noise_multiplier=math.exp(scenario[-1]*.15)
+        try:
+            v,_=_respond(family,gp,0,0,-.1,0.,0.)
+            baseline,_=_respond(family,gp,0,0,0.,0.,0.)
+            strength=float(np.linalg.norm((v-baseline)/(NOISE_SIGMA*noise_multiplier)))
+            if not math.isfinite(strength):raise ValueError('nonfinite SNR')
+            result.append(strength)
+        except (ValueError,ArithmeticError,RuntimeError,np.linalg.LinAlgError) as exc:
+            failures.append({'index':i,'reason':f'{type(exc).__name__}: {exc}'})
+            result.append(0.)
+    v=np.asarray(result)
+    misses=int(np.sum(v<3.))
+    upper=1. if misses==samples else float(beta.ppf(.95,misses+1,samples-misses))
     return {
         'source': 'synthetic_surrogate', 'samples': samples, 'seed': seed,
         'nominal_whitened_signal': float(original_strength),
+        'scenario_hash':digest(scenarios.tolist()),'failed_trials':len(failures),'trial_failures':failures,
+        'assumed_snr_below_3_upper95':upper,'interval_note':'One-sided exact binomial bound under assumed independent sampled scenarios; not a measured failure probability.',
         'assumed_snr_p10': float(np.quantile(v, .1)),
         'assumed_snr_p50': float(np.median(v)),
         'assumed_snr_p90': float(np.quantile(v, .9)),
         'assumed_snr_below_3_fraction': float(np.mean(v < 3.0)),
         'assumptions': {'material_E_relative_log_sigma': .12,
                         'gap_relative_log_sigma': .06,
-                        'bond_relative_log_sigma': .07,
+                        'bond_relative_log_sigma': .07,'adhesive_thickness_relative_log_sigma':.08,
+                        'distribution':'independent lognormal multipliers clipped to declared parameter bounds',
                         'noise_relative_log_sigma': .15},
         'unsupported_axes': ['temperature', 'actual_indenter_shape', 'bond_peel',
                              'electrode_parasitics', 'material_hysteresis'],
@@ -160,7 +187,8 @@ def evaluate_protocol(family: str, genome: dict, *, candidate_id: str = 'adhoc',
     genome_hash = digest({'family': family, 'genome': genome})
     X, Y, groups, labels, positions = simulate_load_dataset(
         family, genome, protocol, seed=seed, dense=dense)
-    metrics = decoder_holdout(X, Y, groups, seed=seed)
+    fractions=tuple(float(protocol.dataset_splits[k+'_fraction']) for k in ('train','validation','test'))
+    metrics = decoder_holdout(X, Y, groups, seed=seed,fractions=fractions)
     from electromechanics import examine
     ref = np.asarray([.015, -.01, -.1, .6, -.4], dtype=float)
     J = finite_difference_jacobian(lambda args: _respond(
@@ -191,6 +219,10 @@ def evaluate_protocol(family: str, genome: dict, *, candidate_id: str = 'adhoc',
                    reason='Contact-position-disjoint holdout; assumed acceptance targets: norm force RMSE<=0.08N, position MAE<=2.5mm'),
         TestResult(id='sensor_covariance', status='pass', source='synthetic_surrogate',
                    metric=float(np.min(NOISE_SIGMA)), reason='Positive declared assumed independent-channel covariance, NOT measured noise'),
+        TestResult(id='observability',status='pass' if info['rank_5_unknowns']==5 else 'fail',
+                   source='synthetic_surrogate',metric=float(info['rank_5_unknowns']),limit=5.,reason='Five locally observable force/position unknowns required in static readout'),
+        TestResult(id='robustness_completion',status='pass' if robustness['failed_trials']==0 else 'fail',
+                   source='synthetic_surrogate',metric=float(robustness['failed_trials']),limit=0.,reason='Failed numerical trials are not silently dropped'),
         TestResult(id='geometry_screen', status='pass' if geometry['passed'] else 'fail',
                    source='synthetic_surrogate', metric=float(geometry['minimum_member_diameter_mm']),
                    reason='Heuristic slenderness and manufacturing warnings'),
@@ -210,7 +242,7 @@ def evaluate_protocol(family: str, genome: dict, *, candidate_id: str = 'adhoc',
     ]
     necessary = {t.id: t for t in tests}
     complete = all(necessary[k].status == 'pass' for k in (
-        'contact_load','no_contact','independent_holdout','sensor_covariance','geometry_screen'))
+        'contact_load','no_contact','independent_holdout','sensor_covariance','geometry_screen','observability','robustness_completion'))
     evidence = Evidence(
         solver='six_dof_composite_surrogate',
         solver_hash=solver_source_hash(),
@@ -218,6 +250,7 @@ def evaluate_protocol(family: str, genome: dict, *, candidate_id: str = 'adhoc',
                               'pvdf_E': genome.get('piezo_E_MPa'),
                               'bond': genome.get('piezo_adhesive_G_MPa')}),
         seed=int(seed), noise_provenance='assumed',
+        evaluation_settings_hash=digest({'dense':bool(dense),'monte_carlo_samples':monte_carlo_samples,'model':ENGINE_SIGNATURE}),
         mesh_convergence_verified=convergence,
         environment_versions=runtime_versions(),
     )
@@ -232,7 +265,8 @@ def evaluate_protocol(family: str, genome: dict, *, candidate_id: str = 'adhoc',
                  'zero_force_response_norm': float(np.linalg.norm(zero_vec)),
                  'geometry': geometry, 'recovery_assumed': recovery,
                  'spatial_positions': len(positions),
-                 'cases': len(X),
+                 'cases': len(X),'shear_pairs_N':shear_pairs(protocol.load_cases['shear_forces_N'],dense),
+                 'readout_basis':'seven static capacitance/Hall proxy channels; PVDF excluded',
                  'force_levels_N': protocol.load_cases['normal_forces_N'],
                  'excluded_from_prediction': ['indenter shape', 'ambient temperature'],
                  'fem_available_but_unconverged': bool(fem and fem_is_ok and not convergence)},
@@ -247,22 +281,22 @@ def evaluate_protocol(family: str, genome: dict, *, candidate_id: str = 'adhoc',
 
 
 def failed_validation_report(family: str, genome: dict, *, candidate_id: str,
-                             seed: int, reason: str) -> dict:
+                             seed: int, reason: str, protocol=None, dense=False, monte_carlo_samples=8) -> dict:
     """Fail-closed result for known numerical/geometry failures.
 
     Does not silently omit a failed test or claim a validated tier.
     """
-    protocol=load_protocol()
+    protocol=protocol or load_protocol()
     tests=[TestResult(id=k,status='fail',source='synthetic_surrogate',
                       reason='Incomplete numerical evaluation: '+reason) for k in
-           ('contact_load','no_contact','independent_holdout','sensor_covariance','geometry_screen')]
+           ('contact_load','no_contact','independent_holdout','sensor_covariance','geometry_screen','observability','robustness_completion')]
     tests.extend((TestResult(id='continuum_fem',status='not_run',source='linear_fem'),
                   TestResult(id='nonlinear_contact',status='unsupported',source='nonlinear_fem'),
                   TestResult(id='hardware_test',status='not_run',source='hardware_measurement')))
     evidence=Evidence(solver='surrogate_failed',
                       solver_hash=solver_source_hash(),
                       material_hash=digest({'material_E':genome.get('material_E')}),
-                      seed=seed,noise_provenance='assumed',environment_versions=runtime_versions())
+                      seed=seed,noise_provenance='assumed',evaluation_settings_hash=digest({'dense':bool(dense),'monte_carlo_samples':monte_carlo_samples,'model':ENGINE_SIGNATURE}),environment_versions=runtime_versions())
     return ValidationReport(candidate_id=str(candidate_id),family=family,
            protocol_hash=digest(protocol.model_dump(mode='json')),
            genome_hash=digest({'family':family,'genome':genome}),
@@ -278,4 +312,4 @@ def safe_evaluate_protocol(family: str, genome: dict, *, candidate_id: str,
         return evaluate_protocol(family,genome,candidate_id=candidate_id,seed=seed,**options)
     except (ValueError, ArithmeticError, RuntimeError, OverflowError) as exc:
         return failed_validation_report(family,genome,candidate_id=candidate_id,seed=seed,
-                     reason=f'{type(exc).__name__}: {exc}')
+                     reason=f'{type(exc).__name__}: {exc}',protocol=options.get('protocol'),dense=options.get('dense',False),monte_carlo_samples=options.get('monte_carlo_samples',8))

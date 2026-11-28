@@ -6,7 +6,7 @@ is presented as measured or as true prediction accuracy in hardware.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from validation_design import select_decoder
 import numpy as np
 
 NOISE_SIGMA = np.array([0.001] * 4 + [0.0003] * 2 + [0.002], dtype=float)
@@ -22,7 +22,7 @@ def response_vector(response: dict) -> np.ndarray:
     return out
 
 
-def grouped_position_split(groups, seed: int = 3322):
+def grouped_position_split(groups, seed: int = 3322, fractions=(.6,.2,.2)):
     """Split entire contact positions, never individual samples. No overlap."""
     keys = sorted(set(groups))
     if len(keys) < 5:
@@ -30,8 +30,11 @@ def grouped_position_split(groups, seed: int = 3322):
     rng = np.random.default_rng(seed)
     rng.shuffle(keys)
     n = len(keys)
-    n_train = max(1, int(n * .6))
-    n_val = max(1, int(n * .2))
+    fractions=np.asarray(fractions,float)
+    if fractions.shape!=(3,) or not np.isfinite(fractions).all() or np.any(fractions<=0) or not np.isclose(fractions.sum(),1.,atol=1e-10,rtol=0.):
+        raise ValueError('Three positive split fractions summing to one required')
+    n_train = min(n-2,max(1,int(n*fractions[0])))
+    n_val = min(n-n_train-1,max(1,int(n*fractions[1])))
     if n_train + n_val >= n:
         raise ValueError('Not enough contact groups for held-out test')
     domains = [set(keys[:n_train]), set(keys[n_train:n_train+n_val]),
@@ -53,27 +56,27 @@ def _ridge(X_train: np.ndarray, Y_train: np.ndarray, X_test: np.ndarray, alpha: 
     return B @ beta
 
 
-def decoder_holdout(X, Y, position_groups, *, seed: int = 3322, assumed_noise=NOISE_SIGMA, add_synthetic_noise: bool = True):
+def decoder_holdout(X, Y, position_groups, *, seed: int = 3322, assumed_noise=NOISE_SIGMA, add_synthetic_noise: bool = True, fractions=(.6,.2,.2)):
     X = np.asarray(X, float)
     Y = np.asarray(Y, float)
     if X.ndim != 2 or X.shape[1] != 7 or Y.shape != (len(X), 5):
         raise ValueError('X must be [n,7], Y must be [n,5] for Fx,Fy,Fz,x,y')
     if not np.isfinite(X).all() or not np.isfinite(Y).all():
         raise ValueError('Nonfinite sensor dataset')
-    train, val, test = grouped_position_split(position_groups, seed)
+    if len(position_groups)!=len(X):raise ValueError('One group per sensor sample required')
+    train, val, test = grouped_position_split(position_groups, seed, fractions)
     noise = np.asarray(assumed_noise, dtype=float)
-    if noise.shape != (7,) or (noise <= 0).any():
+    if noise.shape != (7,) or not np.isfinite(noise).all() or (noise <= 0).any():
         raise ValueError('Positive 7-channel noise standard deviations required')
     # Synthetic additive Gaussian noise is generated from a fixed PRNG seed;
     # measurements with known covariance should replace it in future hardware loops.
     rng = np.random.default_rng(seed + 13)
     X_noisy = X + rng.normal(size=X.shape) * noise if add_synthetic_noise else X.copy()
-    pred_val = _ridge(X_noisy[train], Y[train], X_noisy[val])
-    pred_test = _ridge(X_noisy[train], Y[train], X_noisy[test])
+    # The noise-only baseline is an assumption even for imported CSV data.
+    no_contact = rng.normal(size=(128, 7)) * noise
+    pred_test,pred_zero,pred_val,model=select_decoder(
+        X_noisy,Y,train,val,test,noise,FEATURE_SCALES,no_contact)
     err = pred_test - Y[test]
-    zero = np.zeros(7)
-    no_contact = rng.normal(size=(20, 7)) * noise + zero
-    pred_zero = _ridge(X_noisy[train], Y[train], no_contact)
     fp_rate = float(np.mean(np.linalg.norm(pred_zero[:, :3], axis=1) > 0.025))
     rmse = np.sqrt(np.mean(err[:, :3] ** 2, axis=0))
     loc_error = np.linalg.norm(err[:, 3:5], axis=1)
@@ -84,14 +87,17 @@ def decoder_holdout(X, Y, position_groups, *, seed: int = 3322, assumed_noise=NO
         'train_count': len(train), 'validation_count': len(val), 'test_count': len(test),
         'split_policy': 'disjoint_contact_positions',
         'split_seed': seed,
-        'training': 'ridge_with_train_only_scaling_and_assumed_gaussian_channel_noise',
+        'training': 'validation_selected_ridge_or_bounded_rbf',
+        'decoder_model':model,'validation_normalized_rmse':model['validation_normalized_rmse'],
+        'group_counts':{k:len({position_groups[i] for i in v}) for k,v in (('train',train),('validation',val),('test',test))},
         'source': 'synthetic_surrogate' if add_synthetic_noise else 'user_supplied_dataset_with_no_added_noise',
         'force_rmse_N': [float(x) for x in rmse],
         'force_rmse_norm_N': float(np.sqrt(np.mean(force_norm_error ** 2))),
         'force_error_p95_N': float(np.quantile(force_norm_error, .95)),
         'position_mae_mm': float(np.mean(loc_error)),
         'position_p95_mm': float(np.quantile(loc_error, .95)),
-        'validation_rmse_mixed_units': val_error,
+        'validation_rmse_mixed_units': val_error, # legacy display only; never used for selection
+        'force_position_scales_N_N_N_mm_mm':FEATURE_SCALES.tolist(),
         'no_contact_false_positive_rate_assumed': fp_rate,
         'assumed_noise_std_channels': noise.tolist(),
         'independent_test_groups': len(set(np.asarray(position_groups)[test])),
@@ -105,7 +111,7 @@ def whitened_identifiability(jacobian, noise_std=NOISE_SIGMA, scales=FEATURE_SCA
     scales = np.asarray(scales, float)
     if J.shape != (7, 5) or sigma.shape != (7,) or scales.shape != (5,) or (sigma <= 0).any():
         raise ValueError('Expected J[7,5], seven positive noise sigma, five variable scales')
-    if not np.isfinite(J).all():
+    if not np.isfinite(J).all() or not np.isfinite(sigma).all() or not np.isfinite(scales).all() or np.any(scales<=0):
         raise ValueError('Nonfinite Jacobian')
     whitened = J * scales[None, :] / sigma[:, None]
     values = np.linalg.svd(whitened, compute_uv=False)

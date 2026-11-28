@@ -94,6 +94,7 @@ class Evidence(BaseModel):
     material_hash: str
     seed: int
     noise_provenance: Literal['assumed', 'measured']
+    evaluation_settings_hash: str | None = None
     calibration_specimen: str | None = None
     measured_data_sha256: str | None = None
     mesh_convergence_verified: bool = False
@@ -126,6 +127,8 @@ class ValidationReport(BaseModel):
             raise ValueError('Duplicate validation test IDs')
         required = {'contact_load', 'no_contact', 'independent_holdout',
                     'sensor_covariance', 'geometry_screen'}
+        if self.evidence.evaluation_settings_hash is not None and self.tier=='T0':
+            required.update(('observability','robustness_completion'))
         existing = {t.id: t for t in self.tests}
         if required - set(existing):
             raise ValueError(f'Missing mandatory tests: {sorted(required-set(existing))}')
@@ -156,7 +159,7 @@ def candidate_comparable(a: dict, b: dict) -> tuple[bool, str]:
     ea,eb=a.get('evidence',{}),b.get('evidence',{})
     if not ea.get('solver_hash') or not eb.get('solver_hash'):
         return False, 'missing_solver_hash'
-    for key in ('solver_hash', 'seed', 'noise_provenance', 'mesh_convergence_verified'):
+    for key in ('solver_hash', 'seed', 'noise_provenance', 'mesh_convergence_verified','evaluation_settings_hash'):
         if ea.get(key) != eb.get(key):
             return False, f'different_{key}'
     return True, 'same_protocol_fidelity_solver_seed_noise_basis'

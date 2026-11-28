@@ -70,6 +70,14 @@
   results.append(tests[0],audit);
   fem.open=true;const femPanel=make('section','panel workspace-fem');femPanel.append(make('p','workspace-summary','Manual inspection settings apply to Evaluate All. Top-3 evolution settings are in Overview → Validation & FEM.'),fem);
   const signals=make('section','workspace-stack');signals.append(tests[1],tests[2]);
+  // The actual selected-geometry plot and controls are moved, never cloned.
+  // Overview retains the full-size view; analytical tabs use a compact dock.
+  const geometryDocks=new Map();
+  for(const [key,host] of [['results',results],['fem',femPanel],['signals',signals]]){
+    const dock=make('details','workspace-geometry-dock advanced-only');dock.open=true;
+    dock.append(make('summary','','Selected geometry · interactive 3D'));host.prepend(dock);
+    geometryDocks.set(key,dock);dock.addEventListener('toggle',resize);
+  }
   // Explicit manual refresh actions, using the existing request functions.
   const signalActions=make('div','workspace-signal-actions');
   signalActions.append(button('workspaceCharacterize','Refresh response',()=>runCharacterization()),button('workspaceSpatial','Run spatial scan',()=>runSpatial()));
@@ -83,10 +91,102 @@
   const sessions=make('select','workspace-run-select');sessions.id='workspaceLabSessions';sessions.setAttribute('aria-label','Open Multiscale inspection sessions');
   const close=button('workspaceLabClose','Close session',()=>closeSession());
   const frames=make('div','workspace-lab-sessions');
-  labBar.append(labContext,sync,sessions,close,standalone);lab.append(labBar,frames);
+  labBar.append(labContext,sync,sessions,close,standalone);
+  const pinnedGeometry=make('details','workspace-pinned-geometry');pinnedGeometry.open=true;
+  const pinnedStatus=make('p','workspace-summary','Select an inspection session.');pinnedStatus.id='workspacePinnedGeometryStatus';
+  const pinnedPlot=make('div','workspace-pinned-plot');pinnedPlot.id='workspacePinnedGeometryPlot';
+  const pinnedActions=make('div','workspace-pinned-actions');
+  const pinnedReset=button('workspacePinnedReset','Reset camera',()=>{if(pinnedPlot._fullLayout)Plotly.relayout(pinnedPlot,{'scene.camera':baseLayout.scene.camera});});
+  const pinnedFilm=make('input');pinnedFilm.type='checkbox';pinnedFilm.checked=true;pinnedFilm.id='workspacePinnedPVDF';
+  const pinnedFilmLabel=make('label','','PVDF layer');pinnedFilmLabel.prepend(pinnedFilm);
+  pinnedActions.append(pinnedFilmLabel,pinnedReset);
+  pinnedGeometry.append(make('summary','','Selected geometry · interactive 3D (inspection session)'),pinnedStatus,pinnedActions,pinnedPlot);
+  lab.append(labBar,pinnedGeometry,frames);
   const views=[['overview','Overview',overview,false],['results','Results',results,false],['fem','FEM',femPanel,true],['signals','Signals',signals,true],['multiscale','Multiscale',lab,true],['library','Library',library,false],['runs','Runs',archive,false],['history','History',history,true]];
   let active='overview',bound=null,advanced=false,labBusy=false,frame=null;
   const openLabs=new Map(),labLimit=3;
+  let geometryRequest=0,pinnedDraw=Promise.resolve();
+  function mountGeometry(){
+    const dock=advanced?geometryDocks.get(active):null;
+    const target=dock||overview;
+    if(stage.parentElement!==target){
+      stage.classList.toggle('workspace-compact-stage',!!dock);
+      if(dock)dock.append(stage);else overview.insertBefore(stage,right);
+    }
+  }
+  function purgePlot(plot){if(plot._fullLayout||plot.data)Plotly.purge(plot);}
+  function renderPinnedGeometry(){
+    const revision=++geometryRequest, key=bound?JSON.stringify(bound):null,item=openLabs.get(key);
+    if(active!=='multiscale'||!pinnedGeometry.open||!item){
+      pinnedDraw=pinnedDraw.catch(()=>{}).then(()=>{if(revision===geometryRequest){purgePlot(pinnedPlot);pinnedStatus.textContent='Select an inspection session.';}});
+      return;
+    }
+    const p=item.context;
+    pinnedStatus.textContent='Loading '+p.expected_candidate_id+' · undeformed geometry';
+    pinnedDraw=pinnedDraw.catch(()=>{}).then(async()=>{
+      if(revision!==geometryRequest)return;
+      purgePlot(pinnedPlot);
+      try{
+        if(!item.geometry){
+          const q=new URLSearchParams({kind:p.selection,index:p.index,family:p.family,quality:'10'});
+          for(const k of ['run_id','generation','piezo_count_override','piezo_wiring_override','expected_live_run_id','expected_candidate_id'])if(p[k]!=null)q.set(k,p[k]);
+          const res=await fetch('/api/mesh?'+q);if(!res.ok)throw Error('Geometry unavailable ('+res.status+')');
+          const data=await res.json();if(String(data.candidate.id)!==p.expected_candidate_id)throw Error('Geometry identity mismatch');
+          item.geometry=data;
+        }
+        if(revision!==geometryRequest)return;
+        const traces=item.geometry.model.components.filter(c=>c.part!=='piezo'||pinnedFilm.checked).map(c=>({
+          type:'mesh3d',name:c.part,x:c.vertices.map(v=>v[0]),y:c.vertices.map(v=>v[1]),z:c.vertices.map(v=>v[2]),
+          i:c.faces.map(f=>f[0]),j:c.faces.map(f=>f[1]),k:c.faces.map(f=>f[2]),color:colors[c.part]||'#a0b3bd',hoverinfo:'skip',opacity:1,flatshading:false
+        }));
+        await Plotly.react(pinnedPlot,traces,{...baseLayout,uirevision:key},{responsive:true,displaylogo:false});
+        if(revision===geometryRequest)pinnedStatus.textContent=p.expected_candidate_id+' · '+p.family+' · pinned undeformed geometry · PVDF '+(p.piezo_count_override??'as saved')+' / wiring '+(p.piezo_wiring_override??'as saved');
+        else purgePlot(pinnedPlot);
+      }catch(e){if(revision===geometryRequest){purgePlot(pinnedPlot);pinnedStatus.textContent='Pinned geometry unavailable: '+e.message;}}
+    });
+  }
+  pinnedFilm.onchange=renderPinnedGeometry;pinnedGeometry.addEventListener('toggle',renderPinnedGeometry);
+  const femGrid=el('femPreviewGrid'),preview=window.NeuroFEMPreviews;
+  const femLegend=make('p','workspace-fem-legend','Run Evaluate All to compute four standard load cases.');femLegend.id='workspaceFEMLegend';
+  const femNote=make('small','workspace-summary','Same reference geometry, visual scale and color limits. Standard loads are independent of the custom inspector settings.');
+  const femCards=make('div','workspace-fem-grid'),plots=new Map();
+  for(const name of preview.order){
+    const card=make('details','workspace-fem-card');card.open=true;card.dataset.case=name;
+    const plot=make('div','workspace-fem-preview-plot');plot.id='femPreview-'+name;
+    const caption=make('small','workspace-fem-case-metrics','No solved field yet.');
+    card.append(make('summary','',preview.labels[name]),caption,plot);femCards.append(card);plots.set(name,{card,plot,caption});
+    card.addEventListener('toggle',()=>renderFEMPreviews());
+  }
+  femGrid.append(femNote,femLegend,femCards);
+  let previewDraw=Promise.resolve(),previewRevision=0,lastPreviewPacket=null,femStale=false;
+  function markFEMStale(){femStale=true;renderFEMPreviews();}
+  function renderFEMPreviews(){
+    const packet=femPreviewFields,rev=++previewRevision;
+    if(packet!==lastPreviewPacket){lastPreviewPacket=packet;femStale=false;}
+    const visible=active==='fem'&&advanced&&fem.open;
+    const key=el('femColor').value,scale=Number(el('femScale').value),ghost=el('femReference').checked;
+    const valid=packet?.schema===1&&preview.order.every(name=>packet.cases?.[name]);
+    const units={stress_vm_MPa:'von Mises stress [MPa]',principal_strain:'Principal strain [1]',displacement_mm:'Displacement [mm]'};
+    const range=valid&&visible?preview.bounds(packet,key,scale):null;
+    femLegend.textContent=valid?(femStale?'Settings changed — last solved fields only. ':'')+
+      (range?units[key]+' · shared range '+range.cmin.toPrecision(4)+' to '+range.cmax.toPrecision(4)+' · '+scale+'× visual scale · '+packet.display_surface_triangles+' triangles'+(packet.display_downsampled?' (sampled)':''):'Four standard load fields available.'):
+      'No solved fields. Select a receptor and run Evaluate All with FEM enabled.';
+    femLegend.classList.toggle('workspace-stale',femStale&&valid);
+    previewDraw=previewDraw.catch(()=>{}).then(async()=>{
+      if(rev!==previewRevision)return;
+      for(const [name,{card,plot,caption}] of plots){
+        if(rev!==previewRevision)return;
+        if(!valid){caption.textContent='No solved field yet.';purgePlot(plot);continue;}
+        const c=packet.cases[name],m=c.metrics||{},l=c.load||{},fmt=n=>Number.isFinite(n)?Number(n).toPrecision(4):'—';
+        caption.textContent='F ['+(l.load_force_N||[]).join(', ')+'] N · offset ['+(l.offset_mm||[]).join(', ')+'] mm · Mz '+(l.torque_z_Nmm??0)+' Nmm · max |u| '+fmt(m.max_displacement_mm)+' mm · max stress '+fmt(m.max_von_mises_MPa)+' MPa';
+        if(!visible||!card.open){purgePlot(plot);continue;}
+        const scene={...baseLayout.scene,xaxis:{...baseLayout.scene.xaxis,range:range.ranges[0]},yaxis:{...baseLayout.scene.yaxis,range:range.ranges[1]},zaxis:{...baseLayout.scene.zaxis,range:range.ranges[2]}};
+        try{await Plotly.react(plot,preview.traces(packet,name,key,scale,ghost,range),{...baseLayout,scene,showlegend:false,uirevision:'standard-'+name+'-'+selectionIdentity()},{responsive:true,displaylogo:false});}
+        catch(e){caption.textContent+=' · preview unavailable: '+e.message;}
+      }
+    });
+  }
+  fem.addEventListener('toggle',renderFEMPreviews);
   const reports=window.NeuroReports;
   let saved=[];try{saved=reports.load(localStorage);}catch{}
   const comparison=make('details','workspace-comparison');comparison.id='workspaceComparison';comparison.append(make('summary','','Compare & save inspection reports'));
@@ -126,11 +226,11 @@
   }
   const simpleLabels={all:'Everything', 'single:all':'Single-stage designs','hybrid:all':'All two-stage hybrids',balanced:'Balanced',touch:'Sensitive touch',robust:'Strain robustness',dynamic:'Dynamic events'};
   function updateLabels(){for(const id of ['mode','objective'])for(const opt of el(id).options){if(!opt.dataset.fullLabel)opt.dataset.fullLabel=opt.textContent;opt.title=opt.dataset.fullLabel;const text=advanced?opt.dataset.fullLabel:(simpleLabels[opt.value]||opt.dataset.fullLabel);if(opt.textContent!==text)opt.textContent=text;}}
-  function mode(){advanced=!document.body.classList.contains('basic');el('basicMode').setAttribute('aria-pressed',String(!advanced));el('advancedMode').setAttribute('aria-pressed',String(advanced));updateLabels();if(!advanced&&views.find(v=>v[0]===active)?.[3])show('overview');else update();}
+  function mode(){advanced=!document.body.classList.contains('basic');el('basicMode').setAttribute('aria-pressed',String(!advanced));el('advancedMode').setAttribute('aria-pressed',String(advanced));updateLabels();if(!advanced&&views.find(v=>v[0]===active)?.[3])show('overview');else{mountGeometry();update();resize();}}
   function resize(){requestAnimationFrame(()=>{for(const plot of main.querySelectorAll('.js-plotly-plot'))if(plot.getClientRects().length&&plot._fullLayout)try{Plotly.Plots.resize(plot);}catch{}});}
   function show(id){if(!panels.has(id)||(!advanced&&views.find(v=>v[0]===id)[3]))id='overview';active=id;
     for(const [key,p] of panels){p.hidden=key!==id;const t=tabs.get(key);t.setAttribute('aria-selected',String(key===id));t.tabIndex=key===id?0:-1;}
-    if(id==='multiscale'&&!bound)bindLab(false);update();resize();
+    if(id==='multiscale'&&!bound)bindLab(false);mountGeometry();update();renderPinnedGeometry();renderFEMPreviews();resize();
   }
   nav.addEventListener('keydown',e=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;const visible=views.filter(v=>advanced||!v[3]).map(v=>v[0]);let i=visible.indexOf(active);i=e.key==='Home'?0:e.key==='End'?visible.length-1:(i+(e.key==='ArrowRight'?1:-1)+visible.length)%visible.length;e.preventDefault();show(visible[i]);tabs.get(visible[i]).focus();});
   function current(){const p=selectedPayload(),c=findCandidate(currentSelection);if(!p||!c)return null;
@@ -140,7 +240,7 @@
     const item=openLabs.get(key);if(!item||labBusy)return;
     for(const entry of openLabs.values()){entry.frame.hidden=true;entry.frame.removeAttribute('id');}
     bound=item.context;frame=item.frame;frame.id='workspaceLabFrame';frame.hidden=false;
-    standalone.href=labUrl(bound,false);labBusy=item.busy;update();
+    standalone.href=labUrl(bound,false);labBusy=item.busy;update();renderPinnedGeometry();
   }
   function bindLab(force){const p=current();if(!p||labBusy)return;const key=JSON.stringify(p);
     if(openLabs.has(key)){activateSession(key);return;}
@@ -150,7 +250,7 @@
   }
   function closeSession(){if(!bound||labBusy)return;const key=JSON.stringify(bound),item=openLabs.get(key);if(!item)return;
     item.frame.remove();openLabs.delete(key);bound=null;frame=null;labBusy=false;standalone.href='/v30';
-    if(openLabs.size)activateSession(openLabs.keys().next().value);else update();renderReports();
+    if(openLabs.size)activateSession(openLabs.keys().next().value);else{update();renderPinnedGeometry();}renderReports();
   }
   sessions.onchange=()=>activateSession(sessions.value);
   function updateSessions(p){const opts=[...openLabs].map(([key,item])=>new Option(`${item.context.expected_candidate_id} · ${item.context.run_id||'live / library'}${item.context.generation!=null?' / gen '+item.context.generation:''} · PVDF ${item.context.piezo_count_override??'saved'} / wiring ${item.context.piezo_wiring_override??'saved'}`,key));
@@ -193,6 +293,6 @@
   library.addEventListener('click',e=>{if(e.target.closest('[data-hybrid],[data-preview-seed]'))show('overview');});
   archive.addEventListener('click',e=>{if(e.target.closest('#openArchive,#openStage,#returnLive'))show('overview');});
   window.addEventListener('message',e=>{if(e.origin!==location.origin)return;const item=[...openLabs.values()].find(x=>x.frame.contentWindow===e.source);if(!item)return;if(e.data?.type==='neuroskin:lab-height'&&Number.isFinite(e.data.height))item.frame.style.height=Math.max(500,Math.min(18000,e.data.height+12))+'px';else if(e.data?.type==='neuroskin:lab-report'){const r=reports.record(e.data.result);if(r&&reports.matchesFrame(r,item.context)){item.reports.set(r.diagnostic_context.path,r);renderReports();}}else if(e.data?.type==='neuroskin:lab-busy'&&typeof e.data.busy==='boolean'){item.busy=e.data.busy;if(item.frame===frame){labBusy=item.busy;update();}}});
-  window.NeuroWorkspace={show,update,resize,renderEvaluation};
+  window.NeuroWorkspace={show,update,resize,renderEvaluation,renderFEMPreviews,markFEMStale};
   mode();show('overview');renderReports();
 })();

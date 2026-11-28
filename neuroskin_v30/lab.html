@@ -23,7 +23,7 @@ $('tile').onclick=()=>{const contacts=[...$('contacts').children].map(r=>{const 
 
 const labOutputs=new Map();let labVisible=true,visualDraw=Promise.resolve(),visualRevision=0;
 const labVisuals=window.NeuroLabVisuals;
-for(const id of ['fem','tileResult','fusionResult']){const pre=$(id),status=makeNode('p','No result yet','lab-status'),summary=makeNode('div','','lab-metrics'),raw=makeNode('details','','lab-raw');status.setAttribute('role','status');raw.append(makeNode('summary','Raw report (JSON)'));pre.before(status,summary,raw);raw.append(pre);const visual=makeNode('div','','lab-visuals');visual.id=id+'Visual';visual.hidden=true;summary.after(visual);labOutputs.set(id,{status,summary,visual,result:null,stage:2,scale:1});}
+for(const id of ['fem','tileResult','fusionResult']){const pre=$(id),status=makeNode('p','No result yet','lab-status'),summary=makeNode('div','','lab-metrics'),raw=makeNode('details','','lab-raw');status.setAttribute('role','status');raw.append(makeNode('summary','Raw report (JSON)'));pre.before(status,summary,raw);raw.append(pre);const visual=makeNode('div','','lab-visuals');visual.id=id+'Visual';visual.hidden=true;summary.after(visual);labOutputs.set(id,{status,summary,visual,result:null,stage:2,scale:1,field:'material'});}
 function renderLabVisual(){
   const rev=++visualRevision;
   visualDraw=visualDraw.catch(()=>{}).then(async()=>{
@@ -43,8 +43,9 @@ function renderLabVisual(){
           stage.value=String(ui.stage);stage.onchange=()=>{ui.stage=Number(stage.value);renderLabVisual();};
           for(const s of [1,5,10,20])scale.append(new Option(s+'× deformation',s));
           scale.value=String(ui.scale);scale.onchange=()=>{ui.scale=Number(scale.value);renderLabVisual();};
-          bar.append(stage,scale,makeNode('small','Green: material 1 · purple: material 2 · ghost: reference; indenter shown only at true scale.'));v.append(bar);
-          await append(labVisuals.contact(d,ui.stage,ui.scale));await append(labVisuals.contactCurve(d));
+          const field=makeNode('select');field.setAttribute('aria-label','Nonlinear field');for(const [k,v] of [['material','Material regions'],['stress','Cauchy von Mises [MPa]'],['J','Volume ratio J']])field.append(new Option(v,k));field.value=ui.field;field.onchange=()=>{ui.field=field.value;renderLabVisual();};
+          bar.append(stage,scale,field,makeNode('small','Ghost: reference; indenter shown only at true scale. Field scale shared across stages.'));v.append(bar);
+          await append(labVisuals.contact(d,ui.stage,ui.scale,ui.field));await append(labVisuals.contactCurve(d));
         }else if(id==='tileResult'){await append(labVisuals.tile(d),true);}
         else if(id==='fusionResult'){await append(labVisuals.fusion(d),true);}
       }catch(e){v.append(makeNode('small','Visualization unavailable: '+e.message,'lab-visual-note'));}

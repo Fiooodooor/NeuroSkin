@@ -32,7 +32,7 @@ def receptor_plate_ids(mesh,genome):
     return np.repeat(plate.astype(int),6)
 
 
-def surface_topology(mesh,material_ids):
+def surface_topology(mesh,material_ids,*,include_owners=False):
     t=mesh.tets
     faces=np.concatenate([t[:,[1,2,3]],t[:,[0,3,2]],t[:,[0,1,3]],t[:,[0,2,1]]])
     _,inv,counts=np.unique(np.sort(faces,axis=1),axis=0,return_inverse=True,return_counts=True)
@@ -40,4 +40,5 @@ def surface_topology(mesh,material_ids):
     outer=faces[mask];owners=np.tile(np.arange(len(t)),4)[mask]
     used,remap=np.unique(outer.ravel(),return_inverse=True)
     return used,{'vertices_mm':mesh.nodes[used].tolist(),'faces':remap.reshape(-1,3).tolist(),
-                 'face_material_ids':np.asarray(material_ids)[owners].tolist()}
+                 'face_material_ids':np.asarray(material_ids)[owners].tolist(),
+                 **({'face_element_ids':owners.tolist()} if include_owners else {})}

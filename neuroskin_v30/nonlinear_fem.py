@@ -144,6 +144,18 @@ class TetNeoHookeanSolver:
                +(mu-lam*logJ)[:,None,None,None,None]*np.einsum('eiL,ekJ->eiJkL',invT,invT))
         return W,P,C,J
 
+    def element_fields(self,u):
+        """Actual Cauchy stress, deformation J and reference-volume energy."""
+        u=np.asarray(u,float)
+        if u.shape!=self.mesh.nodes.shape or not np.isfinite(u).all():raise ValueError('Invalid displacement field')
+        F=np.eye(3)+np.einsum('eai,eaJ->eiJ',u[self.mesh.tets],self.grad)
+        W,P,_,J=self._constitutive_batch(F,0,len(F),False)
+        sigma=(P@F.transpose(0,2,1))/J[:,None,None]
+        dev=sigma-np.trace(sigma,axis1=1,axis2=2)[:,None,None]*np.eye(3)/3
+        vm=np.sqrt(1.5*np.sum(dev*dev,axis=(1,2)))
+        energy=W*self.volumes
+        return {'cauchy_MPa':sigma,'von_mises_MPa':vm,'J':J,'energy_Nmm':energy}
+
     def _assemble(self,u,force,plane,weights,penalty,with_tangent):
         grad_total=np.zeros((len(self.mesh.nodes),3))
         rows=[];cols=[];vals=[]
@@ -265,7 +277,7 @@ class TetNeoHookeanSolver:
                 raise NonlinearFEMError('line search failed (inversion, unstable tangent or infeasible constraints)')
         raise NonlinearFEMError(f'Newton did not converge in {max_iterations} iterations; residual {norm:.6g} N')
 
-    def contact_cycle(self,indents_mm, *,penalty_N_per_mm3=100., fixed_dofs=None, capture=None):
+    def contact_cycle(self,indents_mm, *,penalty_N_per_mm3=100., fixed_dofs=None, capture=None,max_subdivisions=5):
         """Displacement-driven frictionless contact path; not viscoelastic recovery.
 
         Returns all stages with explicit penetration and equilibrium checks.
@@ -276,12 +288,23 @@ class TetNeoHookeanSolver:
         ztop=float(self.mesh.nodes[:,2].max())
         fix=(3*np.flatnonzero(np.isclose(self.mesh.nodes[:,2],self.mesh.nodes[:,2].min()))[:,None]
              +np.arange(3)[None,:]).ravel() if fixed_dofs is None else fixed_dofs
-        old=None;data=[]
+        if type(max_subdivisions) is not int or not 0<=max_subdivisions<=6:raise ValueError('Invalid continuation budget')
+        old=None;data=[];previous=0.
+        weights=horizontal_surface_weights(self.mesh)
+        def advance(a,b,u,depth):
+            try:
+                result=self.solve(fixed_dofs=fix,initial_mm=u,plane_z_mm=ztop-b,
+                    contact_weights_mm2=weights,contact_penalty_N_per_mm3=penalty_N_per_mm3)
+                return result,1
+            except NonlinearFEMError:
+                if depth==0 or abs(b-a)<1e-10:raise
+                mid=(a+b)/2
+                first,n1=advance(a,mid,u,depth-1)
+                last,n2=advance(mid,b,first.displacement_mm,depth-1)
+                return last,n1+n2
         for displacement in indents:
-            result=self.solve(fixed_dofs=fix,initial_mm=old,
-                              plane_z_mm=ztop-displacement,
-                              contact_penalty_N_per_mm3=penalty_N_per_mm3)
-            old=result.displacement_mm
+            result,n=advance(previous,displacement,old,max_subdivisions)
+            old=result.displacement_mm;previous=displacement
             if capture is not None:capture(displacement,result)
-            data.append({'indentation_mm':displacement,**result.summary()})
+            data.append({'indentation_mm':displacement,'accepted_substeps':n,**result.summary()})
         return data

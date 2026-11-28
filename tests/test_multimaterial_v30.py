@@ -44,3 +44,18 @@ def test_layered_box_api_returns_real_fields():
         d=r.json();assert len(d['materials'])==2 and not d['T2_qualified']
         f=d['contact_fields'];assert len(f['stages'])==4 and set(f['face_material_ids'])=={0,1}
         assert len(f['stages'][2]['displacement_mm'])==len(f['vertices_mm'])
+        assert len(f['stages'][2]['face_von_mises_MPa'])==len(f['faces'])
+        assert len(d['stages'][2]['material_fields'])==2
+
+def test_element_fields_affine_deformation_and_energy():
+    mesh=box_mesh(1,1,2);mats=[NeoHookean(2,.3),NeoHookean(8,.2)]
+    ids=layered_box_ids(mesh);s=TetNeoHookeanSolver(mesh,mats[0],materials=mats,material_ids=ids)
+    F=np.diag([1.01,1.02,.97]);u=mesh.nodes@(F-np.eye(3)).T
+    e=s.element_fields(u)
+    for i,mat in enumerate(mats):
+        W,P,_,J=mat.energy_stress_tangent(F)
+        np.testing.assert_allclose(e['cauchy_MPa'][ids==i],np.broadcast_to(P@F.T/J,(sum(ids==i),3,3)),atol=1e-12)
+        assert e['energy_Nmm'][ids==i].sum()==pytest.approx(W*.5)
+    np.testing.assert_allclose(e['J'],np.linalg.det(F))
+    cycle=s.contact_cycle([0.,.025,0.])
+    assert all(x['accepted_substeps']>=1 for x in cycle)

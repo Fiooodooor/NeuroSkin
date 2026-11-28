@@ -231,3 +231,6 @@ Canonical development branch: `develop/v3`. Consolidate the full v2.2-derived in
 
 ## Revision 43 — incidence-balanced adaptive matvec partitions
 - Balance work by node-element incidence rather than node count; precompute stable partitions and adapt chunk count to the number of active RHS solves so a remaining case can use more of the shared pool. Preserve element order and disjoint writes. Manual spawn workers ignore SIGINT (parent owns cancellation). Existing exact operator and new partition tests; no measured workstation speedup claim.
+
+## Revision 44 — nonlinear continuation and material-resolved stress
+- Adaptive bisection of failed displacement increments (bounded depth; no relaxation of equilibrium criteria). Cache contact surface weights within a cycle. Compute actual element Cauchy stress P F^T/J, von Mises, J and reference-volume strain energy; expose per-material maxima and energy, boundary face element IDs and actual stress/J plots with common scale across stages. Affine manufactured solution and material-energy tests. Remains diagnostic, no convergence or coupled electrical claims.

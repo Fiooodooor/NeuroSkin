@@ -5,10 +5,11 @@
   const scene={aspectmode:'data',xaxis:{title:'X [mm]',gridcolor:'#345363'},yaxis:{title:'Y [mm]',gridcolor:'#345363'},zaxis:{title:'Z [mm]',gridcolor:'#345363'},camera:{eye:{x:1.55,y:1.45,z:1.2}}};
   const config={responsive:true,displaylogo:false};
   const colors=['#71d5b4','#b09bdb','#f1bd6d','#78a9cc'];
-  function contact(d,stage,scale){
+  function contact(d,stage,scale,field='material'){
     const p=d.contact_fields,s=p.stages[stage],v=p.vertices_mm,f=p.faces,u=s.displacement_mm;
     const mesh={type:'mesh3d',x:v.map((a,i)=>a[0]+scale*u[i][0]),y:v.map((a,i)=>a[1]+scale*u[i][1]),z:v.map((a,i)=>a[2]+scale*u[i][2]),i:f.map(a=>a[0]),j:f.map(a=>a[1]),k:f.map(a=>a[2]),facecolor:p.face_material_ids.map(i=>colors[i%colors.length]),name:'Solved deformation',hoverinfo:'skip'};
-    const ghost={...mesh,x:v.map(a=>a[0]),y:v.map(a=>a[1]),z:v.map(a=>a[2]),facecolor:undefined,color:'#92acba',opacity:.12,name:'Reference',hoverinfo:'skip'};
+    if(field!=='material'){const key=field==='stress'?'face_von_mises_MPa':'face_J';delete mesh.facecolor;mesh.intensity=s[key];mesh.intensitymode='cell';mesh.colorscale='Viridis';mesh.showscale=true;mesh.colorbar={title:field==='stress'?'Cauchy VM [MPa]':'J'};const all=p.stages.flatMap(t=>t[key]);mesh.cmin=all.reduce((a,b)=>Math.min(a,b),Infinity);mesh.cmax=all.reduce((a,b)=>Math.max(a,b),-Infinity);if(mesh.cmax===mesh.cmin)mesh.cmax=mesh.cmin+1e-12;}
+    const ghost={...mesh,x:v.map(a=>a[0]),y:v.map(a=>a[1]),z:v.map(a=>a[2]),facecolor:undefined,intensity:undefined,showscale:false,color:'#92acba',opacity:.12,name:'Reference',hoverinfo:'skip'};
     const planeZ=Math.max(...v.map(a=>a[2]))-s.indentation_mm;
     // Rigid indenter is plotted at its physical position (not exaggerated).
     const z0=Math.min(...v.map(a=>a[2]));

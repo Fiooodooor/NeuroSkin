@@ -116,12 +116,19 @@ def contact_report(mesh, material, indentation, penalty, fixed=None, *, material
         raise ValueError('Indentation must be below 25% of mesh height')
     solver = TetNeoHookeanSolver(mesh, material,materials=materials,material_ids=material_ids)
     from .material_regions import surface_topology
-    used,fields=surface_topology(mesh,solver.material_ids);fields['stages']=[]
+    used,fields=surface_topology(mesh,solver.material_ids,include_owners=True);fields['stages']=[]
+    owners=np.asarray(fields['face_element_ids']);material_fields=[]
     def capture(indent,result):
-        fields['stages'].append({'indentation_mm':indent,'displacement_mm':result.displacement_mm[used].tolist()})
+        e=solver.element_fields(result.displacement_mm)
+        fields['stages'].append({'indentation_mm':indent,'displacement_mm':result.displacement_mm[used].tolist(),
+            'face_von_mises_MPa':e['von_mises_MPa'][owners].tolist(),'face_J':e['J'][owners].tolist()})
+        material_fields.append([{'id':i,'strain_energy_Nmm':float(e['energy_Nmm'][mask].sum()),
+            'max_von_mises_MPa':float(e['von_mises_MPa'][mask].max()),'min_J':float(e['J'][mask].min())}
+            for i in range(len(solver.materials)) if np.any(mask:=solver.material_ids==i)])
     stages = solver.contact_cycle([0., indentation/2, indentation, 0.],
                                   penalty_N_per_mm3=penalty, fixed_dofs=fixed,capture=capture)
-    for stage in stages:
+    for stage,regions in zip(stages,material_fields):
+        stage['material_fields']=regions
         stage['vertical_balance_error_N'] = abs(stage['reactions_sum_N'][2]-stage['contact_force_N'])
     return {'mesh':mesh.metrics(), 'stages':stages, 'contact_fields':fields,'materials':solver.material_summary(), 'model':'compressible_neo_hookean_TET4',
             'evidence':'DIAGNOSTIC_ONLY', 'T2_qualified':False,

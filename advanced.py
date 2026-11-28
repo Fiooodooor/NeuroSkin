@@ -586,7 +586,7 @@ def engine_provenance():
  for name in ('seed_library.py','archetype_geometry.py','recovery_sim.py','advanced.py','engine.py','optimization.py','electromechanics.py',
               'piezoelectric.py','spatial_validation.py','full_evaluation.py','geometry_fixes.py','physical_fem.py','laminate_fem.py','laminate_shell.py','hybrid_geometry.py','hybrid_library.py','pvdf_array.py',
               'reference_fem.py','beam_fem.py','matrixfree_fem.py','selection_refinement.py','search_space.py','orientation_study.py',
-              'audit_combine.py','validation_contract.py','sensor_metrics.py','evaluation_v30.py','electronics_budget.py','validation_protocol_v30.json','pvdf_physics.py','neuroskin_multiscale.py','symmetry_geometry.py','audit_scheduler.py','validation_design.py'):
+              'audit_combine.py','validation_contract.py','sensor_metrics.py','evaluation_v30.py','electronics_budget.py','validation_protocol_v30.json','pvdf_physics.py','neuroskin_multiscale.py','symmetry_geometry.py','audit_scheduler.py','validation_design.py','population_pareto.py'):
   data=(Path(__file__).parent/name).read_bytes()
   h.update(name.encode('utf-8')+b'\0'+data)
  return {'release':(Path(__file__).parent/'VERSION').read_text(encoding='utf-8').strip(),'model_type':'spatial_feasibility_guided_evolution_plus_PVDF_shell',
@@ -597,7 +597,7 @@ class EvolutionV5:
   self.lock=threading.RLock();self.folder=Path(folder);self.folder.mkdir(parents=True,exist_ok=True)
   self.thread=None;self._pool=None;self.stop_event=threading.Event();self.pause_event=threading.Event();self.records={};self.state=self.empty()
  def empty(self):
-  return dict(id='',status='idle',mode='all',family='all',duration=60.,elapsed=0.,generation=0,evaluated=0,seed=42,best=None,champions={},gallery=[],history=[],diversity=0,stagnation=0,mutations={},error='',objective='balanced',physical_gate=False,gate_grid=3,cores=1,audit_top3=[],audit_history=[],audited_champion=None,phase='idle',audit_grid=5,stage_decisions=[],search_strategy='adaptive',search_precision=.8,qd_archive_size=0)
+  return dict(id='',status='idle',mode='all',family='all',duration=60.,elapsed=0.,generation=0,evaluated=0,seed=42,best=None,champions={},gallery=[],history=[],diversity=0,stagnation=0,mutations={},error='',objective='balanced',physical_gate=False,gate_grid=3,cores=1,audit_top3=[],audit_history=[],audited_champion=None,phase='idle',audit_grid=5,stage_decisions=[],search_strategy='adaptive',search_precision=.8,qd_archive_size=0,population_pareto_size=0)
  def snapshot(self):
   with self.lock:
    d=copy.deepcopy(self.state);d['paused']=self.pause_event.is_set();return d
@@ -659,6 +659,7 @@ class EvolutionV5:
 
  def _loop(self,mode,duration,seed,population,exploration,objective,physical_gate,gate_grid,cores,audit_grid,fem_enabled,fem_pitch,fem_backend,search_strategy='adaptive',search_precision=.8):
   from search_space import SearchScope, local_refinement, EliteArchive
+  from population_pareto import rank_population,parent_key,OBJECTIVES
   scope=SearchScope.parse(mode)
   rng=random.Random(seed);families=scope.families
   pop=[scope.generate(rng) for _ in range(population)]
@@ -757,6 +758,15 @@ class EvolutionV5:
        if individual['id']==c['id']:
         individual['selection']=c['selection']
      scored.sort(key=lambda t:t[1]['selection'],reverse=True)
+    # Reuse known audit status for every recurring genome, not just finalists.
+    # Common cheap proxy objectives are ranked across the whole population;
+    # expensive full audits remain a separate promotion evidence boundary.
+    for _,candidate,_ in scored:
+     fingerprint=(candidate['family'],tuple(sorted(candidate['genome'].items())),objective,audit_grid,fem_enabled,fem_pitch,fem_backend)
+     known=audits_by_fingerprint.get(fingerprint)
+     if known is not None:candidate['known_audit_feasible']=bool(known['feasible'])
+    population_front=rank_population([x[1] for x in scored],physical_gate)
+    scored.sort(key=lambda t:parent_key(t[1]),reverse=True)
     for _selection,_candidate,_desc in scored:
      qd.insert(_candidate)
     incumbent,decision=promote(incumbent,finalists)
@@ -778,6 +788,9 @@ class EvolutionV5:
                       {'force_rmse_N':'min','position_mae_mm':'min',
                        'robust_signal_p10':'max'})] if pareto_items else []
     decision['pareto_status']='synthetic_surrogate_only'
+    decision['screening_pareto_front_T0']=population_front
+    decision['screening_pareto_objectives']=list(OBJECTIVES)
+    decision['screening_pareto_policy']='common proxy objectives; feasible-first; not full validation'
     decision['generation']=gen+1;decision['top3']=[{'id':c['id'],'family':c['family'],
        'topology':c['genome']['topology'],'score':c['audit']['audit_score'],
        'feasible':c['audit']['feasible']} for c in finalists]
@@ -791,7 +804,7 @@ class EvolutionV5:
     # Durable per-generation Top-3 snapshots, independently inspectable after restart.
     # The staged record is written atomically so a crash never creates a half JSON file.
     self._save_stage(gen+1, active, finalists, incumbent, decision)
-    with self.lock:self.state.update(phase='selection',workers_active=0,audit_top3=copy.deepcopy(finalists),
+    with self.lock:self.state.update(phase='selection',workers_active=0,population_pareto_size=len(population_front),audit_top3=copy.deepcopy(finalists),
        audited_champion=copy.deepcopy(incumbent),
        audit_history=copy.deepcopy(audit_history[-300:]),stage_decisions=copy.deepcopy(decision_history[-300:]))
     stall+=1;gen+=1
@@ -799,7 +812,7 @@ class EvolutionV5:
      if candidate['novelty']>.12 or len(archive)<5:
       archive.append({'descriptor':desc,'candidate':candidate});archive=archive[-160:]
     # Gallery: global champion, one per family, novel front, current diverse population.
-    sorted_current=sorted((s[1] for s in scored),key=lambda x:x['selection'],reverse=True)
+    sorted_current=[s[1] for s in scored]
     gallery=[];keys=set()
     for item in list(sorted(champions.values(),key=lambda x:-x['fitness']))+sorted_current[:8]+sorted(sorted_current,key=lambda x:-x['novelty'])[:5]:
      identity=(item['family'],tuple(sorted(item['genome'].items())))
@@ -816,8 +829,8 @@ class EvolutionV5:
     def tournament(fam=None):
      pool=[x[1] for x in scored if fam is None or x[1]['family']==fam]
      if not pool:return rng.choice(sorted_current)
-     return max((rng.choice(pool) for _ in range(3)),key=lambda q:q['selection'])
-    next_pop=([(incumbent['family'],copy.deepcopy(incumbent['genome']))] if fem_enabled and incumbent else [])+[(x['family'],copy.deepcopy(x['genome'])) for x in elites]
+     return max((rng.choice(pool) for _ in range(3)),key=parent_key)
+    next_pop=([(incumbent['family'],copy.deepcopy(incumbent['genome']))] if fem_enabled and incumbent and incumbent['audit']['feasible'] else [])+[(x['family'],copy.deepcopy(x['genome'])) for x in elites]
     stagnating=stall>=25;scale=(.28 if stagnating else .06)+.5*exploration
     while len(next_pop)<population:
      action=rng.random()

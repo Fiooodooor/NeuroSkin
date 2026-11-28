@@ -292,13 +292,20 @@ class EliteArchive:
     def insert(self, candidate: dict):
         key = niche_key(candidate['family'], candidate['genome'], candidate.get('metrics'))
         old = self.items.get(key)
-        if old is None or candidate['selection'] > old['selection']:
+        from population_pareto import archive_key
+        if old is not None and old['genome']==candidate['genome'] and candidate.get('known_audit_feasible') is False:
+            del self.items[key]
+            old=None
+        if candidate.get('pareto',{}).get('constraint_class')==2:return
+        if old is None or archive_key(candidate) > archive_key(old):
             self.items[key] = candidate
         if len(self.items) > self.max_size:
-            worst = min(self.items, key=lambda k: self.items[k]['selection'])
+            worst = min(self.items, key=lambda k: archive_key(self.items[k]))
             del self.items[worst]
     def sample(self, rng: random.Random, *, family: str | None = None):
         choices = [c for c in self.items.values() if family is None or c['family'] == family]
-        return rng.choice(choices) if choices else None
+        if not choices:return None
+        best=min(c.get('pareto',{}).get('constraint_class',0) for c in choices)
+        return rng.choice([c for c in choices if c.get('pareto',{}).get('constraint_class',0)==best])
     def __len__(self):
         return len(self.items)

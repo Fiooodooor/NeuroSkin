@@ -40,6 +40,10 @@ def pack_previews(fields, load_cases, boundary_results=None):
             extra=boundary_results[name]
             for k in ('boundary_vectors','boundary_error'):
                 if k in extra:case[k]=extra[k]
+        # Exact film/member identifiers from the solved laminate, not a
+        # nearest-neighbour assignment of substrate stress to geometry.
+        film_keys=('film_index','member_index','effective_strain','max_abs_effective_film_strain','effective_film_force_N','estimated_charge_pC','charge_amp_V_assumed','mechanical_energy_Nmm','shear_lag_transfer')
+        case['film_results']=[{k:film[k] for k in film_keys if k in film} for film in (m.get('pvdf_laminate_response') or {}).get('per_film',[])]
         cases[name]=case
     source=int(first.get('source_surface_triangles',count))
     return {'schema':1,'vertices_mm':vertices[used].tolist(),'faces':inv.reshape(-1,3).tolist(),

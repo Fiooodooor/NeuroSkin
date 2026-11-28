@@ -44,6 +44,10 @@ def test_fem_preview_fields_reuse_standard_cases_without_changing_score(backend)
         assert np.linalg.norm(vectors['force_balance_N'])<1e-4
         assert np.linalg.norm(vectors['moment_balance_Nmm'])<1e-3
         assert 'boundary_vectors' not in b['load_cases'][name]
+        expected=b['load_cases'][name]['pvdf_laminate_response']['per_film']
+        assert len(c['film_results'])==len(expected)>0
+        for f,e in zip(c['film_results'],expected):
+            assert (f['film_index'],f['member_index'],f['estimated_charge_pC'])==(e['film_index'],e['member_index'],e['estimated_charge_pC'])
         if backend=='hex8':
             assert vectors['substrate_sections']
             assert all(s['area_mm2']>0 for s in vectors['substrate_sections'])

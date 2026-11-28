@@ -206,6 +206,7 @@
   function renderFEMPreviews(){
     const packet=femPreviewFields,rev=++previewRevision;
     if(packet!==lastPreviewPacket){lastPreviewPacket=packet;femStale=false;}
+    componentInspector.setEvidence(packet,femStale);
     const visible=active==='fem'&&advanced&&fem.open;
     const key=el('femColor').value,scale=Number(el('femScale').value),ghost=el('femReference').checked;
     const valid=packet?.schema===1&&preview.order.every(name=>packet.cases?.[name]);
@@ -347,7 +348,7 @@
   archive.addEventListener('click',e=>{if(e.target.closest('#openArchive,#openStage,#returnLive'))show('overview');});
   window.addEventListener('message',e=>{if(e.origin!==location.origin)return;const item=[...openLabs.values()].find(x=>x.frame.contentWindow===e.source);if(!item)return;if(e.data?.type==='neuroskin:lab-height'&&Number.isFinite(e.data.height))item.frame.style.height=Math.max(180,Math.min(18000,e.data.height+12))+'px';else if(e.data?.type==='neuroskin:lab-report'){const r=reports.record(e.data.result);if(r&&reports.matchesFrame(r,item.context)){item.reports.set(r.diagnostic_context.path,r);renderReports();}}else if(e.data?.type==='neuroskin:lab-busy'&&typeof e.data.busy==='boolean'){item.busy=e.data.busy;if(item.frame===frame){labBusy=item.busy;update();}}});
   function clearComponents(){componentInspector.set(null,null);}
-  function decorateGeometry(data,traces,identity,deformed){componentInspector.set(data.model,identity);return window.NeuroComponents.decorate(traces,data.model,componentInspector.selected(),data.strut_paths,componentInspector.paths()&&!deformed,colors);}
+  function decorateGeometry(data,traces,identity,deformed){componentInspector.set(data.model,identity);componentInspector.setEvidence(femPreviewFields,femStale);componentInspector.setReferenceAvailable(!deformed);return window.NeuroComponents.decorate(traces,data.model,componentInspector.selected(),data.strut_paths,componentInspector.paths(),colors);}
   window.NeuroWorkspace={show,update,resize,renderEvaluation,renderFEMPreviews,markFEMStale,isFEMVisible,clearComponents,decorateGeometry};
   mode();show('overview');renderReports();refreshCompute();setInterval(refreshCompute,2000);
 })();

@@ -188,6 +188,12 @@ def test_four_real_fem_fields_and_geometry_override(app_url):
         expect(page.locator('#evaluateAll')).to_be_enabled(timeout=180000)
         page.locator('#workspace-tab-fem').click()
         expect(page.locator('#workspaceFEMLegend')).to_contain_text('shared displayed range',timeout=30000)
+        film=page.locator('#workspaceComponentTree button[data-component-id^="piezo:"]').first
+        film.locator('xpath=ancestor::details[1]/summary').click() if not film.is_visible() else None
+        film.click()
+        expect(page.locator('#workspaceComponentTree .component-evidence')).to_contain_text('Charge [pC]')
+        expect(page.locator('#workspaceComponentTree .component-evidence tbody tr, #workspaceComponentTree .component-evidence table tr')).to_have_count(5)
+        page.locator('#workspaceComponentTree').get_by_text('Clear highlight',exact=True).click()
         page.wait_for_function("""[...document.querySelectorAll('.workspace-fem-preview-plot')].every(p=>p.data?.length)""",timeout=60000)
         scales=page.evaluate("""[...document.querySelectorAll('.workspace-fem-preview-plot')].map(p=>{const t=p.data.find(t=>t.type==='mesh3d'&&t.intensity);return[t.cmin,t.cmax]})""")
         assert len(scales)==4 and all(s==scales[0] for s in scales)

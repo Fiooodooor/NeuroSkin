@@ -28,7 +28,7 @@ def _hybrid_raw_mechanics(family, genome, case='normal', force=None, moment=None
  replacement for HEX8. Intermediate plate displacement and channel groups
  are available for piezoelectric/optical-electrical transfer calculations.
  """
- from hybrid_geometry import stage_descriptors,stage_stiffnesses,mid_height
+ from hybrid_geometry import stage_models,stage_stiffnesses,mid_height
  from advanced import _single_stage_curve_stiffness,_single_stage_struts,stage_member_local_matrices
  _,base_force,mz,off,mx=CASES[case]
  F=np.asarray(base_force if force is None else force,dtype=float)
@@ -36,8 +36,8 @@ def _hybrid_raw_mechanics(family, genome, case='normal', force=None, moment=None
  strain=(.05 if case=='stretch_x' else -.05 if case=='compression' else 0.) if strain is None else float(strain)
  M=np.array([mx,0,mz],float) if moment is None else np.asarray(moment,float)
  load=np.array([*F,M[0]+off[1]*F[2],M[1]-off[0]*F[2],M[2]+off[0]*F[1]-off[1]*F[0]])
- stages=list(stage_descriptors(family,genome))
- K=dict(stage_stiffnesses(family,genome,_single_stage_curve_stiffness))
+ stages=list(stage_models(family,genome))
+ K=dict(stage_stiffnesses(family,genome,_single_stage_curve_stiffness,models=stages))
  lower_stage=stages[0]
  _,subfam,sg,_=lower_stage
  members=stage_member_local_matrices(subfam,sg,E=genome.get('material_E',1.))
@@ -61,7 +61,7 @@ def _hybrid_raw_mechanics(family, genome, case='normal', force=None, moment=None
          'stage_displacements_mm':{'upper':u_upper[:3].tolist(),'lower':u_lower[:3].tolist()},
          'stage_rotations_rad':{'upper':u_upper[3:].tolist(),'lower':u_lower[3:].tolist()},
          'interface_displacement_mm':u_lower[:3].tolist(),
-         'foot_reactions_N':foot,'applied_force_N':F.tolist(),
+         'foot_reactions_N':foot,'foot_positions_mm':[pts[0].tolist() for pts,_,_ in members],'applied_force_N':F.tolist(),
          'applied_moment_Nmm':M.tolist(),'offset_mm':list(off),
          'substrate_strain':strain,'hybrid_id':genome.get('hybrid_id'),
          'K_N_per_mm_proxy':np.linalg.solve(T@np.linalg.solve(K['lower'],T.T)+np.linalg.solve(K['upper'],np.eye(6)),np.eye(6)).tolist(),
@@ -93,7 +93,7 @@ def raw_mechanics(family, genome, case='normal', force=None, moment=None, offset
   moved=np.array([pts[0][0]*strain,0.,0.])
   reaction=kl@(B@u-moved)
   foot.append([float(x) for x in reaction])
- return {'displacement_mm':u[:3].tolist(),'rotation_rad':u[3:].tolist(),'foot_reactions_N':foot,'applied_force_N':F.tolist(),'applied_moment_Nmm':M.tolist(),'offset_mm':list(off),'substrate_strain':strain,'K_N_per_mm_proxy':K.tolist()}
+ return {'displacement_mm':u[:3].tolist(),'rotation_rad':u[3:].tolist(),'foot_reactions_N':foot,'foot_positions_mm':[pts[0].tolist() for pts,_,_ in members],'applied_force_N':F.tolist(),'applied_moment_Nmm':M.tolist(),'offset_mm':list(off),'substrate_strain':strain,'K_N_per_mm_proxy':K.tolist()}
 
 def signals(family,genome,mechanics,readout='capacitive'):
  """Explicit synthetic circuit transfer. Not measured: default dielectric 2.8, 0.45 mm gap.
@@ -101,13 +101,14 @@ def signals(family,genome,mechanics,readout='capacitive'):
  """
  u=np.array(mechanics['displacement_mm']);rot=np.array(mechanics['rotation_rad'])
  f=np.array(mechanics['foot_reactions_N']);fzs=f[:,2]
- if len(fzs)!=4:
-  # group radial legs by quadrant to yield common 4-channel interface
-  pts=structural_struts(family,genome)
-  q=np.zeros(4)
-  for (xyz,_,_),fz in zip(pts,fzs):
-   foot=xyz[0];ix=(0 if foot[0]<0 else 1)+2*(0 if foot[1]<0 else 1);q[ix]+=fz
-  fzs=q
+ # Map reactions to physical quadrants even when exactly four legs exist.
+ positions=mechanics.get('foot_positions_mm')
+ if positions is None:positions=[xyz[0] for xyz,_,_ in structural_struts(family,genome)][:len(fzs)]
+ if len(positions)!=len(fzs):raise ValueError('Foot reaction/position count mismatch')
+ q=np.zeros(4)
+ for foot,fz in zip(positions,fzs):
+  ix=(0 if foot[0]<0 else 1)+2*(0 if foot[1]<0 else 1);q[ix]+=fz
+ fzs=q
  # Measurable geometry choices, with fixed assumed electronic noise: the
  # optimiser cannot cheat by arbitrarily lowering the input noise floor.
  gap=float(genome.get('dielectric_gap_mm',.45))

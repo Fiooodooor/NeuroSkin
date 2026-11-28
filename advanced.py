@@ -74,6 +74,7 @@ PIEZO_INTEGER={'piezo_count','piezo_wiring'}
 INTEGER_GENES={'ribs','tier_count','wave_count','branch_factor','morph_seed','piezo_mode','hybrid_sensor_mode','hybrid_opposed_chirality'}|PIEZO_INTEGER
 
 def _snap_piezo_count(p,family=None):
+ if 'piezo_mode' in p:p['piezo_mode']=0  # only broad-face d31 has a physical model
  if 'piezo_count' not in p:return p  # old archived genomes retain one film
  requested=int(p['piezo_count'])
  options=(1,2,3,4) if family=='quadrant' else (1,2,3,4,6,8)
@@ -241,7 +242,8 @@ def _single_stage_struts(fam,p):
      curve.append(v)
     out.append((np.asarray(curve),max(.18,r*(.46+.11*k)),'support'))
  from archetype_geometry import apply as apply_archetype
- return apply_archetype(fam,p,out)
+ from symmetry_geometry import constrain_paths
+ return constrain_paths(fam,p,apply_archetype(fam,p,out))
 
 def structural_struts(fam,p):
  if p.get('hybrid_id','none') not in ('none',None,''):
@@ -258,7 +260,7 @@ def stage_member_local_matrices(family,p,E=1.0):
  from pvdf_array import choose_film_members
  from laminate_fem import effective_film_properties, film_interval
  paths=_single_stage_struts(family,p)
- selected=set(choose_film_members(paths,p))
+ selected=set(p['_film_indices']) if '_film_indices' in p else set(choose_film_members(paths,p))
  out=[]
  for member_index,(points,r,tag) in enumerate(paths):
   a,b=points[0],points[-1];d=b-a;chord=float(np.linalg.norm(d))
@@ -574,7 +576,7 @@ def engine_provenance():
  for name in ('seed_library.py','archetype_geometry.py','recovery_sim.py','advanced.py','engine.py','optimization.py','electromechanics.py',
               'piezoelectric.py','spatial_validation.py','full_evaluation.py','geometry_fixes.py','physical_fem.py','laminate_fem.py','laminate_shell.py','hybrid_geometry.py','hybrid_library.py','pvdf_array.py',
               'reference_fem.py','beam_fem.py','matrixfree_fem.py','selection_refinement.py','search_space.py','orientation_study.py',
-              'audit_combine.py','validation_contract.py','sensor_metrics.py','evaluation_v30.py','electronics_budget.py','validation_protocol_v30.json','pvdf_physics.py','neuroskin_multiscale.py'):
+              'audit_combine.py','validation_contract.py','sensor_metrics.py','evaluation_v30.py','electronics_budget.py','validation_protocol_v30.json','pvdf_physics.py','neuroskin_multiscale.py','symmetry_geometry.py'):
   data=(Path(__file__).parent/name).read_bytes()
   h.update(name.encode('utf-8')+b'\0'+data)
  return {'release':'2.2.0','model_type':'spatial_feasibility_guided_evolution_plus_PVDF_shell',

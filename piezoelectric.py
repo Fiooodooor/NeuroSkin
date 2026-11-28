@@ -52,20 +52,21 @@ def transduction(family,genome,mechanics):
             uv=np.asarray(mechanics['stage_displacements_mm'][stage],float)
             rv=np.asarray(mechanics['stage_rotations_rad'][stage],float)
             target_h=h if stage=='upper' else mid
-            anchor=path[-1]-np.array([p('pad_offset_x',0.),p('pad_offset_y',0.),target_h])
+            anchor=path[-1]-np.array([0.,0.,target_h])
             displacement=uv+np.cross(rv,anchor)
             stage_rot=rv
         else:
             stage='single'
-            anchor=path[-1]-np.array([p('pad_offset_x',0.),p('pad_offset_y',0.),h])
+            anchor=path[-1]-np.array([0.,0.,h])
             displacement=u+np.cross(rot,anchor)
             stage_rot=rot
+        if stage!='upper':
+            displacement=displacement-np.array([path[0,0]*float(mechanics.get('substrate_strain',0.)),0.,0.])
         axial=float(np.dot(displacement,chord)/arc)
         transverse=float(np.linalg.norm(displacement-np.dot(displacement,chord)*chord))
         bending=2.0*transverse*thickness/(arc*arc)
         local_strain=axial*math.cos(orientation)+bending*math.sin(orientation)
         local_strain+=(stage_rot[1]*math.cos(orientation)-stage_rot[0]*math.sin(orientation))*(thickness/arc)*(.2+.6*pos)
-        local_strain+=float(mechanics.get('substrate_strain',0.))*math.cos(orientation)**2
         _,_,film_lo,film_hi=film_interval(path,genome)
         bond=effective_film_properties(genome,film_hi-film_lo,float(paths[idx][1]))
         strain=local_strain*p('piezo_strain_transfer',.40)*bond['shear_lag_transfer']

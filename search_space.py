@@ -32,6 +32,8 @@ def mode_options():
             {'id': f'hybrid:{family}', 'label': f'{family.title()} · matching hybrid stages'},
             {'id': f'procedural:{family}', 'label': f'Procedural hybrid · {family.title()} upper stage'},
         ))
+    from symmetry_geometry import TARGETS
+    options.extend({'id':'symmetry:'+target,'label':f'{target} · constrained single-stage flexures'} for target in TARGETS)
     options.extend({'id': 'hybrid:' + spec.id,
                     'label': f'Hybrid only · {spec.name}'} for spec in SPECS)
     return options
@@ -68,6 +70,7 @@ class SearchScope:
     families: tuple[str, ...]
     allow_single: bool
     hybrid_ids: tuple[str, ...]
+    symmetry_target: str = 'C1'
 
     @classmethod
     def parse(cls, mode: str) -> 'SearchScope':
@@ -82,6 +85,10 @@ class SearchScope:
         if mode in FAMILIES:
             return cls(mode, (mode,), True, tuple(s.id for s in SPECS if s.upper_family == mode))
         category, _, token = mode.partition(':')
+        if category == 'symmetry':
+            from symmetry_geometry import legal_counts
+            families=tuple(f for f in FAMILIES if legal_counts(f,token))
+            return cls(mode,families,True,(),token)
         if category == 'single':
             return cls(mode, (token,), True, ())
         if category == 'hybrid' and token in FAMILIES:
@@ -95,6 +102,9 @@ class SearchScope:
     def accepts(self, family: str, genome: Mapping) -> bool:
         if family not in self.families:
             return False
+        if self.symmetry_target!='C1':
+            from symmetry_geometry import accepts_symmetry
+            return accepts_symmetry(family,genome,self.symmetry_target)
         hybrid = genome.get('hybrid_id', 'none')
         if hybrid in ('none', '', None):
             return self.allow_single and genome.get('topology') != 'hybrid'
@@ -154,6 +164,11 @@ class SearchScope:
         if family not in self.families:
             raise ValueError('Genome family outside selected search scope')
         g = dict(genome)
+        if self.symmetry_target!='C1':
+            from symmetry_geometry import repair_symmetry
+            return repair_symmetry(family,g,self.symmetry_target,rng)
+        g.pop('symmetry_target',None)
+        if 'piezo_mode' in g:g['piezo_mode']=0
         hybrid = g.get('hybrid_id', 'none')
         choices = [s for s in self.hybrid_ids if s=='procedural' or BY_ID[s].upper_family == family]
         if not self.allow_single:

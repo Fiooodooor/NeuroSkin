@@ -34,3 +34,10 @@ These milestones do not complete R03/R04/R09. Do not confuse software release wi
 - [x] Rank-five full audit gate; voxel inflation and force imbalance disqualify linear FEM screening. GUI displays coefficient and FEM results.
 - Local regression: 79 passed, 45 subtests passed. These are engineering tests, not hardware evidence.
 - D006: older h01/h10 reference tests assumed coarse inflated meshes could pass. The new tests assert geometry rejection and retain equilibrium checks; do not lower this gate to recover old scores. A conforming mesh is still required. Historical score comparisons invalidated by source hashes.
+
+## Revision 4 — constrained symmetry and consistent stage channels
+- [x] C2/C3/C4/C6/C8 and D2/D3/D4/D6/D8 selectable search modes with exact rotational centerline orbits, all primary legs instrumented, centered pads, repaired mutations, and T0 stiffness diagnostics in full audit.
+- [x] Exact mapping of globally selected films into each stage stiffness; per-stage imbalance; fixed footprint-to-channel mapping; upper-stage films no longer directly receive imposed ground strain.
+- [x] New evolved genomes normalize d33 to d31; archives remain readable.
+- Local regression: 81 tests and 83 subtests passed (scope, symmetry, validation, hybrid, API, PVDF and pipeline).
+- D007: constrained modes deliberately limited to single-stage primary-flexure topologies; arbitrary web/archetype and stacked orbit constraints, fully meshed symmetry, and wiring equivariance remain open. Constrained Cn may have higher rotational symmetry than requested; Dn uses radial-planar flexures, and chiral families remain Cn-only. Default all-mode remains unconstrained. Do not equate exact centerlines with FEM field symmetry.

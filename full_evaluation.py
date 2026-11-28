@@ -145,6 +145,8 @@ def audit_candidate(family,g,objective='balanced',grid_size=5):
     unload=recovery_for_candidate(family,g)
     # Explicitly preserve individual tests, not merely their weighted averages.
     observability=condition_metrics(family,g)
+    from symmetry_geometry import symmetry_report
+    symmetry=symmetry_report(family,g)
     recovery=force_recovery(family,g)
     from selection_refinement import spatial_operating_summary, enforce_score_band
     summary=spatial_operating_summary(spatial)
@@ -193,7 +195,7 @@ def audit_candidate(family,g,objective='balanced',grid_size=5):
                              'manufacturing_flags':geom['flags']},
            'pressure_spatial':spatial,'spatial_operating_summary':summary,'screening_failure_reasons':rejection_reasons,
            'load_cases':cases,'piezo_frequency_sweep':frequency,'unloading_recovery':unload,
-           'observability':observability,'force_reconstruction':recovery,'manufacturability':geom,
+           'observability':observability,'symmetry':symmetry,'force_reconstruction':recovery,'manufacturability':geom,
            'screening_metrics':original,
            'limitations':['6-DOF beam proxy; no hyperelasticity or real contact FEM',
                            'synthetic electrical response and assumed noise (not measured)',

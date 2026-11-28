@@ -45,7 +45,9 @@ def stage_descriptors(family, genome):
   for key,(lo,hi) in LIMITS[stage_family].items():
    if key not in g:g[key]=.5*(lo+hi)
   g['hybrid_id']='none'  # stage stiffness / PVDF cannot recurse into the full hybrid
-  g['piezo_count']=2 if int(genome.get('piezo_count',4))<=4 else 3
+  from pvdf_array import film_count
+  n=film_count(genome)
+  g['piezo_count']=(n+1)//2 if stage=='upper' else n//2
   g['height']=local_h
   g['radius']=float(genome['radius'])*(.98 if stage=='lower' else 1.02)
   g['thickness']=max(.22,float(genome['thickness'])*scale)
@@ -78,9 +80,26 @@ def make_struts(family,genome,single_stage_fn):
  return out
 
 
-def stage_stiffnesses(family,genome,single_stage_k_fn):
+def stage_models(family,genome):
+ """Bind each local stiffness model to the globally selected physical films."""
+ from advanced import _single_stage_struts
+ from pvdf_array import choose_film_members
+ descriptors=list(stage_descriptors(family,genome))
+ paths=make_struts(family,genome,_single_stage_struts)
+ selected=set(choose_film_members(paths,genome))
+ start=0
+ for stage,subfamily,sg,shift in descriptors:
+  count=len(_single_stage_struts(subfamily,sg))
+  sg['_film_indices']=tuple(i-start for i in sorted(selected) if start<=i<start+count)
+  sg['piezo_count']=len(sg['_film_indices'])
+  start+=count
+  yield stage,subfamily,sg,shift
+ if start!=len(paths):raise ValueError('Stage member mapping differs from global geometry')
+
+
+def stage_stiffnesses(family,genome,single_stage_k_fn,models=None):
  result=[]
- for stage,subfamily,sg,shift in stage_descriptors(family,genome):
+ for stage,subfamily,sg,shift in (stage_models(family,genome) if models is None else models):
   K=single_stage_k_fn(subfamily,sg,E=float(genome.get('material_E',1.0)))
   if stage=='upper':
    angle=float(genome.get('hybrid_phase',0.))

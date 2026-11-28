@@ -220,3 +220,36 @@ def test_four_real_fem_fields_and_geometry_override(app_url):
         expect(page.locator('#workspace-panel-signals #model')).to_be_visible()
         assert not errors,errors
         browser.close()
+
+
+def test_relaxed_tile_and_multiscale_optimization_views(app_url):
+    from playwright.sync_api import sync_playwright,expect
+    with sync_playwright() as pw:
+        browser=pw.chromium.launch(headless=True,args=['--disable-dev-shm-usage','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader'])
+        page=browser.new_page(viewport={'width':1500,'height':1000})
+        errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
+        page.goto(app_url+'/v30?selection=hybrid&index=h01_serpentine_quadrant&family=quadrant',wait_until='domcontentloaded')
+        expect(page.locator('#labTabs button')).to_have_count(4)
+        page.locator('#lab-tab-1').click()
+        page.locator('#membraneModel').select_option('nonlinear_coupled')
+        page.locator('#membraneKinematics').select_option('relaxed_inplane')
+        page.locator('#tile').click()
+        expect(page.locator('#lab-panel-1 .lab-status')).to_contain_text('Completed',timeout=120000)
+        d=json.loads(page.locator('#tileResult').text_content())
+        assert d['tier']=='T0' and d['membrane_kinematics']=='relaxed_inplane_fixed_perimeter'
+        assert d['force_balance_error_N']<1e-8
+        page.wait_for_function("""document.querySelector('#tileResultVisual .js-plotly-plot')?.data?.filter(t=>t.type==='surface').length===2""",timeout=30000)
+        page.locator('#lab-tab-3').click()
+        page.locator('#optSide').fill('80')
+        page.locator('#optLibrary').uncheck()
+        page.locator('#optFinalists').select_option('1')
+        page.locator('#optWorkers').select_option('1')
+        page.locator('#optimizeTile').click()
+        expect(page.locator('#lab-panel-3 .lab-status')).to_contain_text('Completed',timeout=180000)
+        r=json.loads(page.locator('#optimizationResult').text_content())
+        assert r['tier']=='T0' and r['screening'] and len(r['refined'])==1
+        assert 'holdout_metrics' in r['refined'][0],r['refined']
+        expect(page.locator('#lab-panel-3 .lab-table')).to_contain_text('Holdout position')
+        page.wait_for_function("""document.querySelector('#optimizationResultVisual .js-plotly-plot')?.data?.length===2""",timeout=30000)
+        assert not errors,errors
+        browser.close()

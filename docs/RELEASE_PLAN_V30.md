@@ -252,3 +252,6 @@ Canonical development branch: `develop/v3`. Consolidate the full v2.2-derived in
 
 ## Revision 50 — observed resource telemetry and geometric display
 - On-demand process-tree CPU time delta and RSS sum in compute status; distinguish measured logical CPU equivalents (lower estimate) from reservations. No background sampler, no new GPU polling. Handle nvidia-smi N/A memory fields. Plot actual relaxed membrane XY displacement and substrate top at nominal receptor base height instead of arbitrary substrate thickness offset. Tests for process matching and missing GPU telemetry.
+
+## Revision 51 — browser regression for coupled skin and multiscale optimization
+- Chromium end-to-end coverage: four Lab tabs, relaxed coupled tile endpoint, two actual surfaces, bounded fixed-footprint search, held-out metrics and two-fidelity plot. No mocks of numerical endpoints. Local smoke test verified exact Git blobs for membrane_tile.py (dd1d66f), nonlinear_skin_tile.py (0237e82), relaxed_membrane.py (61f7935) against earlier local homogeneous TET4 support: linear limit, coupled two-contact equilibrium, displacement compatibility and relaxed tangent finite differences passed. Force balance ~1.1e-16 N, work identity ~1e-11 N mm, tangent-vector finite difference max abs error ~1.1e-11. Full current Windows integration still requires exact-head CI.

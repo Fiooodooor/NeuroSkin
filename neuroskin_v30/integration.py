@@ -1,0 +1,175 @@
+"""Bounded experimental APIs. Neither candidate ranking nor evidence tier is promoted."""
+from pathlib import Path
+from threading import BoundedSemaphore
+from typing import Literal
+import numpy as np
+from scipy.optimize import nnls
+from fastapi import APIRouter, HTTPException
+from fastapi.responses import FileResponse
+from pydantic import BaseModel, Field, ConfigDict
+from .mesh import box_mesh, hex8_to_tet4
+from .nonlinear_fem import NeoHookean, TetNeoHookeanSolver
+from neuroskin_multiscale import tile_response
+
+# One expensive nonlinear request per server process, no unbounded queue.
+CONTACT_SLOT = BoundedSemaphore(1)
+
+
+class Selection(BaseModel):
+    model_config = ConfigDict(allow_inf_nan=False)
+    selection: str = 'best'
+    index: str = '0'
+    family: str = 'crown'
+    run_id: str | None = None
+    generation: int | None = None
+    piezo_count_override: int | None = None
+    piezo_wiring_override: int | None = None
+
+
+class BoxInput(BaseModel):
+    model_config = ConfigDict(allow_inf_nan=False)
+    n: int = Field(1, ge=1, le=3)
+    young_MPa: float = Field(2., ge=.01, le=1000.)
+    poisson: float = Field(.3, ge=0., le=.45)
+    side_mm: float = Field(1., ge=.1, le=20.)
+    indentation_mm: float = Field(.025, gt=0., le=1.)
+    penalty_N_per_mm3: float = Field(100., ge=.1, le=10000.)
+
+
+class CandidateContact(Selection):
+    pitch_mm: float = Field(2., ge=.5, le=2.5)
+    indentation_mm: float = Field(.025, gt=0., le=.25)
+    poisson: float = Field(.35, ge=0., le=.45)
+    penalty_N_per_mm3: float = Field(100., ge=.1, le=10000.)
+    allow_inflated_geometry: bool = False
+
+
+class Contact(BaseModel):
+    model_config = ConfigDict(allow_inf_nan=False)
+    x_mm: float
+    y_mm: float
+    force_N: float = Field(gt=0., le=1.)
+
+
+class TileInput(Selection):
+    size: Literal[3,5,8] = 3
+    pitch_mm: float = Field(20., ge=1., le=100.)
+    coupling_N_mm: float = Field(.2, ge=0., le=100.)
+    noise_N: float = Field(0., ge=0., le=.1)
+    seed: int = Field(42, ge=0, le=2**32-1)
+    contacts: list[Contact] = Field(min_length=1, max_length=8)
+
+
+def contact_report(mesh, material, indentation, penalty, fixed=None):
+    height = float(np.ptp(mesh.nodes[:,2]))
+    if indentation >= .25*height:
+        raise ValueError('Indentation must be below 25% of mesh height')
+    solver = TetNeoHookeanSolver(mesh, material)
+    stages = solver.contact_cycle([0., indentation/2, indentation, 0.],
+                                  penalty_N_per_mm3=penalty, fixed_dofs=fixed)
+    for stage in stages:
+        stage['vertical_balance_error_N'] = abs(stage['reactions_sum_N'][2]-stage['contact_force_N'])
+    return {'mesh':mesh.metrics(), 'stages':stages, 'model':'compressible_neo_hookean_TET4',
+            'evidence':'DIAGNOSTIC_ONLY', 'T2_qualified':False,
+            'limitations':['elastic, homogeneous material','frictionless planar nodal penalty contact',
+                           'no independent mesh/penalty convergence','no PVDF, adhesive or electrical coupling']}
+
+
+def distribute_contacts(size, pitch, contacts):
+    """Bilinear nodal load basis, exactly preserving total force and first moments."""
+    f = np.zeros((size,size))
+    for contact in contacts:
+        x,y = contact.x_mm/pitch,contact.y_mm/pitch
+        if not (0 <= x <= size-1 and 0 <= y <= size-1):
+            raise ValueError('Contact lies outside the taxel-centre grid')
+        i,j = min(int(x),size-2),min(int(y),size-2)
+        a,b = x-i,y-j
+        for dy,dx,w in ((0,0,(1-a)*(1-b)),(0,1,a*(1-b)),(1,0,(1-a)*b),(1,1,a*b)):
+            f[j+dy,i+dx] += contact.force_N*w
+    return f
+
+
+def tile_report(kz, req):
+    n,pitch = req.size,req.pitch_mm
+    k = np.full((n,n),kz)
+    f = distribute_contacts(n,pitch,req.contacts)
+    result = tile_response(k,req.coupling_N_mm,f)
+    # Full reaction transfer matrix, using independent unit-load basis, not the
+    # actual load positions. NNLS estimates the nonnegative GRID load vector.
+    transfer = np.column_stack([tile_response(k,req.coupling_N_mm,e.reshape(n,n))['reaction_N'].ravel()
+                                for e in np.eye(n*n)])
+    y = result['reaction_N'].ravel()+np.random.default_rng(req.seed).normal(0.,req.noise_N,n*n)
+    reconstruction, residual = nnls(transfer,y)
+    reconstructed = reconstruction.reshape(n,n)
+    def centroid(grid):
+        if grid.sum()<=1e-12:return None
+        iy,ix=np.indices(grid.shape)
+        return [float((grid*ix).sum()*pitch/grid.sum()),float((grid*iy).sum()*pitch/grid.sum())]
+    return {'tier':'T0','model':'linear_scalar_nearest_neighbour_tile','kz_N_mm':float(kz),
+            'pitch_mm':pitch,'load_grid_N':f.tolist(),'reaction_N':result['reaction_N'].tolist(),
+            'displacement_mm':result['displacement_mm'].tolist(),'noisy_reactions_N':y.reshape(n,n).tolist(),
+            'reconstructed_load_N':reconstructed.tolist(),'input_centroid_mm':centroid(f),
+            'reconstructed_centroid_mm':centroid(reconstructed),'force_balance_error_N':result['force_balance_error_N'],
+            'reconstruction_grid_rmse_N':float(np.sqrt(np.mean((f-reconstructed)**2))),
+            'reconstruction_residual_N':float(residual),'transfer_condition':float(np.linalg.cond(transfer)),
+            'limitations':['assumed scalar coupling and direct reaction sensing','matched-model synthetic inverse problem',
+                           'no physical membrane, curvature or readout calibration','contact multiplicity is not identified']}
+
+
+def build_router(select_candidate, preview_genome):
+    router=APIRouter()
+    def resolve(req):
+        c=select_candidate(req.selection,req.index,req.family,req.run_id,req.generation)
+        if c is None:raise HTTPException(404,'Candidate not found')
+        return c,preview_genome(c,req.piezo_count_override,req.piezo_wiring_override)
+
+    @router.get('/v30')
+    def lab():
+        return FileResponse(Path(__file__).with_name('lab.html'))
+
+    @router.get('/api/v30/capabilities')
+    def capabilities():
+        return {'nonlinear_box':True,'nonlinear_voxel_candidate_diagnostic':True,'tile_T0':True,
+                'T2_qualified':False,'T3_required_for_release':False,'T3_required_for_evolution':False,
+                'hardware_certified':False}
+
+    @router.post('/api/v30/nonlinear/contact-box')
+    def box(req:BoxInput):
+        if not CONTACT_SLOT.acquire(blocking=False):raise HTTPException(409,'Nonlinear solver busy')
+        try:
+            return contact_report(box_mesh(req.n,req.n,req.n,(req.side_mm,)*3),
+                                  NeoHookean(req.young_MPa,req.poisson),req.indentation_mm,req.penalty_N_per_mm3)
+        except (ValueError,RuntimeError,MemoryError) as exc:raise HTTPException(422,str(exc)) from exc
+        finally:CONTACT_SLOT.release()
+
+    @router.post('/api/v30/nonlinear/candidate')
+    def candidate(req:CandidateContact):
+        c,g=resolve(req)
+        if not CONTACT_SLOT.acquire(blocking=False):raise HTTPException(409,'Nonlinear solver busy')
+        try:
+            from physical_fem import voxel_mesh,FEMConfig
+            m=voxel_mesh(c['family'],g,FEMConfig(pitch_mm=req.pitch_mm,max_cells=250),build_surface=False)
+            if m.inflated_features and not req.allow_inflated_geometry:
+                raise ValueError('Voxel geometry inflated; diagnostic override required or use a resolved mesh')
+            mesh=hex8_to_tet4(m.nodes,m.elements)
+            fixed=(3*m.bottom[:,None]+np.arange(3)[None,:]).ravel()
+            out=contact_report(mesh,NeoHookean(float(g.get('material_E',1.)),req.poisson),
+                               req.indentation_mm,req.penalty_N_per_mm3,fixed)
+            out.update(candidate_id=c['id'],family=c['family'],mesh_source='voxel_HEX8_subdivision',
+                       pitch_mm=req.pitch_mm,inflated_features=m.inflated_features,geometry_warning=m.geometry_warning)
+            return out
+        except (ValueError,RuntimeError,MemoryError,np.linalg.LinAlgError) as exc:raise HTTPException(422,str(exc)) from exc
+        finally:CONTACT_SLOT.release()
+
+    @router.post('/api/v30/tile')
+    def tile(req:TileInput):
+        c,g=resolve(req)
+        try:
+            from advanced import curve_stiffness
+            k=curve_stiffness(c['family'],g,E=float(g.get('material_E',1.)))
+            kz=1./np.linalg.solve(k,np.array([0.,0.,1.,0.,0.,0.]))[2]
+            out=tile_report(kz,req)
+            out.update(candidate_id=c['id'],family=c['family'])
+            return out
+        except (ValueError,RuntimeError,np.linalg.LinAlgError) as exc:raise HTTPException(422,str(exc)) from exc
+    return router

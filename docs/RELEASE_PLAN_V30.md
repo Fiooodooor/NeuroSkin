@@ -41,3 +41,11 @@ These milestones do not complete R03/R04/R09. Do not confuse software release wi
 - [x] New evolved genomes normalize d33 to d31; archives remain readable.
 - Local regression: 81 tests and 83 subtests passed (scope, symmetry, validation, hybrid, API, PVDF and pipeline).
 - D007: constrained modes deliberately limited to single-stage primary-flexure topologies; arbitrary web/archetype and stacked orbit constraints, fully meshed symmetry, and wiring equivariance remain open. Constrained Cn may have higher rotational symmetry than requested; Dn uses radial-planar flexures, and chiral families remain Cn-only. Default all-mode remains unconstrained. Do not equate exact centerlines with FEM field symmetry.
+
+## Revision 5 — integrated nonlinear and multiscale diagnostics
+- [x] Strict face-connected, positive-volume TET4 mesh, homogeneous compressible Neo-Hookean material and analytic consistent tangent; rigid-mode checks; planar frictionless penalty contact and elastic unloading. 11 focused tests passed.
+- [x] Existing candidate selection (including archives and preview overrides) connected to bounded nonlinear voxel subdivision and tile APIs; GUI Multiscale lab link, heatmaps and request error handling.
+- [x] T0 tile contact load distribution preserving total force and first moments; reaction transfer matrix and nonnegative grid reconstruction under declared synthetic noise.
+- [x] 22 focused tests passed, including nonlinear candidate and API tests; JavaScript syntax checked. New tests added to existing Windows CI job (remote execution pending).
+- D008: voxel-derived nonlinear candidate results are DIAGNOSTIC_ONLY and T2_qualified=false, irrespective of numerical convergence. Inflated geometry requires explicit diagnostic opt-in. Limit: 250 HEX8 / 1500 TET4 per request; one concurrent nonlinear request per server process. This does not replace CAD-conforming multimaterial FEM or integrate nonlinear fitness.
+- D009: tile inverse uses direct reaction sensing and the same assumed scalar transfer model. It is not electrical sensing, independent decoder validation, physical membrane, or identification of the number of contacts.

@@ -255,6 +255,9 @@ def _preview_genome(candidate, piezo_count_override:int|None, piezo_wiring_overr
   genome['piezo_wiring']=piezo_wiring_override
  return genome
 
+from neuroskin_v30.integration import build_router
+app.include_router(build_router(select_candidate,_preview_genome))
+
 @app.get('/api/mesh')
 def mesh(kind:str='best',index:str="0",family:str='crown',quality:int=10,run_id:str|None=None,generation:int|None=None,piezo_count_override:int|None=None,piezo_wiring_override:int|None=None):
  if quality<5 or quality>20:raise HTTPException(400,'Quality must be 5..20')

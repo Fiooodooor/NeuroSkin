@@ -393,6 +393,7 @@ def simulate_fem(req:FEMRequest):
   raise HTTPException(422, f'FEM geometry/solver rejected candidate: {exc}')
 
 class EvaluateAllRequest(SelectionExpectation):
+ compute_workers:int|None=Field(default=None,ge=1,le=256)
  fem_include_previews:bool=False
  fem_inspection_case:str='press_center'
  fem_inspection_force_n:float=Field(default=.1,gt=0,le=.5)
@@ -419,28 +420,34 @@ def evaluate_all(req:EvaluateAllRequest):
  material-recovery screening, and optional 3D/beam mechanical FEM.
  As with the evolutionary audit, electronic channels remain synthetic.
  """
- from full_evaluation import audit_candidate
- from recovery_sim import recovery_for_candidate
+ from manual_evaluation import plan_manual, run_manual, attach_fem_evidence
+ from audit_scheduler import available_ram_mb
  candidate=_request_candidate(req)
  g=_preview_genome(candidate,req.piezo_count_override,req.piezo_wiring_override)
  try:
-  audit=audit_candidate(candidate['family'],g,req.objective,req.audit_grid)
-  fem=None
-  if req.fem_enabled:
+  hybrid=g.get('hybrid_id','none') not in ('none',None,'')
+  cores=min(req.compute_workers or getattr(app.state,'default_cores',1),available_cores())
+  plan=plan_manual(cores,available_ram_mb(),req.fem_enabled,req.fem_backend,req.fem_pitch_mm,req.fem_compute_device,hybrid)
+  options={'objective':req.objective,'audit_grid':req.audit_grid,'candidate_id':candidate['id'],
+           'hybrid':hybrid,'fem_enabled':req.fem_enabled,'inspector_force':req.fem_inspection_force_n}
+  def solve_fem():
    from physical_fem import fem_sweep
    try:
-    fem=fem_sweep(candidate['family'],g,pitch_mm=req.fem_pitch_mm,backend=req.fem_backend,include_fields=True,
+    return fem_sweep(candidate['family'],g,pitch_mm=req.fem_pitch_mm,backend=req.fem_backend,include_fields=True,
                   inspector_case=req.fem_inspection_case,inspector_force_N=req.fem_inspection_force_n,
-                  inspector_offset=(req.fem_inspection_offset_x,req.fem_inspection_offset_y),compute_device=req.fem_compute_device,include_previews=req.fem_include_previews)
-    from audit_combine import merge_fem_into_audit
-    merge_fem_into_audit(audit,fem,candidate['family'],g,fem_backend=req.fem_backend,include_fields=False)
+                  inspector_offset=(req.fem_inspection_offset_x,req.fem_inspection_offset_y),compute_device=req.fem_compute_device,
+                  include_previews=req.fem_include_previews,case_workers=plan.fem_case_workers),None
    except (ValueError,RuntimeError,MemoryError) as exc:
-    from audit_combine import mark_fem_failure
-    mark_fem_failure(audit,exc,fem_backend=req.fem_backend)
-  # The same standardized decision function is used in GUI and Top-3.
-  from evaluation_v30 import safe_evaluate_protocol
-  report=safe_evaluate_protocol(candidate['family'],g,candidate_id=candidate['id'],seed=3322,
-                           monte_carlo_samples=8,fem=fem)
+    return None,exc
+  results=run_manual(candidate['family'],g,options,plan,solve_fem,COMPUTE.set_progress)
+  audit=results['audit'];fem,error=results.get('fem',(None,None))
+  if req.fem_enabled:
+   from audit_combine import merge_fem_into_audit,mark_fem_failure
+   if error is not None:mark_fem_failure(audit,error,fem_backend=req.fem_backend)
+   else:
+    try:merge_fem_into_audit(audit,fem,candidate['family'],g,fem_backend=req.fem_backend,include_fields=False)
+    except (ValueError,RuntimeError,MemoryError) as exc:mark_fem_failure(audit,exc,fem_backend=req.fem_backend)
+  report=attach_fem_evidence(results['validation'],fem)
   audit['validation_v30']=report
   audit['decision_basis']['validation_protocol_hash']=report['protocol_hash']
   audit['decision_basis']['validation_level']='T0'
@@ -450,12 +457,9 @@ def evaluate_all(req:EvaluateAllRequest):
    audit.setdefault('screening_failure_reasons',[]).append('validation_v30_t0_failed')
   from selection_refinement import enforce_score_band
   enforce_score_band(audit)
-  orientation=None
-  if g.get('hybrid_id','none') not in ('none',None,''):
-   from orientation_study import scan_rotations
-   orientation=scan_rotations(candidate['family'],g,grid=3,force_n=req.fem_inspection_force_n)
+  orientation=results.get('orientation')
   return {'candidate_id':candidate['id'],'family':candidate['family'],
-          'orientation_study':orientation,
+          'orientation_study':orientation,'compute_telemetry':results['telemetry'],
           'audit':audit,'validation_v30':report,'fem':fem,'recovery':audit['unloading_recovery'],
           'historical_fitness_invalidated':bool(req.piezo_count_override is not None or req.piezo_wiring_override is not None),
           'warning':'Linear mechanics with approximate bonded PVDF/adhesive reinforcement (HEX8 or beam); assumed SLS recovery, synthetic electronics, uncalibrated PVDF and fatigue. FEM may not be converged.'}

@@ -60,12 +60,16 @@ class ComputeAdmission:
                                       'elapsed_s':round(monotonic()-job['started'],3)})
                 self._active = None
 
+    def set_progress(self, progress):
+        with self._lock:
+            if self._active is not None:self._active['progress']=progress
+
     def snapshot(self):
         with self._lock:
             a = self._active
             return {'policy':'one_heavy_job_per_server_process','evolution_active':bool(self._alive()),
                     'manual_active':None if a is None else {'id':a['id'],'name':a['name'],
-                                                           'elapsed_s':round(monotonic()-a['started'],3)},
+                                                           'elapsed_s':round(monotonic()-a['started'],3),'progress':a.get('progress')},
                     'recent_manual_requests':list(self._history),'rejected_requests':self._rejected,'queue_enabled':False,
                     'note':'Admission only; request completion is not solver qualification. Lightweight inspections remain available.'}
 

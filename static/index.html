@@ -416,7 +416,7 @@ $('evaluateAll').onclick=async()=>{
    audit_grid:Number($('audit_grid').value),objective:$('objective').value,
    fem_enabled:$('enable_fem').checked,fem_backend:$('femViewBackend').value,
    fem_pitch_mm:Number($('femViewPitch').value),
-   fem_include_previews:true,fem_compute_device:$('femDevice').value,fem_inspection_case:$('femCase').value,
+   compute_workers:Number($('cores').value),fem_include_previews:true,fem_compute_device:$('femDevice').value,fem_inspection_case:$('femCase').value,
    fem_inspection_force_n:Number($('femForce').value),
    fem_inspection_offset_x:Number($('femOffsetX').value),fem_inspection_offset_y:Number($('femOffsetY').value)};
   const data=await api('POST','/evaluate_all',req);if(identity!==evaluationIdentity()||String(data.candidate_id)!==String(cand.id)){$('allEvalStatus').textContent='Completed result discarded: selection or settings changed during evaluation. Run Evaluate All again.';return;}const a=data.audit, rec=data.recovery;window.NeuroWorkspace?.renderEvaluation(data);

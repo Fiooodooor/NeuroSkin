@@ -30,6 +30,7 @@
       const r=await fetch('/api/compute/status',{cache:'no-store'});if(!r.ok)throw Error('HTTP '+r.status);
       const c=await r.json(),a=c.manual_active;lastCompute=c;
       computeStatus.textContent=(a?'Heavy analysis: '+a.name+' · '+a.elapsed_s.toFixed(1)+' s':c.evolution_active?'Evolution owns heavy-compute slot (including pause/cleanup)':'Heavy-compute slot available')+' · '+c.available_cpu+' CPUs · '+(c.available_ram_mb==null?'RAM unknown':(c.available_ram_mb/1024).toFixed(1)+' GiB RAM available');
+      if(a?.progress){const p=a.progress;computeStatus.textContent+=' · '+p.plan.surrogate_processes+' surrogate processes / up to '+p.plan.fem_case_workers+' FEM case workers · '+Object.entries(p.stages).map(([k,v])=>k+': '+v.state).join(' · ');}
       renderComputeHistory();
     }catch{computeStatus.textContent='Compute status unavailable';lastCompute=null;renderComputeHistory();}
     finally{computePending=false;}

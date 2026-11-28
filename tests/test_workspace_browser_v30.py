@@ -309,6 +309,85 @@ def test_presets_modes_and_resizable_panels(app_url):
         browser.close()
 
 
+def test_continue_saved_stage_with_edited_controls_and_checkpoint(app_url, monkeypatch):
+    import advanced
+    import server
+    from types import SimpleNamespace
+    from playwright.sync_api import sync_playwright, expect
+    engine = advanced.EvolutionEngine(server.ARCHIVES.root)
+    monkeypatch.setattr(server, 'EVO', engine)
+    clock = {'now': 0.}
+    monkeypatch.setattr(advanced, 'time', SimpleNamespace(monotonic=lambda: clock['now'], sleep=lambda _: None))
+    monkeypatch.setattr(advanced, 'run_audit_batch', lambda pool, fn, jobs, plan, **kw:
+                        [{'audit_score': 20., 'feasible': False} for _ in jobs])
+    original_stage = engine._save_stage
+    def save(*args):
+        original_stage(*args);clock['now'] = 5.
+    monkeypatch.setattr(engine, '_save_stage', save)
+    parent = server.ARCHIVES.path('browser_archive')/'results.json'
+    original = parent.read_bytes()
+    champion = json.loads(original)['best']
+    champion['generation'] = 0  # Legacy candidate birth numbering differs from saved-stage numbering.
+    stages = parent.parent/'stages';stages.mkdir()
+    (stages/'stage_000001.json').write_text(json.dumps({'run_id': 'browser_archive', 'generation': 1,
+        'champion': champion, 'top3': [champion], 'decision': {}}), encoding='utf-8')
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(headless=True, args=['--disable-dev-shm-usage', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'])
+        page = browser.new_page(viewport={'width': 1500, 'height': 1050})
+        errors, requests = [], []
+        page.on('pageerror', lambda e: errors.append(str(e)))
+        page.on('request', lambda r: requests.append(r.post_data_json) if r.method == 'POST' and r.url.endswith('/continue') else None)
+        page.goto(app_url, wait_until='domcontentloaded')
+        page.locator('#advancedMode').click()
+        page.locator('#workspace-tab-library').click()
+        page.locator('[data-preview-seed="s_wave_pairs"]').click()
+        tree = page.locator('#workspaceComponentTree')
+        group = tree.locator('.component-tree-body details').filter(has_text='Conceptual hub')
+        group.evaluate('(n)=>n.open=true')
+        tree.get_by_role('button', name='Conceptual hub', exact=True).click()
+        expect(tree.locator('[role="status"]')).to_contain_text('no dedicated sensor')
+        page.locator('#sensingGuide').evaluate('(n)=>n.open=true')
+        expect(page.locator('#sensingGuide')).to_contain_text('signal decays under constant load')
+        page.locator('#workspace-tab-runs').click()
+        page.locator('#archiveSelect').select_option('browser_archive')
+        page.locator('#openArchive').click()
+        page.locator('#workspace-tab-runs').click()
+        page.locator('#stageSelect').select_option('1')
+        page.locator('#loadContinuation').click()
+        expect(page.locator('#continuationStatus')).to_contain_text('generation 1 -> 2', timeout=20000)
+        expect(page.locator('#continuationStatus')).to_contain_text('older archive')
+        page.locator('#seconds').fill('3')
+        page.locator('#cores').fill('1')
+        page.locator('#population').select_option('24')
+        page.locator('#objective').select_option('electronics')
+        page.locator('#enable_fem').uncheck()
+        page.locator('#explore').evaluate("n=>{n.value='75';n.dispatchEvent(new Event('input',{bubbles:true}));}")
+        page.locator('#continueEvolution').click()
+        page.wait_for_function('state?.status==="completed"&&!archiveRunId&&state?.lineage?.parent_run_id==="browser_archive"', timeout=60000)
+        assert len(requests) == 1 and requests[0]['generation'] == 1
+        assert requests[0]['objective'] == 'electronics' and requests[0]['exploration'] == .75
+        result = engine.snapshot()
+        assert result['generation'] == 2 and result['branch_generation'] == 1
+        assert result['run_settings']['population'] == 24 and result['objective'] == 'electronics'
+        assert result['best']['generation'] == 2 and result['lineage']['source_kind'] == 'saved_elites'
+        assert parent.read_bytes() == original
+        page.locator('#workspace-tab-runs').click()
+        page.locator('#reloadArchives').click()
+        expect(page.locator('#archiveSelect option[value="'+result['id']+'"]')).to_have_count(1)
+        page.locator('#archiveSelect').select_option(result['id'])
+        page.locator('#openArchive').click()
+        page.locator('#workspace-tab-runs').click()
+        page.locator('#loadContinuation').click()
+        expect(page.locator('#continuationStatus')).to_contain_text('Saved population checkpoint', timeout=20000)
+        assert page.locator('#objective').input_value() == 'electronics'
+        assert page.locator('#population').input_value() == '24'
+        from pathlib import Path
+        Path('artifacts').mkdir(exist_ok=True)
+        page.screenshot(path='artifacts/continuation-workspace.png', full_page=True)
+        assert not errors, errors
+        browser.close()
+
+
 def test_user_bests_third_category_refresh_preview_and_multiscale(app_url, tmp_path, monkeypatch):
     import server
     from advanced import EvolutionEngine

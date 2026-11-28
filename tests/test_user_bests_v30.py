@@ -102,7 +102,7 @@ def test_controller_enrolls_once_after_two_generations(tmp_path, monkeypatch, te
         stored = engine.user_bests.get(state['id'])
         assert stored['score'] == 95.
         assert stored['candidate'] == state['audited_champion']
-        assert stored['candidate']['generation'] == 0  # Earlier best, not the last iteration.
+        assert stored['candidate']['generation'] == 1  # Earlier best, not the last iteration.
     finally:
         engine.shutdown(timeout=5.)
 

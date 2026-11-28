@@ -64,6 +64,37 @@ class Start(BaseModel):
  fem_backend:str='hex8'
  fem_pitch_mm:float=Field(default=.3125,ge=.12,le=2.)
 
+class Continue(Start):
+ generation:int|None=Field(default=None,ge=1,le=999998)
+ source_digest:str|None=Field(default=None,pattern=r'^[a-f0-9]{64}$')
+
+def continuation_source(run_id, generation):
+ from evolution_continuation import load_source
+ defaults=Start().model_dump();defaults['cores']=getattr(app.state,'default_cores',1)
+ try:return load_source(ARCHIVES,run_id,generation,defaults)
+ except FileNotFoundError:raise HTTPException(404,'Saved run or generation not found')
+ except (ArchiveError,OSError,ValueError,KeyError,TypeError) as exc:raise HTTPException(422,str(exc))
+
+@app.get('/api/archives/{run_id}/continuation')
+def prepare_continuation(run_id:str,generation:int|None=None):
+ return continuation_source(run_id,generation)['metadata']
+
+@app.post('/api/archives/{run_id}/continue')
+def continue_evolution(run_id:str,req:Continue):
+ try:
+  with COMPUTE.start_guard():
+   source=continuation_source(run_id,req.generation)
+   if req.source_digest is not None and req.source_digest!=source['metadata']['source_digest']:
+    raise HTTPException(409,'Saved source changed; load continuation settings again')
+   overrides={key:value for key,value in req.model_dump().items() if key in Start.model_fields and key in req.model_fields_set}
+   settings=Start.model_validate({**source['metadata']['settings'],**overrides})
+   seed=settings.seed if settings.seed is not None else secrets.randbits(31)
+   return EVO.start(settings.mode,settings.seconds,seed,settings.population,settings.exploration,settings.objective,
+      settings.physical_gate,settings.gate_grid,settings.cores or getattr(app.state,'default_cores',1),settings.audit_grid,
+      settings.fem_enabled,settings.fem_pitch_mm,settings.fem_backend,settings.search_strategy,settings.search_precision,continuation=source)
+ except ValueError as exc:raise HTTPException(422,str(exc))
+ except RuntimeError as exc:raise HTTPException(409,str(exc))
+
 @app.get('/')
 def index():return FileResponse(ROOT/'static'/'index.html',headers={'Cache-Control':'no-cache'})
 def available_cores():

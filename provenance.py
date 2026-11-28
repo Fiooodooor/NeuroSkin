@@ -7,7 +7,7 @@ SOURCE_SCHEMA = 'neuroskin.numerical_source.v1'
 NUMERICAL_SOURCES = (
     'advanced.py', 'archetype_geometry.py', 'audit_combine.py', 'audit_scheduler.py',
     'beam_fem.py', 'electromechanics.py', 'electronics_budget.py',
-    'electronics_evolution.py', 'engine.py', 'evaluation_v30.py',
+    'electronics_evolution.py', 'engine.py', 'evaluation_v30.py', 'evolution_continuation.py',
     'finalist_selection.py', 'full_evaluation.py', 'geometry_fixes.py',
     'gpu_sparse_fem.py', 'hybrid_geometry.py', 'hybrid_library.py',
     'laminate_fem.py', 'laminate_shell.py', 'manual_evaluation.py',

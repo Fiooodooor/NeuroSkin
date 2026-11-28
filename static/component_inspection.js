@@ -67,6 +67,7 @@
       clear.disabled=!selected;check.disabled=!nodes.length||!referenceAvailable;label.title=referenceAvailable?'Reference centerlines':'Reference centerlines are hidden in the deformed view';
       const n=nodes.find(n=>n.id===selected);
       info.textContent=n?[n.label,n.stage,n.role,n.member_index!=null?'member '+(n.member_index+1):null,n.nominal_radius_mm!=null?'nominal radius '+fmt(n.nominal_radius_mm)+' mm':null,n.centerline_length_mm!=null?'centerline '+fmt(n.centerline_length_mm)+' mm':null,n.bonded_to?'bonded to '+n.bonded_to:null,n.bounds_mm?'bounds '+n.bounds_mm[1].map((v,i)=>fmt(v-n.bounds_mm[0][i])).join(' × ')+' mm':null,'concept geometry; no local FEM ownership'].filter(Boolean).join(' · '):nodes.length?nodes.length+' generated components · select to highlight in 3D. Centerlines show structural layout, not solved force flow.':'Select a design to inspect its components.';
+      if(n?.function)info.textContent+=' '+n.function;
       evidence.replaceChildren();
       evidence.hidden=!n||!['flexure','piezo'].includes(n.part);
       if(!evidence.hidden){

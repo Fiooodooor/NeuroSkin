@@ -526,7 +526,7 @@ def detail_mesh(fam,p,quality=16,describe=False):
    from hybrid_geometry import stage_descriptors
    stages=[stage for stage,subfamily,g,_ in stage_descriptors(fam,p) for _member in _single_stage_struts(subfamily,g)]
   from component_inspection import pack_components
-  return pack_components(groups,members,film_members,stages,hybrid)
+  return pack_components(groups,members,film_members,stages,hybrid,family=fam)
  return {name:trimesh.util.concatenate(parts) for name,parts in groups.items() if parts}
 
 def webmesh(fam,p,quality=10):
@@ -601,7 +601,7 @@ class EvolutionEngine:
  def snapshot(self):
   with self.lock:
    d=copy.deepcopy(self.state);d['paused']=self.pause_event.is_set();return d
- def start(self,mode='all',duration=60,seed=42,population=24,exploration=.55,objective="balanced",physical_gate=False,gate_grid=3,cores=1,audit_grid=5,fem=False,fem_pitch=1.25,fem_backend='hex8',search_strategy='adaptive',search_precision=.8):
+ def start(self,mode='all',duration=60,seed=42,population=24,exploration=.55,objective="balanced",physical_gate=False,gate_grid=3,cores=1,audit_grid=5,fem=False,fem_pitch=1.25,fem_backend='hex8',search_strategy='adaptive',search_precision=.8,continuation=None):
   available = len(os.sched_getaffinity(0)) if hasattr(os, 'sched_getaffinity') else (os.cpu_count() or 1)
   if not (1<=int(cores)<=min(256,available)):raise ValueError(f'CPU workers must be 1..{min(256,available)}; requested {cores}')
   if not .12<=float(fem_pitch)<=2.0:raise ValueError('FEM pitch must be 0.12..2.0 mm')
@@ -617,11 +617,22 @@ class EvolutionEngine:
   if not (3<=duration<=3600):raise ValueError('Duration outside 3..3600s')
   if not (12<=population<=256):raise ValueError('Population outside 12..256')
   if not (0<=exploration<=1):raise ValueError('Exploration must be 0..1')
+  settings=dict(mode=mode,seconds=float(duration),seed=int(seed),population=int(population),exploration=float(exploration),
+    objective=objective,physical_gate=bool(physical_gate),gate_grid=gate_grid,cores=int(cores),audit_grid=audit_grid,
+    fem_enabled=bool(fem),fem_pitch_mm=float(fem_pitch),fem_backend=fem_backend,search_strategy=search_strategy,search_precision=float(search_precision))
+  if continuation is not None:
+   from evolution_continuation import initialize
+   branch_rng=random.Random(seed)
+   inherited,lineage=initialize(continuation,SearchScope.parse(mode),population,branch_rng,settings)
+   continuation={'population':inherited,'rng_state':branch_rng.getstate(),'lineage':lineage}
   with self.lock:
    if self.thread is not None and self.thread.is_alive():raise RuntimeError('Stop current run before starting a new run')
    self.stop_event.clear();self.pause_event.clear();self.records={};self.state=self.empty()
    self.state.update(provenance=engine_provenance(),cores=int(cores),workers_active=0,screening_processes=process_capacity(cores,population),audit_progress={},evaluations_per_second=0,engine='spawn processes; bounded concurrent FEM load cases; BLAS threads capped to 1',id=str(uuid.uuid4())[:8],status='running',mode=mode,family=mode,duration=float(duration),seed=int(seed),objective=objective,physical_gate=bool(physical_gate),gate_grid=gate_grid,audit_grid=audit_grid,phase='initializing',fem_enabled=bool(fem),fem_pitch_mm=float(fem_pitch),fem_backend=fem_backend,search_strategy=search_strategy,search_precision=float(search_precision))
-   self.thread=threading.Thread(target=self._loop,args=(mode,float(duration),int(seed),population,exploration,objective,bool(physical_gate),gate_grid,int(cores),audit_grid,bool(fem),float(fem_pitch),fem_backend,search_strategy,float(search_precision)),daemon=True);self.thread.start()
+   base=continuation['lineage']['parent_generation'] if continuation else 0
+   self.state.update(run_settings=settings,population=int(population),exploration=float(exploration),
+      lineage=copy.deepcopy(continuation['lineage']) if continuation else None,generation=base,branch_generation=0)
+   self.thread=threading.Thread(target=self._loop,args=(mode,float(duration),int(seed),population,exploration,objective,bool(physical_gate),gate_grid,int(cores),audit_grid,bool(fem),float(fem_pitch),fem_backend,search_strategy,float(search_precision),continuation),daemon=True);self.thread.start()
   return self.snapshot()
  def pause(self):
   with self.lock:
@@ -657,35 +668,40 @@ class EvolutionEngine:
  def _check_stop(self):
   if self.stop_event.is_set():raise EvolutionStopped('User stopped evolution')
 
- def _loop(self,mode,duration,seed,population,exploration,objective,physical_gate,gate_grid,cores,audit_grid,fem_enabled,fem_pitch,fem_backend,search_strategy='adaptive',search_precision=.8):
+ def _loop(self,mode,duration,seed,population,exploration,objective,physical_gate,gate_grid,cores,audit_grid,fem_enabled,fem_pitch,fem_backend,search_strategy='adaptive',search_precision=.8,continuation=None):
   from search_space import SearchScope, local_refinement, EliteArchive
   from population_pareto import rank_population,parent_key,objectives_for
   scope=SearchScope.parse(mode)
   rng=random.Random(seed);families=scope.families
-  pop=[scope.generate(rng) for _ in range(population)]
-  # Curated top-10 start the actual evolution; no synthetic fitness is substituted.
-  from seed_library import top_candidates,seed_genome
-  curated=[x for x in top_candidates(10) if x.family in families and scope.allow_single]
-  for i,spec in enumerate(curated[:len(pop)]):
-   pop[i]=(spec.family,scope.repair(spec.family,seed_genome(spec,rng,mutate=True),rng))
-  # Ten engineering-prior two-stage architectures are genuine generation-0
-  # members; they receive the EXACT same screening/FEM as other candidates.
-  from hybrid_library import ranked as hybrid_ranked,genome_for as hybrid_genome_for
-  slot=len(curated)
-  for spec in hybrid_ranked():
-   if spec.id not in scope.hybrid_ids or slot>=len(pop):continue
-   pop[slot]=(spec.upper_family,scope.repair(spec.upper_family,hybrid_genome_for(spec,rng),rng))
-   slot+=1
-  archive=[];qd=EliteArchive();champions={};records={};history=[];stats={k:0 for k in ('random','guided','cross-family','topology','macro','crossover','precise','qd-elite')};best_score=-1e9;stall=0;active=0.;last=time.monotonic();gen=0;seen=0
+  if not continuation:
+   pop=[scope.generate(rng) for _ in range(population)]
+   # Curated top-10 start the actual evolution; no synthetic fitness is substituted.
+   from seed_library import top_candidates,seed_genome
+   curated=[x for x in top_candidates(10) if x.family in families and scope.allow_single]
+   for i,spec in enumerate(curated[:len(pop)]):
+    pop[i]=(spec.family,scope.repair(spec.family,seed_genome(spec,rng,mutate=True),rng))
+   # Ten engineering-prior two-stage architectures are genuine generation-0
+   # members; they receive the EXACT same screening/FEM as other candidates.
+   from hybrid_library import ranked as hybrid_ranked,genome_for as hybrid_genome_for
+   slot=len(curated)
+   for spec in hybrid_ranked():
+    if spec.id not in scope.hybrid_ids or slot>=len(pop):continue
+    pop[slot]=(spec.upper_family,scope.repair(spec.upper_family,hybrid_genome_for(spec,rng),rng))
+    slot+=1
+  if continuation:
+   pop=copy.deepcopy(continuation['population']);rng.setstate(continuation['rng_state'])
+  base_generation=continuation['lineage']['parent_generation'] if continuation else 0
+  archive=[];qd=EliteArchive();champions={};records={};history=[];stats={k:0 for k in ('random','guided','cross-family','topology','macro','crossover','precise','qd-elite')};best_score=-1e9;stall=0;active=0.;last=time.monotonic();gen=base_generation;seen=0
+  gallery=[];finalists=[];diversity=0
   pool=None;incumbent=None;audit_history=[];decision_history=[];audits_by_fingerprint={}
   try:
    if cores>1:
     pool=concurrent.futures.ProcessPoolExecutor(max_workers=process_capacity(cores,population),mp_context=multiprocessing.get_context('spawn'),initializer=evolution_worker_initializer)
     with self.lock:self._pool=pool
-   while active<duration and not self.stop_event.is_set():
+   while active<duration and gen<999999 and not self.stop_event.is_set():
     now=time.monotonic();active+=0 if self.pause_event.is_set() else max(0.,now-last);last=now
     if self.pause_event.is_set():time.sleep(.05);continue
-    if gen and active>=duration:break
+    if gen>base_generation and active>=duration:break
     scored=[]
     with self.lock:self.state.update(phase='fast_screening',workers_active=process_capacity(cores,population),audit_progress={})
     jobs=[(fam,p,objective,physical_gate,gate_grid) for fam,p in pop]
@@ -703,7 +719,7 @@ class EvolutionEngine:
      # Enforce feasible-first selection even with high novelty bonuses.
      if physical_gate and not met.get('spatial_feasible',False):
       selection=min(14.99,selection)
-     candidate=dict(id=f'{gen}-{len(scored)}',family=fam,genome=p,metrics=met,fitness=float(score),novelty=round(novelty,4),selection=selection,generation=gen)
+     candidate=dict(id=f'{gen+1}-{len(scored)}',family=fam,genome=p,metrics=met,fitness=float(score),novelty=round(novelty,4),selection=selection,generation=gen+1)
      scored.append((selection,candidate,desc))
      if score>best_score:best_score=score;stall=0
      if fam not in champions or score>champions[fam]['fitness']:champions[fam]=copy.deepcopy(candidate)
@@ -800,7 +816,7 @@ class EvolutionEngine:
     # Durable per-generation Top-3 snapshots, independently inspectable after restart.
     # The staged record is written atomically so a crash never creates a half JSON file.
     self._save_stage(gen+1, active, finalists, incumbent, decision)
-    with self.lock:self.state.update(phase='selection',workers_active=0,population_pareto_size=len(population_front),audit_top3=copy.deepcopy(finalists),
+    with self.lock:self.state.update(phase='selection',workers_active=0,generation=gen+1,branch_generation=gen+1-base_generation,best=copy.deepcopy(incumbent),population_pareto_size=len(population_front),audit_top3=copy.deepcopy(finalists),
        audited_champion=copy.deepcopy(incumbent),
        audit_history=copy.deepcopy(audit_history[-300:]),stage_decisions=copy.deepcopy(decision_history[-300:]))
     stall+=1;gen+=1
@@ -816,7 +832,7 @@ class EvolutionEngine:
      if len(gallery)>=16:break
     family_counts={fam:sum(v[1]['family']==fam for v in scored) for fam in families}
     diversity=len(set((x[1]['family'],x[1]['genome'].get('hybrid_id','none') if x[1]['genome'].get('hybrid_id','none')!='none' else x[1]['genome']['topology']) for x in scored))
-    if gen<=3 or gen%4==0:
+    if gen-base_generation<=3 or gen%4==0:
      with self.lock:
       for c in gallery+finalists+[incumbent]:self.records[c["id"]]=copy.deepcopy(c)
      history.append({'generation':gen,'elapsed':round(active,2),'best':round(max(x['fitness'] for x in champions.values()),4),'median':round(float(np.median([x[1]['fitness'] for x in scored])),4),'diversity':diversity})
@@ -867,6 +883,11 @@ class EvolutionEngine:
      stats[op]=stats.get(op,0)+1;next_pop.append((fam,p))
     pop=next_pop
     if stagnating:stall=0
+    from evolution_continuation import save_population
+    save_population(self.folder,self.state['id'],gen,pop,rng,self.state['run_settings'],self.state['provenance'])
+    # A committed population boundary remains discoverable after process failure.
+    # Running/stopping snapshots never enroll in User bests.
+    self._write_result(self.snapshot())
     if cores==1:time.sleep(.005)
    with self.lock:
     for c in gallery+finalists+([incumbent] if incumbent else []):self.records[c['id']]=copy.deepcopy(c)
@@ -912,7 +933,8 @@ class EvolutionEngine:
   folder=self.folder/run_id/'stages';folder.mkdir(parents=True,exist_ok=True)
   document={'schema_version':1,'run_id':run_id,'generation':int(generation),
             'elapsed':round(float(elapsed),3),'top3':finalists,
-            'champion':incumbent,'decision':decision,
+            'champion':incumbent,'decision':decision,'run_settings':copy.deepcopy(self.state.get('run_settings',{})),
+            'lineage':copy.deepcopy(self.state.get('lineage')),
             'validation_level':('linear_3d_HEX8_FEM_plus_surrogate' if self.state.get('fem_enabled') else 'surrogate_only')}
   path=folder/f'stage_{generation:06d}.json'
   tmp=path.with_suffix('.tmp')

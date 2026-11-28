@@ -45,7 +45,8 @@ class UserBests:
             'genome_hash': digest({'family': candidate['family'], 'genome': candidate['genome']}),
             'run_context': {key: deepcopy(state.get(key)) for key in (
                 'seed', 'mode', 'objective', 'generation', 'provenance',
-                'physical_gate', 'gate_grid', 'audit_grid', 'fem_enabled', 'fem_pitch_mm', 'fem_backend')},
+                'physical_gate', 'gate_grid', 'audit_grid', 'fem_enabled', 'fem_pitch_mm', 'fem_backend',
+                'lineage', 'run_settings', 'population', 'exploration')},
         }
         payload = json.dumps(entry, indent=2, allow_nan=False)
         if len(payload.encode('utf-8')) > MAX_STATE_BYTES:

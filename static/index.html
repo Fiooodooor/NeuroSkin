@@ -163,7 +163,7 @@ async function updateMesh(force=false,localOnly=false){
   else{const r=await fetch('/api/mesh?'+q.toString());if(!r.ok)throw Error('Mesh response '+r.status);data=await r.json();}
   if(request!==meshRequest||identity!==selectionIdentity()||String(data.candidate.id)!==String(c.id))return;
   geometryCache={key:q.toString(),data};
-  const response=currentResponse?.candidate_id===c.id?currentResponse:null;
+  const response=currentResponse?.candidate_id===c.id&&currentResponse._input===JSON.stringify(selectedPayload())?currentResponse:null;
   const enabled=$('deform').checked&&!!response;
   const m=enabled?response.result.mechanics:null;
   const scale=Number($('deformscale').value);
@@ -195,7 +195,7 @@ $('best').onclick=()=>{if(!state?.best)return;choose({kind:'best',index:0,family
 $('showPiezo').onchange=()=>updateMesh(true);$('piezoOverride').onchange=()=>{currentResponse=null;selectedUI();updateMesh(true);markEvaluationStale()};$('piezoWiring').onchange=()=>{currentResponse=null;selectedUI();updateMesh(true);markEvaluationStale()};$('wire').onchange=()=>updateMesh(true);$('transparent').onchange=()=>updateMesh(true);$('quality').onchange=()=>updateMesh(true);$('reset').onclick=()=>Plotly.relayout('model',{'scene.camera':{eye:{x:1.8,y:1.5,z:1.5}}});$('explore').oninput=()=>{$('exploreval').textContent=$('explore').value+'%'};$('searchPrecision').oninput=()=>{$('precisionValue').textContent=$('searchPrecision').value+'%'};for(let b of document.querySelectorAll('[data-sec]'))b.onclick=()=>{$('seconds').value=b.dataset.sec};
 function selectedPayload(){const c=findCandidate(currentSelection);if(!c)return null;return {run_id:archiveRunId,generation:archiveGeneration,selection:['seed','hybrid'].includes(currentSelection.kind)?currentSelection.kind:'id',index:['seed','hybrid'].includes(currentSelection.kind)?String(currentSelection.index):String(c.id),family:c.family,expected_live_run_id:!archiveRunId&&!['seed','hybrid'].includes(currentSelection.kind)?state?.id:null,expected_candidate_id:String(c.id),case:$('loadcase').value,fraction:Number($('loadamount').value)/100,frequency_hz:Number($('piezoFrequency').value),piezo_count_override:piezoOverrideValue(),piezo_wiring_override:piezoWiringOverrideValue()}}
 $('multiscaleLab').onclick=()=>{const p=selectedPayload();const q=new URLSearchParams();if(p)for(const k of ['selection','index','family','run_id','generation','piezo_count_override','piezo_wiring_override'])if(p[k]!=null)q.set(k,p[k]);location.href='/v30?'+q;};
-async function runCharacterization(){const input=selectedPayload();if(!input)return;const request=++responseRequest,identity=selectionIdentity();try{const r=await api('POST','/characterize',input);if(request!==responseRequest||identity!==selectionIdentity()||JSON.stringify(input)!==JSON.stringify(selectedPayload())||String(r.candidate_id)!==input.expected_candidate_id)return;currentResponse=r;const e=r.result.electrical,m=r.result.mechanics;const cases=r.sweep.rows;
+async function runCharacterization(){const input=selectedPayload();if(!input)return;const request=++responseRequest,identity=selectionIdentity();try{const r=await api('POST','/characterize',input);if(request!==responseRequest||identity!==selectionIdentity()||JSON.stringify(input)!==JSON.stringify(selectedPayload())||String(r.candidate_id)!==input.expected_candidate_id)return;currentResponse={...r,_input:JSON.stringify(input)};const e=r.result.electrical,m=r.result.mechanics;const cases=r.sweep.rows;
  $('electricalmetrics').innerHTML=metricBox('Total pressure ΔC [pF]',e.pressure_delta_pF.reduce((a,b)=>a+b,0))+metricBox('Lateral X ΔC [pF]',e.lateral_delta_pF[0])+metricBox('Lateral Y ΔC [pF]',e.lateral_delta_pF[1])+metricBox('Hall torsion ΔB [mT]',e.hall_torsion_delta_mT)+metricBox('PVDF dynamic Vpeak [V]',r.result.piezoelectric.peak_V)+metricBox('PVDF assumed SNR',r.result.piezoelectric.dynamic_snr_proxy);
  $('modeldisplacement').textContent=JSON.stringify({displacement_mm:m.displacement_mm,rotation_rad:m.rotation_rad,substrate_strain:m.substrate_strain,force_N:m.applied_force_N,moment_Nmm:m.applied_moment_Nmm,offset_mm:m.offset_mm},null,2);
  const xx=cases.map(r=>r.input_fraction*100);Plotly.react('responsegraph',[
@@ -402,6 +402,7 @@ function evaluationIdentity(){return JSON.stringify([selectionIdentity(),selecti
 function markEvaluationStale(){
  window.NeuroWorkspace?.renderEvaluation(null);
  window.NeuroWorkspace?.markFEMStale?.();
+ window.NeuroWorkspace?.refreshSignalGeometry?.();
  const status=$('allEvalStatus');
  if(status&&!status.textContent.startsWith('Evaluating')) status.textContent='Parameters changed. Press Evaluate All to refresh mechanical, electrical and spatial results.';
 }

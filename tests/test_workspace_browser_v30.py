@@ -78,11 +78,14 @@ def test_workspace_modes_context_and_multiscale(app_url):
         page.locator('#advancedMode').click()
         for view in ('results','signals','fem'):
             page.locator('#workspace-tab-'+view).click()
+            dock=page.locator('#workspace-panel-'+view+' .workspace-geometry-dock')
+            if not page.locator('#workspace-panel-'+view+' #model').is_visible():dock.locator('summary').first.click()
             expect(page.locator('#workspace-panel-'+view+' #model')).to_be_visible()
             expect(page.locator('#model')).to_have_count(1)
         expect(page.locator('.workspace-fem-card')).to_have_count(4)
         expect(page.locator('#femPreviewGrid')).to_be_visible()
         page.locator('#workspace-tab-multiscale').click()
+        page.locator('.workspace-pinned-geometry > summary').click()
         expect(page.locator('#workspacePinnedGeometryStatus')).to_contain_text('pinned undeformed geometry',timeout=30000)
         expect(page.locator('#workspacePinnedGeometryStatus')).to_contain_text('seed-')
         frame=page.frame_locator('#workspaceLabFrame')
@@ -93,8 +96,11 @@ def test_workspace_modes_context_and_multiscale(app_url):
         page.wait_for_function("""(()=>{const f=document.querySelector('#workspaceLabFrame');return Math.abs(f.clientHeight-f.contentDocument.body.getBoundingClientRect().height-12)<=2;})()""",timeout=15000)
         frame.locator('#lab-tab-1').click()
         page.wait_for_function("""(()=>{const f=document.querySelector('#workspaceLabFrame');return Math.abs(f.clientHeight-f.contentDocument.body.getBoundingClientRect().height-12)<=2;})()""",timeout=15000)
+        frame.locator('#membraneModel').select_option('tensioned_q1')
         frame.locator('#tile').click()
         expect(frame.locator('.lab-status:visible')).to_contain_text('Completed',timeout=30000)
+        expect(frame.locator('#tileResultVisual .js-plotly-plot')).to_be_visible(timeout=30000)
+        assert frame.locator('#tileResultVisual .js-plotly-plot').evaluate('(p)=>p.data.some(t=>t.type===\"surface\")')
         result=json.loads(frame.locator('#tileResult').text_content())
         assert result['tier']=='T0' and result['force_balance_error_N']<1e-8
         page.locator('#workspaceComparison > summary').click()
@@ -187,6 +193,7 @@ def test_four_real_fem_fields_and_geometry_override(app_url):
         assert 'preview_fields' not in data['audit']['fem']
         expect(page.locator('#evaluateAll')).to_be_enabled(timeout=180000)
         page.locator('#workspace-tab-fem').click()
+        if not page.locator('#workspaceComponentTree').is_visible():page.locator('#workspace-panel-fem .workspace-geometry-dock > summary').click()
         expect(page.locator('#workspaceFEMLegend')).to_contain_text('shared displayed range',timeout=30000)
         film=page.locator('#workspaceComponentTree button[data-component-id^="piezo:"]').first
         film.locator('xpath=ancestor::details[1]/summary').click() if not film.is_visible() else None

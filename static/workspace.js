@@ -106,9 +106,11 @@
   // The actual selected-geometry plot and controls are moved, never cloned.
   // Overview retains the full-size view; analytical tabs use a compact dock.
   const geometryDocks=new Map();
+  const signalMapNote=make('p','workspace-summary advanced-only','Run characterization to map signed film charge on the receptor.');signalMapNote.id='workspaceSignalMapNote';
   for(const [key,host] of [['results',results],['fem',femPanel],['signals',signals]]){
-    const dock=make('details','workspace-geometry-dock advanced-only');dock.open=true;
-    dock.append(make('summary','','Selected geometry · interactive 3D'));host.prepend(dock);
+    const dock=make('details','workspace-geometry-dock advanced-only');dock.open=key==='signals';
+    dock.append(make('summary','',key==='signals'?'PVDF signal map · interactive 3D':'Reference geometry · interactive 3D'));host.prepend(dock);
+    if(key==='signals')dock.append(signalMapNote);
     geometryDocks.set(key,dock);dock.addEventListener('toggle',resize);
   }
   // Explicit manual refresh actions, using the existing request functions.
@@ -125,7 +127,7 @@
   const close=button('workspaceLabClose','Close session',()=>closeSession());
   const frames=make('div','workspace-lab-sessions');
   labBar.append(labContext,sync,sessions,close,standalone);
-  const pinnedGeometry=make('details','workspace-pinned-geometry');pinnedGeometry.open=true;
+  const pinnedGeometry=make('details','workspace-pinned-geometry');pinnedGeometry.open=false;
   const pinnedStatus=make('p','workspace-summary','Select an inspection session.');pinnedStatus.id='workspacePinnedGeometryStatus';
   const pinnedPlot=make('div','workspace-pinned-plot');pinnedPlot.id='workspacePinnedGeometryPlot';
   const pinnedActions=make('div','workspace-pinned-actions');
@@ -135,7 +137,7 @@
   pinnedActions.append(pinnedFilmLabel,pinnedReset);
   pinnedGeometry.append(make('summary','','Selected geometry · interactive 3D (inspection session)'),pinnedStatus,pinnedActions,pinnedPlot);
   const pinnedInspector=window.NeuroComponents.inspector(pinnedGeometry,()=>{if(pinnedInspector.selected()?.startsWith('piezo:'))pinnedFilm.checked=true;renderPinnedGeometry();},'workspacePinnedComponentTree');
-  lab.append(labBar,pinnedGeometry,frames);
+  lab.append(labBar,frames,pinnedGeometry);
   const views=[['overview','Overview',overview,false],['results','Results',results,false],['fem','FEM',femPanel,true],['signals','Signals',signals,true],['multiscale','Multiscale',lab,true],['library','Library',library,false],['runs','Runs',archive,false],['history','History',history,true]];
   let active='overview',bound=null,advanced=false,labBusy=false,frame=null;
   const openLabs=new Map(),labLimit=3;
@@ -285,22 +287,23 @@
   function resize(){requestAnimationFrame(()=>{for(const plot of main.querySelectorAll('.js-plotly-plot'))if(plot.getClientRects().length&&plot._fullLayout)try{Plotly.Plots.resize(plot);}catch{}});}
   function show(id){if(!panels.has(id)||(!advanced&&views.find(v=>v[0]===id)[3]))id='overview';active=id;
     for(const [key,p] of panels){p.hidden=key!==id;const t=tabs.get(key);t.setAttribute('aria-selected',String(key===id));t.tabIndex=key===id?0:-1;}
-    if(id==='multiscale'&&!bound)bindLab(false);mountGeometry();update();renderPinnedGeometry();updateDetailedFEM();if(!isFEMVisible())renderFEMPreviews();resize();
+    if(id==='multiscale'&&!bound)bindLab(false);mountGeometry();update();renderPinnedGeometry();syncLabVisibility();updateDetailedFEM();if(!isFEMVisible())renderFEMPreviews();if(geometryCache)updateMesh(true,true);resize();
   }
   nav.addEventListener('keydown',e=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;const visible=views.filter(v=>advanced||!v[3]).map(v=>v[0]);let i=visible.indexOf(active);i=e.key==='Home'?0:e.key==='End'?visible.length-1:(i+(e.key==='ArrowRight'?1:-1)+visible.length)%visible.length;e.preventDefault();show(visible[i]);tabs.get(visible[i]).focus();});
   function current(){const p=selectedPayload(),c=findCandidate(currentSelection);if(!p||!c)return null;
     const libraryKind=['seed','hybrid'].includes(p.selection);return {selection:p.selection,index:p.index,family:c.family,run_id:p.run_id,generation:p.generation,piezo_count_override:p.piezo_count_override,piezo_wiring_override:p.piezo_wiring_override,expected_live_run_id:!p.run_id&&!libraryKind?state?.id:null,expected_candidate_id:String(c.id)};}
   function labUrl(p,embedded){const q=new URLSearchParams();for(const [k,v] of Object.entries(p))if(v!=null)q.set(k,v);if(embedded)q.set('embedded','1');return '/v30?'+q;}
+  function syncLabVisibility(){for(const item of openLabs.values())item.frame.contentWindow?.postMessage({type:'neuroskin:lab-visible',visible:active==='multiscale'&&item.frame===frame},location.origin);}
   function activateSession(key){
     const item=openLabs.get(key);if(!item||labBusy)return;
     for(const entry of openLabs.values()){entry.frame.hidden=true;entry.frame.removeAttribute('id');}
     bound=item.context;frame=item.frame;frame.id='workspaceLabFrame';frame.hidden=false;
-    standalone.href=labUrl(bound,false);labBusy=item.busy;update();renderPinnedGeometry();
+    standalone.href=labUrl(bound,false);labBusy=item.busy;update();renderPinnedGeometry();syncLabVisibility();
   }
   function bindLab(force){const p=current();if(!p||labBusy)return;const key=JSON.stringify(p);
     if(openLabs.has(key)){activateSession(key);return;}
     if(openLabs.size>=labLimit){update();return;}
-    const f=make('iframe','workspace-labframe');f.title='Multiscale engineering lab';f.hidden=true;f.src=labUrl(p,true);
+    const f=make('iframe','workspace-labframe');f.title='Multiscale engineering lab';f.hidden=true;f.src=labUrl(p,true);f.addEventListener('load',syncLabVisibility);
     openLabs.set(key,{context:p,frame:f,busy:false,reports:new Map()});frames.append(f);activateSession(key);
   }
   function closeSession(){if(!bound||labBusy)return;const key=JSON.stringify(bound),item=openLabs.get(key);if(!item)return;
@@ -331,6 +334,10 @@
     add('Force RMSE',Number.isFinite(d.force_rmse_norm_N)?fmt(1000*d.force_rmse_norm_N,2)+' mN':'—','Held-out, synthetic');
     add('Position MAE',fmt(d.position_mae_mm)+' mm','Held-out, synthetic');
     add('Mechanical FEM',!f?'Not run':f.failed?'Failed':f.feasible_linear?'Linear screen PASS':'Not feasible',f?.inflated_features?`${f.inflated_features} inflated members`:null);
+    const coverage=make('div','workspace-result-coverage');coverage.append(make('strong','','Operating pressure coverage · synthetic screen'));
+    for(const [force,s] of Object.entries(a.pressure_spatial||{})){const row=make('div','workspace-coverage-row'),meter=make('meter');meter.min=0;meter.max=1;meter.value=s.coverage_fraction;row.append(make('span','',force+' N'),meter,make('span','',(100*s.coverage_fraction).toFixed(0)+'%'));coverage.append(row);}
+    if(coverage.children.length>1)evaluationCards.append(coverage);
+    if(data.compute_telemetry){const t=data.compute_telemetry;add('Compute plan',t.plan.surrogate_processes+' processes / '+t.plan.fem_case_workers+' FEM cases',Object.entries(t.stages).map(([k,v])=>k+' '+(v.elapsed_s??'—')+' s').join(' · '));}
   }
   // The legacy mode toggles remain authoritative; observe only presentation/state.
   new MutationObserver(mode).observe(document.body,{attributes:true,attributeFilter:['class']});
@@ -349,7 +356,8 @@
   archive.addEventListener('click',e=>{if(e.target.closest('#openArchive,#openStage,#returnLive'))show('overview');});
   window.addEventListener('message',e=>{if(e.origin!==location.origin)return;const item=[...openLabs.values()].find(x=>x.frame.contentWindow===e.source);if(!item)return;if(e.data?.type==='neuroskin:lab-height'&&Number.isFinite(e.data.height))item.frame.style.height=Math.max(180,Math.min(18000,e.data.height+12))+'px';else if(e.data?.type==='neuroskin:lab-report'){const r=reports.record(e.data.result);if(r&&reports.matchesFrame(r,item.context)){item.reports.set(r.diagnostic_context.path,r);renderReports();}}else if(e.data?.type==='neuroskin:lab-busy'&&typeof e.data.busy==='boolean'){item.busy=e.data.busy;if(item.frame===frame){labBusy=item.busy;update();}}});
   function clearComponents(){componentInspector.set(null,null);}
-  function decorateGeometry(data,traces,identity,deformed){componentInspector.set(data.model,identity);componentInspector.setEvidence(femPreviewFields,femStale);componentInspector.setReferenceAvailable(!deformed);return window.NeuroComponents.decorate(traces,data.model,componentInspector.selected(),data.strut_paths,componentInspector.paths(),colors);}
-  window.NeuroWorkspace={show,update,resize,renderEvaluation,renderFEMPreviews,markFEMStale,isFEMVisible,clearComponents,decorateGeometry};
+  function decorateGeometry(data,traces,identity,deformed){componentInspector.set(data.model,identity);componentInspector.setEvidence(femPreviewFields,femStale);componentInspector.setReferenceAvailable(!deformed);if(active==='signals'){const r=currentResponse&&currentResponse._input===JSON.stringify(selectedPayload())?currentResponse.result.piezoelectric:null;const out=window.NeuroComponents.signalMap(traces,data.model,r);traces=out.traces;signalMapNote.textContent=r?'Signed per-film Q at '+r.frequency_hz+' Hz · blue negative / orange positive · max |Q| '+out.max.toPrecision(4)+' pC · before wiring, synthetic':'Run characterization to map signed film charge on the receptor.';}return window.NeuroComponents.decorate(traces,data.model,componentInspector.selected(),data.strut_paths,componentInspector.paths(),colors);}
+  function refreshSignalGeometry(){if(active==='signals'&&geometryCache)updateMesh(true,true);}
+  window.NeuroWorkspace={show,update,resize,renderEvaluation,renderFEMPreviews,markFEMStale,isFEMVisible,clearComponents,decorateGeometry,refreshSignalGeometry};
   mode();show('overview');renderReports();refreshCompute();setInterval(refreshCompute,2000);
 })();

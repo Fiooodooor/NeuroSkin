@@ -7,7 +7,7 @@
       if(!picked)return t;
       if(t.name!==picked.part)return {...t,opacity:Math.min(t.opacity??1,.25)};
       const base=colors[t.name]||'#a0b3bd',end=picked.face_start+picked.face_count;
-      return {...t,facecolor:t.i.map((_,i)=>i>=picked.face_start&&i<end?'#ffcf70':base)};
+      return {...t,facecolor:t.i.map((_,i)=>i>=picked.face_start&&i<end?'#ffcf70':t.facecolor?.[i]||base)};
     });
     if(showPaths&&paths){
       // These are reference structural centerlines, NOT computed force trajectories.
@@ -20,6 +20,23 @@
       }
     }
     return out;
+  }
+  function signalMap(traces,model,piezo){
+    if(!piezo)return {traces,max:0};
+    const nodes=model?.component_tree?.nodes||[],films=nodes.filter(n=>n.part==='piezo'),values=new Map();
+    for(const n of films){const c=piezo.channels?.[n.film_index];if(c&&c.member_index===n.member_index&&Number.isFinite(c.charge_pC))values.set(n.id,c.charge_pC);}
+    const amplitude=Math.max(0,...[...values.values()].map(Math.abs));
+    const mapped=traces.map(t=>{
+      if(t.name!=='piezo')return {...t,opacity:Math.min(t.opacity??1,.5)};
+      const facecolor=t.i.map(()=> '#81939f'),text=t.x.map(()=> 'Unmatched film');
+      for(const n of films){if(!values.has(n.id))continue;const q=values.get(n.id),a=amplitude?Math.abs(q)/amplitude:0;
+        const dest=q<0?[70,156,238]:[255,160,63],base=[190,201,204],rgb=base.map((v,j)=>Math.round(v+(dest[j]-v)*a));
+        const color='rgb('+rgb.join(',')+')';
+        facecolor.fill(color,n.face_start,n.face_start+n.face_count);
+        text.fill(n.label+' · Q '+q.toPrecision(4)+' pC (assumed)',n.vertex_start,n.vertex_start+n.vertex_count);}
+      return {...t,facecolor,text,hoverinfo:'text'};
+    });
+    return {traces:mapped,max:amplitude};
   }
   function filmRows(packet,node,nodes){
     if(!node||!packet?.cases)return [];
@@ -88,5 +105,5 @@
     function setReferenceAvailable(value){if(referenceAvailable===value)return;referenceAvailable=value;render();}
     return {set,setEvidence,setReferenceAvailable,selected:()=>selected,paths:()=>check.checked&&referenceAvailable};
   }
-  const api={decorate,inspector,filmRows};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.NeuroComponents=api;
+  const api={decorate,inspector,filmRows,signalMap};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.NeuroComponents=api;
 })(globalThis);

@@ -1,4 +1,5 @@
 from __future__ import annotations
+from pathlib import Path
 import random
 import numpy as np
 import matplotlib
@@ -10,7 +11,7 @@ from advanced import new_genome
 from physical_fem import fem_sweep
 
 
-def main(out_path: str = "LAMINATE_SHELL_PREVIEW_v19.png"):
+def main(out_path: str = "artifacts/previews/laminate_shell.png"):
     g = new_genome("quadrant", random.Random(19))
     fem = fem_sweep("quadrant", g, pitch_mm=1.25, include_fields=True, backend="hex8")
     shell = fem["laminate_shell"]
@@ -32,7 +33,7 @@ def main(out_path: str = "LAMINATE_SHELL_PREVIEW_v19.png"):
         colors = [cm.turbo(norm(float(field[f].mean()))) for f in faces]
         mesh = Poly3DCollection(tris, facecolors=colors, edgecolors=(0.12, 0.18, 0.22, 0.25), linewidths=0.25)
         ax.add_collection3d(mesh)
-    ax.set_title("NeuroSkin v1.9 · final laminate shell preview\nReduced PVDF ribbon shell over solved substrate deformation", fontsize=10)
+    ax.set_title("NeuroSkin 3 · final laminate shell preview\nReduced PVDF ribbon shell over solved substrate deformation", fontsize=10)
     ax.set_xlabel("X [mm]")
     ax.set_ylabel("Y [mm]")
     ax.set_zlabel("Z [mm]")
@@ -58,6 +59,7 @@ def main(out_path: str = "LAMINATE_SHELL_PREVIEW_v19.png"):
     )
     fig.text(0.02, 0.03, note, fontsize=8)
     fig.tight_layout(rect=[0, 0.05, 1, 1])
+    Path(out_path).parent.mkdir(parents=True,exist_ok=True)
     plt.savefig(out_path, bbox_inches="tight")
 
 

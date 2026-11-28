@@ -11,7 +11,7 @@ from hybrid_geometry import mid_height,mid_radius
 from advanced import structural_struts
 
 
-def render(out='HYBRID_TOP10_PREVIEW_v20.png'):
+def render(out='artifacts/previews/hybrid_top10.png'):
     specs=ranked();fig=plt.figure(figsize=(16.5,7.7),dpi=150)
     fig.patch.set_facecolor('#0c1723')
     for k,spec in enumerate(specs):
@@ -32,8 +32,9 @@ def render(out='HYBRID_TOP10_PREVIEW_v20.png'):
         ax.set_title(f'{k+1}. {spec.name}\n{sum(spec.scores)}/100 expert prior',color='#d7eaf0',fontsize=9,pad=3)
         for axis in (ax.xaxis,ax.yaxis,ax.zaxis):axis.pane.set_facecolor((.045,.09,.14,0))
         ax.grid(False)
-    fig.suptitle('NeuroSkin 2.0 · 10 hybrid double-stage morphologies\nTeal = upper receptor  |  Orange = lower reference  |  Purple = shared interface',color='#d6ebed',fontsize=16,y=.99)
+    fig.suptitle('NeuroSkin 3 · 10 hybrid double-stage morphologies\nTeal = upper receptor  |  Orange = lower reference  |  Purple = shared interface',color='#d6ebed',fontsize=16,y=.99)
     fig.subplots_adjust(top=.85,bottom=.03,hspace=.34,wspace=.05)
+    Path(out).parent.mkdir(parents=True,exist_ok=True)
     fig.savefig(out,bbox_inches='tight',facecolor=fig.get_facecolor())
     return out
 

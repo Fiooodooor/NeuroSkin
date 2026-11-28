@@ -15,7 +15,7 @@ from beam_fem import BeamFEM, beam_sweep
 from physical_fem import FEMConfig, HexElasticSolver, voxel_mesh
 
 
-class LaminateMechanicsV18(unittest.TestCase):
+class LaminateMechanics(unittest.TestCase):
     def g(self, family='quadrant', seed=33):
         return new_genome(family, random.Random(seed))
 
@@ -78,7 +78,7 @@ class LaminateMechanicsV18(unittest.TestCase):
             self.assertGreaterEqual(a['piezo_bond_fraction'],.5)
 
 
-class UnifiedGuiV18(unittest.TestCase):
+class UnifiedGui(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.html=(Path(__file__).parents[1]/'static'/'index.html').read_text(encoding='utf8')

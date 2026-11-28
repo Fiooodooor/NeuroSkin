@@ -1,7 +1,7 @@
 """Reproducible initial-population screening benchmark (not a hardware validation).
 
 Example:
-  python refinement_benchmark.py --samples 32 --seed 2026 --out screening_v191.json
+  python refinement_benchmark.py --samples 32 --seed 2026 --out artifacts/refinement-benchmark.json
 """
 from __future__ import annotations
 import argparse, json, random, time
@@ -56,9 +56,10 @@ def main():
     ap.add_argument('--samples',type=int,default=32)
     ap.add_argument('--seed',type=int,default=2026)
     ap.add_argument('--grid',type=int,choices=(3,5,7),default=3)
-    ap.add_argument('--out',default='screening_v191.json')
+    ap.add_argument('--out',default='artifacts/refinement-benchmark.json')
     args=ap.parse_args()
     result=benchmark(args.samples,args.seed,args.grid)
+    Path(args.out).parent.mkdir(parents=True,exist_ok=True)
     Path(args.out).write_text(json.dumps(result,indent=2),encoding='utf-8')
     print(json.dumps(result,indent=2))
 

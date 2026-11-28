@@ -13,7 +13,7 @@ from hybrid_library import BY_ID, genome_for
 from orientation_study import scan_rotations
 
 
-def main(output='HYBRID_ROTATION_COMPARISON_v21.png', hybrid_id='h01_serpentine_quadrant'):
+def main(output='artifacts/previews/hybrid_rotations.png', hybrid_id='h01_serpentine_quadrant'):
     spec = BY_ID[hybrid_id]
     g0 = genome_for(spec, random.Random(1701))
     scans = scan_rotations(spec.upper_family, g0)
@@ -44,9 +44,10 @@ def main(output='HYBRID_ROTATION_COMPARISON_v21.png', hybrid_id='h01_serpentine_
         rec = next(item for item in scans['rows'] if item['angle_deg']==angle)
         ax.set_title(f"Upper rotation {angle}°\nTilt {rec['max_tilt_rad']:.3f} rad · {rec['coverage_fraction']*100:.0f}% pass",
                      color='#e9f4ef',fontsize=10,pad=12)
-    fig.suptitle('NeuroSkin 2.1 · Relative stage rotation (same geometry and electrical model)\nTeal: upper sensing flexures · Orange: lower reference flexures · Purple: shared middle plate',
+    fig.suptitle('NeuroSkin 3 · Relative stage rotation (same geometry and electrical model)\nTeal: upper sensing flexures · Orange: lower reference flexures · Purple: shared middle plate',
                  fontsize=13,color='#e6f3f4',y=.99)
     fig.tight_layout(rect=[0,.01,1,.90])
+    Path(output).parent.mkdir(parents=True,exist_ok=True)
     fig.savefig(output,facecolor=fig.get_facecolor())
     return scans
 

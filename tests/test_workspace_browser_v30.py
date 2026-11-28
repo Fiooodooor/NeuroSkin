@@ -172,7 +172,7 @@ def test_four_real_fem_fields_and_geometry_override(app_url):
         page.locator('#hybridLibrary').locator('xpath=ancestor::details[1]/summary').click()
         page.locator('[data-hybrid="h01_serpentine_quadrant"]').click(timeout=30000)
         expect(page.locator('#workspaceCandidate')).to_contain_text('h01',timeout=20000)
-        tree=page.locator('#workspaceComponentTree');tree.locator('summary').first.click()
+        tree=page.locator('#workspaceComponentTree');tree.evaluate('(n)=>n.open=true')
         group=tree.locator('details').filter(has_text='upper ·').first
         group.locator('summary').click(timeout=30000)
         selected=group.locator('button[data-component-id^="flexure:"]').first
@@ -303,5 +303,7 @@ def test_presets_modes_and_resizable_panels(app_url):
         page.locator('#basicMode').click()
         assert page.locator('.workspace-settings').evaluate_all('(nodes)=>nodes.every(n=>!n.open)')
         assert page.locator('#objective').input_value() == 'electronics'
+        gallery = page.evaluate("""()=>{state.gallery=[{id:'<img src=x onerror=alert(1)>',family:'crown',genome:{topology:'<img src=x>'},fitness:1,novelty:0,generation:1}];document.getElementById('filter').value='all';renderGallery();const n=document.getElementById('gallery');return {images:n.querySelectorAll('img').length,text:n.textContent};}""")
+        assert gallery['images'] == 0 and '<img' in gallery['text']
         assert not errors, errors
         browser.close()

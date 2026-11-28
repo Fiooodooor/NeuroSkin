@@ -1,4 +1,4 @@
-"""v1.3: high-resolution FEM and geometry consistency regression tests."""
+"""high-resolution FEM and geometry consistency regression tests."""
 import os,random,unittest
 import numpy as np
 from advanced import new_genome, structural_struts, tapered_tube, _profile_radius

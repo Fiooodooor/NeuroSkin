@@ -29,7 +29,8 @@ def draw(ax,parts):
     ax.set_axis_off()
     ax.set_facecolor('white')
 
-def main(out='PVDF_SYMMETRY_COMPARISON.png'):
+def main(out='artifacts/previews/pvdf_comparison.png'):
+    Path(out).parent.mkdir(parents=True,exist_ok=True)
     p=new_genome('quadrant',random.Random(33));p['piezo_count']=4;p['piezo_wiring']=0
     p['topology']='diagonal'
     original=dict(p);original.pop('piezo_count');original.pop('piezo_wiring')

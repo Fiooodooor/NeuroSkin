@@ -1,4 +1,4 @@
-"""v1.6: research-seed morphology, engineering prior rubric, SLS unloading,
+"""research-seed morphology, engineering prior rubric, SLS unloading,
 expanded PVDF hardware arrangements, and unified API regressions."""
 import random
 import unittest
@@ -13,7 +13,7 @@ from electromechanics import raw_mechanics
 from recovery_sim import recovery_curve
 from server import app
 
-class LibraryV16Tests(unittest.TestCase):
+class LibraryTests(unittest.TestCase):
  def test_twenty_origins_10criteria_10shortlist(self):
   self.assertEqual(len(SEEDS),20)
   self.assertEqual(sum(x.category=='hypothesis' for x in SEEDS),10)

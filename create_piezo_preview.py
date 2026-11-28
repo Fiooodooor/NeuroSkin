@@ -8,7 +8,8 @@ import matplotlib.pyplot as plt
 from advanced import new_genome
 from electromechanics import raw_mechanics
 from piezoelectric import response
-root=Path(__file__).resolve().parent
+root=Path(__file__).resolve().parent/'artifacts'/'previews'
+root.mkdir(parents=True,exist_ok=True)
 fig,axes=plt.subplots(1,3,figsize=(15,4.6),layout='constrained')
 for fam in ['crown','chiral','quadrant']:
  g=new_genome(fam,random.Random(31))
@@ -25,6 +26,6 @@ axes[1].set(title='Step then hold · charge leakage',xlabel='Time (s)',ylabel='P
 axes[2].set(title='RC high-pass frequency response',xlabel='Frequency (Hz)',ylabel='Peak output (mV)',xscale='log')
 for ax in axes:
  ax.grid(alpha=.2);ax.legend(fontsize=8)
-fig.suptitle('NeuroSkin v0.9 · synthetic piezoelectric response (NOT measured, NOT coupled FEM)',fontsize=12)
-fig.savefig(root/'piezoelectric_preview_v09.png',dpi=150)
-print(root/'piezoelectric_preview_v09.png')
+fig.suptitle('NeuroSkin 3 · synthetic piezoelectric response (NOT measured, NOT coupled FEM)',fontsize=12)
+fig.savefig(root/'piezoelectric_preview.png',dpi=150)
+print(root/'piezoelectric_preview.png')

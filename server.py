@@ -573,10 +573,10 @@ def export(kind:str, selection:str='best',index:str="0",family:str='crown',run_i
  try:s=ARCHIVES.load(run_id) if run_id else EVO.snapshot()
  except FileNotFoundError:raise HTTPException(404,'Saved run not found')
  except (ArchiveError,OSError,ValueError,TypeError) as exc:raise HTTPException(422,str(exc))
- if kind=='json':return Response(json.dumps(s,indent=2),media_type='application/json',headers={'Content-Disposition':'attachment; filename="neuroskin_evolution_v07.json"'})
+ if kind=='json':return Response(json.dumps(s,indent=2),media_type='application/json',headers={'Content-Disposition':'attachment; filename="neuroskin_evolution.json"'})
  if kind=='csv':
   buf=io.StringIO();w=csv.DictWriter(buf,['generation','elapsed','best','median','diversity']);w.writeheader();w.writerows(s['history'])
-  return Response(buf.getvalue(),media_type='text/csv',headers={'Content-Disposition':'attachment; filename="neuroskin_history_v07.csv"'})
+  return Response(buf.getvalue(),media_type='text/csv',headers={'Content-Disposition':'attachment; filename="neuroskin_history.csv"'})
  if kind=='genome':
   c=_guarded_candidate(selection,index,family,run_id,generation,expected_live_run_id,expected_candidate_id)
   g=_preview_genome(c,piezo_count_override,piezo_wiring_override)

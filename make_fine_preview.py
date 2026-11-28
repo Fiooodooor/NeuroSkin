@@ -44,6 +44,7 @@ for idx,scale in enumerate((0,4)):
 fig.suptitle('NeuroSkin 1.3 · Differential Quadrant · 0.15625 mm axial beam-FEM pitch',color='#edf7f6',fontsize=15)
 fig.text(.5,.03,'Linear Euler-Bernoulli beam FEM — not a volumetric 8× solid mesh; color indicates estimated beam stress.',ha='center',color='#c9d3d8',fontsize=10)
 fig.subplots_adjust(left=.01,right=.99,bottom=.05,top=.9,wspace=.01)
-file=Path(__file__).with_name('FINE_BEAM_8X_PREVIEW.png')
+file=Path('artifacts/previews/fine_beam_8x.png')
+file.parent.mkdir(parents=True,exist_ok=True)
 fig.savefig(file,dpi=140,facecolor=fig.get_facecolor(),bbox_inches='tight');plt.close(fig)
 print(file,result['mean_down_mm'],solver.n_elements)

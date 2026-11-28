@@ -7,7 +7,7 @@ from advanced import new_genome, audit_job
 from physical_fem import fem_sweep
 
 
-class LaminateShellV19(unittest.TestCase):
+class LaminateShell(unittest.TestCase):
     def test_hex8_fem_reports_final_laminate_shell(self):
         g = new_genome('quadrant', random.Random(7))
         fem = fem_sweep('quadrant', g, pitch_mm=1.25, include_fields=True, backend='hex8')
@@ -45,7 +45,7 @@ class LaminateShellV19(unittest.TestCase):
             self.assertTrue(obj['fem']['laminate_shell']['graphics']['films'])
 
 
-class LaminateShellGuiV19(unittest.TestCase):
+class LaminateShellGui(unittest.TestCase):
     def test_gui_mentions_shell_stage_and_view(self):
         from pathlib import Path
         html = (Path(__file__).parents[1] / 'static' / 'index.html').read_text(encoding='utf8')

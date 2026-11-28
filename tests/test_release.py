@@ -1,4 +1,4 @@
-"""v1.7 packaging, processor-group planning and fair CPU/GPU benchmark checks."""
+"""packaging, processor-group planning and fair CPU/GPU benchmark checks."""
 from __future__ import annotations
 import random
 from pathlib import Path

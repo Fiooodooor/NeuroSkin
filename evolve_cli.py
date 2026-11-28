@@ -23,7 +23,7 @@ def main():
  ap.add_argument('--fem',action=argparse.BooleanOptionalAction,default=True,help='Perform actual 3D HEX8 FEM on every Top-3 finalist (default: enabled)')
  ap.add_argument('--fem-pitch',type=float,default=.3125,help='HEX8 mesh pitch or beam element length [mm]. 0.3125=4x, 0.15625=8x finer than legacy 1.25')
  ap.add_argument('--fem-backend',choices=['hex8','beam','auto'],default='hex8',help='Explicit mechanical solver (default real 3D solid HEX8). Beam = faster, but not solid 3D resolution.')
- ap.add_argument('--out',default='runs_headless')
+ ap.add_argument('--out',default='runs')
  args=ap.parse_args()
  if args.cores=='auto':
   from hardware_profile import profile

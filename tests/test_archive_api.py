@@ -1,4 +1,4 @@
-"""Version 1.1 archive/GUI API contract tests. No external network required."""
+"""archive/GUI API contract tests. No external network required."""
 import json
 import tempfile
 import unittest

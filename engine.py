@@ -1,9 +1,7 @@
 """Reduced-order geometry and mechanics primitives used by NeuroSkin 3.
 Units: mm, N, MPa. This module does not establish nonlinear or hardware qualification."""
 from __future__ import annotations
-import csv, io, json, math, random, threading, time, uuid
-from dataclasses import dataclass, asdict
-from pathlib import Path
+import math
 import numpy as np
 import trimesh
 
@@ -176,96 +174,3 @@ def mesh_for(family,p,quality=9):
  if family=='chiral':
   ring=trimesh.creation.annulus(r_min=2.6,r_max=3.0,height=.4,sections=24);ring.apply_translation([0,0,H*p['split']]);parts.append(ring)
  return trimesh.util.concatenate(parts)
-
-@dataclass
-class RunState:
- id:str='';status:str='idle';family:str='quadrant';duration:float=60;started:float=0.;elapsed:float=0.;generation:int=0;evaluated:int=0;best:dict|None=None;history:list|None=None;hall:list|None=None;error:str='';seed:int=42
-
-class Evolution:
- def __init__(self,folder):
-  self.lock=threading.RLock();self.state=RunState(history=[],hall=[]);self.stop_event=threading.Event();self.pause_event=threading.Event();self.worker=None;self.folder=Path(folder);self.folder.mkdir(parents=True,exist_ok=True)
- def start(self,family,duration=60,seed=42,popsize=24):
-  if family not in FAMILIES:raise ValueError('Invalid family')
-  if not 3<=duration<=3600:raise ValueError('Duration must be 3..3600 seconds')
-  if not 8<=popsize<=100:raise ValueError('Population must be 8..100')
-  with self.lock:
-   if self.worker is not None and self.worker.is_alive():raise RuntimeError('Stop current run first')
-   self.stop_event.clear();self.pause_event.clear()
-   self.state=RunState(id=str(uuid.uuid4())[:8],status='running',family=family,duration=float(duration),started=time.time(),seed=int(seed),history=[],hall=[])
-   self.worker=threading.Thread(target=self._evolve,args=(family,float(duration),int(seed),int(popsize)),daemon=True);self.worker.start()
-   return self.snapshot()
- def snapshot(self):
-  with self.lock:
-   d=asdict(self.state)
-   d['paused']=self.pause_event.is_set()
-   return d
- def pause(self):
-  with self.lock:
-   if self.state.status=='running':self.pause_event.set();self.state.status='paused'
-   elif self.state.status=='paused':self.pause_event.clear();self.state.status='running'
-   return self.snapshot()
- def stop(self):self.stop_event.set();return self.snapshot()
- def _evolve(self,family,duration,seed,popsize):
-  rng=random.Random(seed);pop=[random_genome(family,rng) for _ in range(popsize)]
-  active=0.;prev=time.monotonic();gen=0;best=None;hall=[]
-  try:
-   while active<duration and not self.stop_event.is_set():
-    now=time.monotonic();dt=min(1.,now-prev);prev=now
-    if self.pause_event.is_set():time.sleep(.06);continue
-    active+=dt
-    scored=[]
-    for p in pop:
-     met=metrics(family,p)
-     scored.append((met['fitness'],dict(p),met))
-    scored.sort(key=lambda x:x[0],reverse=True)
-    champ=scored[0]
-    if best is None or champ[0]>best[0]:
-     best=champ
-     hall.append({'generation':gen,'fitness':champ[0],'genome':champ[1],'metrics':champ[2]})
-     hall=hall[-18:]
-    gen+=1
-    if gen<=4 or gen%6==0:
-     with self.lock:
-      self.state.elapsed=min(duration,active);self.state.generation=gen;self.state.evaluated+=len(scored)
-      self.state.best={'genome':best[1],'metrics':best[2],'generation':next((v['generation'] for v in reversed(hall) if v['fitness']==best[0]),0)}
-      self.state.hall=list(reversed(hall))
-      self.state.history.append({'generation':gen,'elapsed':round(active,2),'best':best[0],'median':float(np.median([s[0] for s in scored]))})
-      self.state.history=self.state.history[-500:]
-    # tournament selection / elitism / crossover / mutation / random immigrants
-    elites=[x[1] for x in scored[:max(2,popsize//6)]]
-    def tournament():return max((rng.choice(scored) for _ in range(3)),key=lambda x:x[0])[1]
-    new=list(elites)
-    while len(new)<popsize:
-     if rng.random()<.12:new.append(random_genome(family,rng))
-     else:
-      child=crossover(family,tournament(),tournament(),rng)
-      new.append(mutate(family,child,rng,strength=max(.04,.2*(1-active/duration))))
-    pop=new
-    time.sleep(.04)
-   with self.lock:
-    self.state.elapsed=min(duration,active);self.state.status='saving'
-    self.state.generation=gen
-    if best:self.state.best={'genome':best[1],'metrics':best[2],'generation':hall[-1]['generation']}
-   self.save()
-   with self.lock:self.state.status='stopped' if self.stop_event.is_set() else 'completed'
-  except Exception as ex:
-   with self.lock:self.state.status='failed';self.state.error=repr(ex)
- def save(self):
-  state=self.snapshot()
-  if not state['id']:return
-  dest=self.folder/state['id'];dest.mkdir(exist_ok=True)
-  (dest/'results.json').write_text(json.dumps(state,indent=2))
-  with (dest/'history.csv').open('w',newline='') as f:
-   w=csv.DictWriter(f,['generation','elapsed','best','median']);w.writeheader();w.writerows(state['history'])
-  if state['best']:
-   mesh_for(state['family'],state['best']['genome']).export(dest/'champion.stl')
- def best_mesh(self,record=None):
-  state=self.snapshot()
-  if not state['best']:return None
-  if record is None:record=state['best']
-  m=mesh_for(state['family'],record['genome'])
-  # preview max ~3k tris; legs in distinct mesh pieces do not imply printable union
-  v=m.vertices;f=m.faces
-  if len(f)>5000:
-   f=f[::int(np.ceil(len(f)/5000))]
-  return {'vertices':np.round(v,3).tolist(),'faces':f.tolist(),'note':'Visual preview assembled from primitives; not a watertight fabrication CAD model.'}

@@ -1,257 +1,52 @@
-# NeuroSkin 3.0 — release gates (revision 2)
-Baseline: user-uploaded GitHub main at ae9c0104a351441231b265259284a9fb113c461c (VERSION 2.2.0, 268 tracked files). Active development branch: develop/v3-integrated. Previous develop/v3 is preserved. Alpha 2 changes must be integrated and tested against this baseline before release.
-- [ ] R01 Verify uploaded v2.2 sources and integrate remaining alpha changes; manifest, provenance, Windows/Linux installation, historical scores explicitly historical.
-- [ ] R02 Physics: electrode-area PVDF, charge signs, mass/capacitance consistency, force and moment equilibrium, no undisclosed mesh inflation. Analytic/regression tests.
-- [ ] R03 Symmetry: geometry orbits C1/C2/C3/C4/C6/C8 and Dn, preserve orbits in mutations; separate per-stage material/electrode symmetry. Use normalized stiffness residual and field/channel permutations; Cn chirality allowed.
-- [ ] R04 Stack: independently parameterized 1–3 stages, physical interface and sensors, transformed wrench and stiffness, energy balance, geometry and FEM. Compare matched height, channel and power budgets.
-- [ ] R05 Evolution: feasible-first Pareto across whole population, robust common scenarios, failed trials counted, separate evidence tiers, reproducible search space.
-- [ ] R06 Nonlinear FEM: conforming multi-material CAD mesh, contact, convergence, penalty sensitivity, nearly incompressible material checks, resource limits. Reference-box tests alone insufficient.
-- [ ] R07 Electronics: actual channel topology, d31 integration, static capacitive and dynamic PVDF, optional Hall, noise/covariance and readout saturation; traceable AFE/CDC parameters; BOM and PCB reference design.
-- [ ] R08 Intelligence: grouped holdout, nested tuning, rank 5 plus noise-scaled conditioning, force and position errors, no leakage; separate measured and synthetic.
-- [ ] R09 Tile: 3x3/5x5/8x8, membrane and electrical coupling, edge loads, multiple contacts, reconstruction, FE verification. T0 spring-network reference first.
-- [ ] R10 Macro skin: curved substrate, strains, segmentation, bus bandwidth, synchronization and calibration.
-- [ ] R11 Optional T3: measured CSV, provenance, calibration, uncertainty, independent specimens/sessions and review; no data means NOT_PERFORMED, never release/evolution blocker, never auto-certified.
-- [ ] R12 Release: Evolve/Pause/Stop/Evaluate All/export/archive and async GUI race tests; Linux/Windows CI, benchmark logs, docs, versioned release. No hardware claims without evidence.
+# NeuroSkin 3 ? aktualna roadmapa
 
-## Verified partial milestones
-- [x] T0 1–3 stage series wrench transport and energy balance reference.
-- [x] T0 normalized stiffness symmetry reference (polar/axial vectors).
-- [x] T0 finite tile spring-network equilibrium reference.
-- [x] Six focused tests pass locally (Python 3.13).
-- [x] Actual two-stage wrench transport in advanced.py and electromechanics.py, with tests across all ten reference hybrids; 22 focused local tests passed, five heavier FEM/API cases deselected, 30 subtests passed.
-These milestones do not complete R03/R04/R09. Do not confuse software release with T1/T2/T3 qualification of individual candidates.
+Stan aktualizowany na podstawie kodu linii 3 i test?w. Dokument zast?puje historyczny dziennik kolejnych rewizji. Cel w?a?ciciela: ewoluowa? przycisk dotykowy/si?owy, wyeksportowa? parametryczny model bry?owy STEP, nast?pnie opracowa? sk?r? robotyczn?. Technologi? wykonania wybierzemy p??niej.
 
-## Decision log
-- D001: share reference math before coupling it to procedural geometry; do not score reference tile as real skin.
-- D002: T3 is optional; numerical T2 requires independent numerical verification, not physical measurements. Hardware-calibrated claims remain separate.
-- D003: corrected physics changes historical fitness; re-evaluation required.
-- D004: direct Git from working container remains blocked by DNS. The user uploaded v2.2 to main; new development now uses that commit. Keep main unchanged until tests and release gates are complete.
-- D005: transfer corrected source files directly, not the historical migration script; that script targets the original pristine v2.2 and must not be rerun on partially integrated revisions.
+## Zaimplementowane funkcje
 
-## Revision 3 — physics corrections
-- [x] Shared signed broad-face d31 charge and active-area capacitance/mass across analytical, embedded membrane, shell and beam models. Legacy d33 request explicitly unsupported.
-- [x] Zero-reference shell curvature and corrected quadrature; single-stage reaction matrices match stiffness assembly.
-- [x] Rank-five full audit gate; voxel inflation and force imbalance disqualify linear FEM screening. GUI displays coefficient and FEM results.
-- Local regression: 79 passed, 45 subtests passed. These are engineering tests, not hardware evidence.
-- D006: older h01/h10 reference tests assumed coarse inflated meshes could pass. The new tests assert geometry rejection and retain equilibrium checks; do not lower this gate to recover old scores. A conforming mesh is still required. Historical score comparisons invalidated by source hashes.
+| Obszar | Implementacja | Weryfikacja |
+| --- | --- | --- |
+| GUI Basic / Advanced | `static/workspace.js`: Basic zwija, Advanced rozwija sekcje ustawie?; ta sama konfiguracja i silnik | Test przegl?darkowy prze??czania i niezmienno?ci ustawie? |
+| Evolution presets | Cztery przyk?ady, dostosowanie do liczby CPU, w?asne zapisy, brak automatycznego startu | Testy Node oraz Chromium |
+| Wysoko?? ?rodkowych wykres?w | Resize w pionie i ResizeObserver dopasowuj?cy Plotly | Rzeczywiste przeci?gni?cie naro?nika w Chromium |
+| Wizualizacje zak?adek | Stan i wykresy przypisane do kandydata; ukryte widoki zwalniaj? wykresy | Testy kontekstu, raport?w i Chromium |
+| FEM 2?2 / 3D | Cztery standardowe przypadki z wsp?lnymi skalami; dodatkowy inspektor | Regresje p?l, si? i przegl?darki |
+| Drzewo komponent?w | Dok?adne przedzia?y prymityw?w, wyb?r i pod?wietlenie, cz?on/film | Python, Node, Chromium |
+| Przep?yw si? | Faktyczne si?y w?z?owe i reakcje; przybli?one przekroje trakcji pod?o?a | Bilans si?/moment?w, testy p?l i GUI; nie s? to dok?adne linie pr?du napr??e? |
+| Sygna?y PVDF | Podpisany ?adunek filmu, mapowanie member/film, przebiegi i schematy po??cze? | Testy transdukcji, drzewa, fusion i GUI |
+| Electronics-aware evolution | Cel electronics, moc/kana?y/pasmo/headroom/SNR w screeningu i Pareto | `tests/test_electronics_evolution_v30.py` |
+| R?wnoleg?y Evaluate All | Niezale?ne audyt/walidacja/orientacja, lokalny FEM, deterministyczne scalanie | Test prawdziwego spawn/serial oraz DAG |
 
-## Revision 4 — constrained symmetry and consistent stage channels
-- [x] C2/C3/C4/C6/C8 and D2/D3/D4/D6/D8 selectable search modes with exact rotational centerline orbits, all primary legs instrumented, centered pads, repaired mutations, and T0 stiffness diagnostics in full audit.
-- [x] Exact mapping of globally selected films into each stage stiffness; per-stage imbalance; fixed footprint-to-channel mapping; upper-stage films no longer directly receive imposed ground strain.
-- [x] New evolved genomes normalize d33 to d31; archives remain readable.
-- Local regression: 81 tests and 83 subtests passed (scope, symmetry, validation, hybrid, API, PVDF and pipeline).
-- D007: constrained modes deliberately limited to single-stage primary-flexure topologies; arbitrary web/archetype and stacked orbit constraints, fully meshed symmetry, and wiring equivariance remain open. Constrained Cn may have higher rotational symmetry than requested; Dn uses radial-planar flexures, and chiral families remain Cn-only. Default all-mode remains unconstrained. Do not equate exact centerlines with FEM field symmetry.
+## Rozwijane i weryfikowane
 
-## Revision 5 — integrated nonlinear and multiscale diagnostics
-- [x] Strict face-connected, positive-volume TET4 mesh, homogeneous compressible Neo-Hookean material and analytic consistent tangent; rigid-mode checks; planar frictionless penalty contact and elastic unloading. 11 focused tests passed.
-- [x] Existing candidate selection (including archives and preview overrides) connected to bounded nonlinear voxel subdivision and tile APIs; GUI Multiscale lab link, heatmaps and request error handling.
-- [x] T0 tile contact load distribution preserving total force and first moments; reaction transfer matrix and nonnegative grid reconstruction under declared synthetic noise.
-- [x] 22 focused tests passed, including nonlinear candidate and API tests; JavaScript syntax checked. New tests added to existing Windows CI job (remote execution pending).
-- D008: voxel-derived nonlinear candidate results are DIAGNOSTIC_ONLY and T2_qualified=false, irrespective of numerical convergence. Inflated geometry requires explicit diagnostic opt-in. Limit: 250 HEX8 / 1500 TET4 per request; one concurrent nonlinear request per server process. This does not replace CAD-conforming multimaterial FEM or integrate nonlinear fitness.
-- D009: tile inverse uses direct reaction sensing and the same assumed scalar transfer model. It is not electrical sensing, independent decoder validation, physical membrane, or identification of the number of contacts.
+| Obszar | Co faktycznie jest w kodzie | Bramka dalszego rozwoju |
+| --- | --- | --- |
+| R?wnoleg?y matrix-free | Wsp?lna pula gather, roz??czne zapisy, partycje wed?ug incidencji, wsp??bie?ne RHS | Pomiar przyspieszenia ca?ego audytu na docelowej stacji, nie sam procent CPU |
+| Scheduler CPU/RAM/GPU | Atomowe estymowane rezerwacje CPU/RAM/VRAM, do czterech r?cznych analiz, jeden slot GPU, telemetria procesu | Twarde limity zasob?w, odzyskiwanie zada? i zarz?dzanie mi?dzy procesami pozostaj? otwarte |
+| Multimaterial nonlinear FEM | TET4 Neo-Hookean z regionami materia?owymi, napr??enia Cauchy'ego, adaptacyjna kontynuacja kontaktu | Niezale?na zbie?no?? siatki/kary, geometria CAD, realistyczne interfejsy i materia?y |
+| Fizyczne sprz??enia Skin Tile | Membrana Q1 i receptorowe spr??yny; wybrane modele z pe?n? podatno?ci? liniowego pod?o?a 3D | Do?wiadczalna kalibracja i sprz??enie styczne/elektryczne; obecnie model T0 |
+| Nieliniowa membrana i podatne pod?o?e 3D | F?ppl?von K?rm?n u/v/w, relaksacja w p?aszczy?nie, liniowy substrate TET4, bilans i pola | Pod?o?e nieliniowe, zmarszczki, zginanie i realistyczne warunki mocowania |
+| Ewolucja wielopoziomowa | Dwustopniowe hybrydy i referencyjny transport wrench 1?3 stopni | Niezale?ne genotypy/materia?y/geometrie stopni, pe?ne mapowanie i audyt; nie uto?samia? z samym wyborem hybrydy |
+| Optymalizacja fragmentu sk?ry | Dyskretne por?wnanie bibliotek, rozmiar?w siatki, pretension/depth przy sta?ym footprint; refinement i osobny holdout | Ci?g?a ewolucja uk?adu i geometrii; obecne wyniki nie promuj? receptora i nie stanowi? walidacji sprz?tu |
+| Kwalifikacja stabilnego 3.0 | Regresje numeryczne/API/Node/Chromium; wsp?lna to?samo?? ?r?de?, naprawione archiwum i czas generacji | Pe?ny czysty przebieg Windows/Linux, opcjonalne kosztowne siatki, benchmarki i odtwarzalna instalacja. VERSION pozostaje rozwojowe |
 
-## Revision 6 — evolution regression correction
-- [x] Topology jumps select a distinct effective architecture, not an overwritten label. No new orphan hybrid labels; categorical and integer genes are not interpolated during crossover.
-- 29 focused tests and 41 subtests passed (2 long lifecycle cases deselected). Full-suite qualification remains pending.
-- D010: a hybrid-to-hybrid transition may legitimately retain the topology label 'hybrid'; tests now compare architecture identity as well. Scope repair may still constrain the result in a single-architecture mode.
+## Otwarte etapy produktu ? kolejno?? wykonania
 
-## Revision 7 — full regression follow-up
-- Initial full suite (before topology fix): 203 passed, 3 failed, 1 skipped, 106 subtests passed. The topology regression is repaired in revision 6.
-- D011: provenance reads the exact VERSION instead of hard-coding the release. The old refinement fixture's middle candidate now passes the corrected physical screen; use two explicitly single-stage candidates that actually fail the unchanged weak-pressure criterion to test the gradient. Scores 6.1000 and 6.5880, both below 15. No qualification threshold was relaxed.
-- 16 focused tests passed, 2 lifecycle cases deselected; rerun of full suite required.
+1. **CAD przycisku / conforming CAD-to-FEM**: sko?czony parametryczny opis geometrii, pierwszy wspierany typ receptora, poprawne po??czone bry?y, nazwane cia?a materia?owe, STEP, ponowny import i por?wnanie obj?to?ci/granic. Zachowa? genotyp i parametryczny opis; nie nazywa? triangulowanego STL modelem parametrycznym. Dopiero potem tagowany mesh zgodny z CAD.
+2. **Pe?ne PVDF?klej?elastomer**: zgodne interfejsy i materia?y, mechanika warstw i przenoszenie odkszta?ce?; pe?ne sprz??enie elektryczne pozostaje osobn? bramk?. Nie podnosi? poziomu dowod?w na podstawie obecnego embedded/shell postprocessingu.
+3. **Niezale?ne instancje ewolucji**: jawny identyfikator instancji, osobny kontroler/PRNG/archive, wsp?lna atomowa rezerwacja, izolowane Start/Pause/Stop/cleanup, testy r?wnoleg?ych cykli. Dzisiejsze przypi?te sesje inspekcji nie s? instancjami ewolucji.
+4. **Wieloskalowa ewolucja sk?ry**: wsp?lny footprint i scenariusze, niezale?ny optymalizator uk?adu oraz receptor?w, wymiana tylko jawnie por?wnywalnych wynik?w, statyczna i dynamiczna rekonstrukcja z w?a?ciwych kana??w.
+5. **Full Robot Skin Engine**: powierzchnia robota/krzywizna, rozmieszczenie, kolizje i prze?wity, mocowanie, po??czenia elektryczne/bus, synchronizacja, kalibracja oraz eksport zespo?u CAD. Obecny prostok?tny tile nie realizuje tego silnika.
+6. **Fabrication profile**: dopiero po wyborze procesu i materia??w ustali? minimalne cechy, tolerancje, klejenie, okablowanie i kwalifikacj? wykonania.
 
-## Revision 8 — candidate readout accounting and report comparability
-- [x] Logical wired PVDF and intermediate-stage output counts drive packet size, power, scan capacity and ADC noise estimates. Signed wiring maps film output and capacitance to readout channels. Saturation is explicitly reported for the modeled excitation, not used as a physical circuit qualification.
-- [x] Same-tier report comparison now requires identical solver source hash and random seed as well as protocol/noise/fidelity. Missing solver provenance requires revalidation. Expanded source hash includes electronics, contract and full audit.
-- 17 targeted tests passed (readout and validation). Real component selection, CDC/AFE circuit simulation, static/dynamic decoder fusion and hardware evidence remain open. No real BOM price or measured noise implied.
+Dla ka?dego etapu: najpierw niezmienniki i kryteria akceptacji, potem minimalny adapter/implementacja, nast?pnie regresje i raport dowod?w. Nie obni?a? prog?w fizycznych, nie nazywa? diagnostyki kwalifikacj? i nie przedstawia? niezaimplementowanych funkcji jako gotowych.
 
-## Revision 9 — single development branch
-Canonical development branch: `develop/v3`. Consolidate the full v2.2-derived integrated tree, previous develop/v3 history and the current main license in a non-force merge. Previous integrated branch remains historical; do not develop there. Original snapshot importer/status are historical only. T3 remains optional.
+## Kryteria wydania
 
-## Revision 10 — resource-aware parallel audits (3.0.0-alpha.4)
-- [x] Remove the fixed <0.4 mm serial-audit switch. Bound candidate-process and HEX8 case concurrency by CPU budget and available RAM. Preserve all eight standardized load cases, ordering and numerical gates.
-- [x] Shared matrix-free operator with GIL-free Numba matvec and per-thread CG diagnostics; lock shared SuperLU solves, allow concurrent field recovery. GPU and beam remain serial within a candidate.
-- [x] Live outstanding/cached/completed audit counters and elapsed time; Windows spawn ceiling of 61 processes; no orphan queued audit jobs on stop. Root VERSION and GUI identify alpha.4.
-- [x] 31 focused tests passed locally, including spawned workers, serial/parallel numerical equivalence, lifecycle, refinement and readout. CI updated. Run `python benchmark_audits.py --cores 1,16,24,32,40 --pitch .3125 --grid 5` on the target workstation.
-- D012: memory reservations are estimates, not hard RSS caps. Unknown RAM or small budgets restrict concurrency; a single solver retains its existing memory guard. SuperLU factorization and solve are serial and only field recovery overlaps; max eight independent case workers per candidate. NUMA and actual speedup on dual Xeon/P1000 remain unmeasured. No change in audit protocol or evidence tier.
+- Wszystkie wymagane testy Python i Node przechodz?; brak narz?dzia jest jawnie nieudan? bramk?.
+- GUI Chromium pokrywa Basic/Advanced, presety, resize, Evolve/Pause/Stop, Evaluate All, przypi?te konteksty, eksport i archive replay.
+- Raport zawiera wersj? ?rodowiska, identyczno?? ?r?de?/protoko?u/ustawie? i statusy pomini?tych test?w.
+- Eksperymenty s? zachowane; wyniki o innej to?samo?ci nie s? bezpo?rednio por?wnywane.
+- T3 z pomiarami jest opcjonalne dla wydania programu i ewolucji, ale wymagane dla twierdze? o skalibrowanym dzia?aniu sprz?tu.
 
-## Revision 11 — matrix-free preconditioning and performance evidence
-- [x] Include embedded PVDF laminate in exact nodal 3x3 block-Jacobi CG preconditioner; enforce positive definiteness and invert free principal subblocks for partially fixed nodes. Fallback to scalar diagonal if block factorization fails.
-- [x] Solver and scheduling provenance; report solver setup time, load-case wall time, direct factor nonzeros and CG preconditioner in audit/benchmark.
-- Local regression: 41 passed, 1 opt-in 8x case skipped, 3 subtests passed. Local H01 0.3125 mm mesh: 17,232 HEX8, 24,699 nodes. Forced matrix-free center load: scalar Jacobi 1,359 iterations, 7.19 s; nodal block 1,082 iterations, 6.57 s (single runs, not a statistically established speedup). Both force equilibrium errors below 1e-4; displacements ~0.55081236 mm. Direct COLAMD setup ~8.4–9.5 s, single solve ~0.105 s, 73,262,927 factor nonzeros. MMD_AT_PLUS_A setup ~17.9 s, 96,408,972 nonzeros: rejected. Geometric ordering ~7.3 s on one example: insufficient evidence to change default. Eight of ten reference hybrids use direct solver at this pitch. Retain COLAMD and the solver-selection threshold.
-- D013: optimize completed audits/time, not CPU percentage alone. Direct sparse factorization remains serial per finalist and may limit sustained utilization; future optional parallel factorization must demonstrate equivalence and benchmark improvement. No workstation-specific speedup or hardware qualification claimed.
-
-## Revision 12 — independent shear and bounded nonlinear decoding
-- [x] Protocol shear levels independently excite Fx and Fy, rather than coupling them. Nine signed axis combinations in the default protocol and 25 in dense mode. Static-only fast response path avoids unused PVDF computation.
-- [x] Validation-group selection of ridge/RBF models with fixed dimensionless target scales, train-only feature transforms and bounded 32-center RBF, then refit on train+validation and untouched test. Explicit split fractions and assumed no-contact diagnostic.
-- [x] Common random Monte Carlo scenarios even when genes differ; numerical failures counted as zero signal and explicitly fail the completion gate. One-sided exact binomial upper bound, not hardware reliability. Rank-five local observability required for new protocol reports. Dense/sample count settings fingerprint prevents incompatible promotion comparisons.
-- Three standalone numerical design tests passed locally; additional integration tests added to Windows CI, remote result pending. Full current application regression not yet run locally.
-- D014: the static decoder still uses seven assumed capacitance/Hall channels, not dynamic PVDF or stage-channel fusion. Absolute contact radii remain candidate dependent; unsupported physical axes and T3 remain explicit. New protocol scores must not be compared with earlier scores. Do not equate synthetic held-out prediction with independent physical accuracy.
-
-## Revision 13 — feasible-first population Pareto reproduction
-- [x] Deterministic non-dominated sorting across all valid fast-screen candidates using the four common geometry/electrical/robustness/PVDF proxy objectives. Duplicate objective vectors receive identical ranks and finite crowding scores. Infeasible candidates retain scalar refinement gradient but cannot dominate eligible ones; numerical failures rank last.
-- [x] Pareto order drives parent tournaments and elitism. Known audit failure status is reused for matching genomes. QD archive uses constraint class and scalar within-niche quality (never cross-generation relative Pareto rank); failed exact clones invalidate their old archive entry. The GUI and stage decisions expose the common screening front.
-- Three standalone ranking tests passed locally; additional QD integration test and existing search regressions scheduled in CI. Full local application regression remains pending.
-- D015: Top-3 finalist nomination remains highest fast fitness and identical full audit; the incumbent cannot be replaced by screening Pareto rank. This change is generation-wide proxy Pareto selection, not full-population measured or Monte Carlo Pareto optimization. No physical qualification is inferred; T3 remains optional.
-
-## Revision 14 — cache-aware Pareto finalist nomination
-- [x] Allocate up to three distinct full audits: strongest eligible scalar leader, then new eligible Pareto-ranked alternatives. Reuse known failures before nomination and retain explicit fallback to fresh near-misses. If the population collapses to fewer distinct genomes, report the actual count rather than crash or duplicate candidates.
-- [x] Archive nomination reasons and restrict the audited T0 Pareto report to fully feasible, passing candidates. The full audit and champion-promotion rule are unchanged.
-- Four focused local nomination tests passed; application CI pending. D016: supersedes D015's scalar-only nomination; this is compute allocation, not a relaxation of physical qualification.
-
-## Revision 15 — matched sensor-fusion ablation
-- [x] Separate T0 diagnostic comparing seven legacy static channels, actual intermediate-stage outputs, and signed wired PVDF RC amplitude. Shared samples, group splits and noise realization; validation-only decoder selection. DC correctly yields zero PVDF signal. Explicit ideal centered 3.3 V clipping and saturation fraction. API /api/v30/fusion and Multiscale Lab UI; one concurrent fusion request per process.
-- Two standalone fusion tests passed locally, plus four nomination tests. A local H01 smoke test using the available alpha.4 mechanics snapshot gave 225 samples, two stage outputs and one wired PVDF output: static/combined force RMSE 0.04775/0.04442 N; position MAE 2.382/2.388 mm; 40% assumed PVDF saturation. Not an exact current-HEAD benchmark or hardware measurement. Integration API test added to Windows CI.
-- D017: do not reward additional channels automatically. The dynamic amplitude is a quasi-static surrogate evaluated at a known frequency, not an actual dynamic waveform/inertial response. Keep it outside promotion until independent evidence and a calibrated electronics model exist. T3 remains optional.
-
-## Revision 16 — feedback capacitance refinement
-- [x] Sensor-fusion report now sweeps existing 20–220 pF feedback bounds, holding tau fixed and reporting the corresponding ideal feedback resistance. Select gain by training/validation clipping first and validation-normalized decoder error second. Outer test targets and clipping are not used in selection. No genome mutation or fitness change.
-- Two additional focused gain tests passed (eight local nomination/fusion/gain tests in total). Local H01 alpha.4 smoke benchmark selected 220 pF versus nominal 72.20181 pF, reducing held-out clipping 40% to 20% and force RMSE 0.04442 to 0.04225 N. Position MAE 2.399 mm. At fixed tau 5.84364 s the ideal Rf is 26.562 Gohm: not a validated practical circuit. Full current-HEAD CI pending.
-- D018: do not expand gene bounds or automatically promote a gain setting that still clips. An ideal gain sweep does not replace circuit noise, amplifier stability, parasitics or bandwidth analysis. Previous local API smoke test passed with router, lab and API-test blob hashes matching the fusion commit.
-
-## Revision 17 — single-page workspace and context safety
-- [x] Compact four-tab Basic and eight-tab Advanced workspace; reuse existing controls, grouped settings, persistent actions and shared live/archive candidate context. Responsive layout, keyboard tab navigation, Plotly resize on panel activation.
-- [x] Embed existing Multiscale Lab without leaving the main page. Independent contact/tile/fusion tabs, retained iframe state, explicit candidate rebind, candidate and live-run identity checks; standalone /v30 retained.
-- [x] Discard stale FEM, spatial, mesh and response results on selection changes, reset stale inspectors and forward PVDF overrides to spatial endpoint. Archive editing remains disabled; no independent concurrent engine is implied.
-- Local Chromium isolated DOM smoke passed Basic/Advanced tabs, seed selection, candidate-bound lab URL and 390px no-overflow. Plotly and HTTP transport were stubbed in that test due Chromium navigation policy; full-browser test is still needed. Python imports and JS syntax passed. D019: keep one controller; switch between live and archived experiment contexts, not fabricated multi-engine sessions.
-
-## Revision 18 — compact results, pinned context and browser regression (alpha.5)
-- [x] Basic short option labels, visible effective compute/FEM summary; Advanced retains all controls and collapsible raw engineering reports. Manual FEM inspection settings distinguished from evolutionary Top-3 settings.
-- [x] Multiscale summary cards and matched sensor-fusion comparison table, feedback diagnostic, retained lab results across tabs, no rebind while a lab request is running.
-- [x] Guard selection identity at server and browser boundaries, reject stale live experiment/candidate IDs with HTTP 409, resolve current finalists before gallery checkpoint, keep archived data read-only. Discard out-of-order results on selection or settings change.
-- Local focused API/archive tests: 13 passed; lifecycle tests: 5 passed on available local mechanics snapshot. Isolated Chromium DOM smoke passed tab/mode transitions, mobile width and tile/box rendering with real TestClient results. Full browser navigation blocked in local environment; add opt-in real Uvicorn/Chromium regression to Windows CI. Full latest-tree CI pending.
-- Previous gain CI: 127 passed, 1 failed, 44 subtests; failure was the lifecycle test's 22-second deadline, not a numerical assertion. Extend test deadline to 120 seconds and always shut down the worker; retain completion, generation and audit assertions. No measured performance improvement claimed.
-- D020: identity safety is not concurrent independent engine support; T3 remains optional.
-
-## Revision 19 — bounded inspection sessions and context-switch regression
-- [x] Retain up to three candidate-bound Multiscale sessions with explicit switching/closing; no silent result eviction or rebinding of the previous frame. Context includes archive generation and PVDF overrides. Busy active session cannot be switched/closed. Origin and source window checked for each frame message.
-- [x] Sticky desktop command bar and tabs, compact mobile layout, clear empty-design call to action. Fix native select input/change race which reset experiment and lab context selection before change handlers.
-- Isolated Chromium DOM regression: four/eight Basic/Advanced tabs, two seed sessions, switching both directions, explicit close and 390px viewport without overflow; no JavaScript errors. Uses controlled API/Plotly transport, not real embedded browsing. Extend real-browser test to verify retained tile results across archive session switching. Latest exact-head CI remains pending.
-- D021: three retained in-page inspection sessions only, not separate evolutionary engines; data retained for current browser page lifetime. No backend physics or qualification changes; T3 optional.
-
-## Revision 20 — provenance-aware diagnostic report comparison and local snapshots
-- [x] All Multiscale endpoints attach normalized experiment settings, candidate identity and genome hash, cached source fingerprint and runtime versions. Group only identical diagnostic comparison keys; do not rank across different experiment conditions or solver versions.
-- [x] Advanced Multiscale comparison panel receives successful reports from the verified frame, retains the latest successful report per session and analysis type, compares matching groups, explicitly saves up to 12 reports / 512000 JSON characters in browser local storage and exports JSON. No automatic replay, no engine restore or hardware qualification. Local storage is scoped to the browser origin.
-- [x] Local Node storage tests passed, 9 focused Python API/context tests passed (one expensive candidate diagnostic deselected), isolated Chromium DOM with real TestClient tile result and controlled message transport passed report capture, save, three-session limit and archive switching, 390 px layout and no page errors. Local snapshot does not constitute a complete latest-HEAD regression; actual browser/Windows CI pending. Added backend, Node and browser regression coverage.
-- D022: persistence is explicit report snapshots rather than automatic restart of stale candidates or computation. Same settings key permits synthetic diagnostic comparison only; candidate-specific geometry and PVDF are recorded separately. T3 optional.
-
-## Revision 21 — explicit next-run workstation presets
-- [x] Advanced Overview presets persist up to six named configurations including CPU budget, population, search and FEM settings, and physical gate. Validate every field against the loaded catalogue and hardware limit before changing any control. Save/apply/delete are blocked during a live run or archive inspection. Seed deliberately excluded; no automatic start or replay.
-- [x] Node tests for storage, limits, atomic invalid-input rejection and missing options passed; isolated Chromium DOM test confirmed preset save/apply, report save, archive switching, no horizontal overflow at 390 px and no page errors. Full Chromium reload persistence added to CI; latest HEAD CI pending. Revision 19 exact-commit Windows/Chromium CI passed.
-- D023: profiles are explicit next-run settings stored per browser origin, not hardware-independent automatic defaults. Do not silently clamp a preset or overwrite the active experiment. No change to solver/validation criteria; T3 optional.
-
-## Revision 22 — standardized four-case FEM preview payload
-- Add opt-in display fields for centered normal pressure, +X offset pressure, X shear with preload and Z torsion with preload, using the existing standardized eight solves for HEX8 and beam. Shared reference topology, 20,000 display triangles maximum per case; full-mesh metrics and existing custom inspector preserved. No additional solve for the four standard views; no preview fields in stored audit summaries. GUI wiring follows in the next commit. Numerical/Node regression added; CI pending.
-- D024: choose four complementary mechanical modes rather than four arbitrary pressure cases. The standard preview loads do not follow the custom inspector controls. Sampling is visualization only, not a basis for qualification. T3 optional.
-
-## Revision 23 — shared geometry docks and four-case FEM grid
-- Advanced Results/FEM/Signals reuse the actual Overview geometry DOM and its controls; Basic retains its compact Results. Multiscale has a separate bounded, cached, guarded undeformed preview of the pinned inspection session rather than the live selection. Plotly resources released when the session preview or FEM grid is hidden.
-- Four collapsible FEM cards in responsive 2x2 grid with identical spatial bounds, field range, visual scale and actual standardized force/offset/moment labels. Existing custom inspector remains separately collapsible. Changing settings labels old fields stale; changing candidate clears them. No qualification change. Added real-browser regression assertions for tab docking and pinned archive geometry; full current-head tests pending.
-- D025: preserve original Basic minimalism and do not duplicate stateful controls. Multiscale pinned view is conceptual undeformed geometry, not a solved nonlinear contact field. Standard grids show sampled fields and full FE extrema separately. T3 optional.
-
-## Revision 24 — FEM preview refinement and actual browser regression
-- Add shared displayed-scale legend, reset-all camera control, full-width expansion of each standard FEM card and lazy disposal of detailed custom/laminate WebGL plots outside FEM. Fix count-only PVDF preview/export queries sending a null wiring parameter, and retain archive generation zero in mesh/export requests.
-- Added real FastAPI/Chromium Evaluate All test for all four load fields, shared color limits, audit payload stripping, expansion, resource disposal and count-only preview override. Exact-head browser CI pending.
-- Local verification: all three tests in test_fem_previews_v30.py pass against available Alpha 2 mechanics with the same preview integration edits; the packer and test Git hashes match the committed files. Node shared-scale regression passed; frontend renderer hash matches Git. Previous full revision 21 CI passed. This is not a full latest-HEAD regression or GPU performance measurement.
-- D026: display sampling may omit local extrema; label range as displayed and retain full solved extrema in case captions. No change to numerical qualification or T3.
-
-## Revision 25 — keep display failures outside the FEM qualification boundary
-- Optional four-case packing errors are reported separately without changing numerical score or feasible flag; exclude display-only errors from audit summaries. Clear preview resources on closing the FEM details panel as well as leaving the tab. Add injected-failure regression. Exact-head tests pending.
-- D027: the optional preview serialization stage is not a physical validity gate. This does not suppress actual solver, geometry or equilibrium failures. T3 optional.
-
-## Revision 26 — embedded dark canvas and workspace initialization fix
-- Fix user-reported white iframe canvas: set explicit dark root/body/iframe backgrounds and dark native controls; flow-root isolates margin collapse; natural body height with 180 px floor rather than 500 px. Regression asserts actual embedded root/body colors and height on two sub-tabs. Prevent stale HTML caching with revalidation.
-- Browser CI on b1d80e6: 136 backend tests / 44 subtests passed; browser failed due to temporary missing FEM workspace method. CI on 27f22d4: workspace tabs not initialized; FEM grid was queried using document.getElementById after its parent had been detached during tab construction. Resolve directly from retained FEM element. Optional-call new workspace hooks for mixed cached scripts. Current full CI pending; do not treat as a qualified release.
-
-## Revision 27 — shared heavy-compute admission, first scheduler boundary
-- Introduce process-local atomic admission across API evolution start, manual Evaluate All, linear FEM, nonlinear contact and fusion. Evolution owns the slot until the actual controller thread exits (including pause/stop cleanup). Conflicts return HTTP 409 rather than starting another unbudgeted solve. Lightweight mesh, characterization and tile diagnostics remain available.
-- `/api/compute/status` and Advanced command-bar telemetry expose active manual request, live evolution ownership, elapsed time and available CPU/RAM; history bounded to 16 manual requests. Request completion is not numerical qualification. Fix standalone auto FEM choosing beam for two-stage hybrids.
-- Five local isolated tests passed (thread race, failure cleanup, history, typed FastAPI schema and 409); actual application endpoint regression included in Windows CI. No queue, no RAM hard cap, no GPU allocation, no cross-process enforcement or independent evolution instances yet. Conservative admission policy is a deliberate first step; T3 optional.
-
-## Revision 28 — compute activity history and regression compatibility
-- Retain the previous Mechanical FEM heading prefix to preserve the legacy structural smoke test; the four-case grid remains unchanged. Prior revisions 24–25 failed the legacy heading assertion (135/136 other tests passed, respectively, and 44 subtests passed); browser phase was not reached. Add bounded activity history UI and monotonic conflict count, with explicit no-queue and no qualification claims. Five local scheduler tests re-run successfully; exact module/test hashes verified. Full latest CI pending.
-
-## Revision 29 — component tree with exact conceptual primitive spans
-- Preserve ordinary mesh export and expose individual generated component IDs, face/vertex spans, bounds, nominal flexure radius/length, stage identity and successful PVDF-to-member attachment. Stage assignment follows actual generator order. Missing ribbons are not fabricated. No FEM element ownership implied.
-- Shared Advanced geometry and pinned Multiscale each have an interactive assembly tree, highlight selected faces on the existing plot, and optional reference centerlines. Main selection changes invalidate cached geometry; local highlight uses the accepted mesh payload. Reference centerlines are disabled on surrogate-deformed display. Add Python primitive span and Node highlight tests. Full current CI pending; revision 28 Windows backend and Chromium CI passed.
-- D028: stable IDs are local to a candidate/geometry, not across genome mutations; sensor shapes remain conceptual proxies. T3 optional.
-
-## Revision 30 — actual boundary wrench overlays in four standard FEM cases
-- Collect applied nodal forces and fixed-node reactions directly from HEX8 residual and assembled loads; beam uses endpoint support forces and couples. Aggregate reference coordinates into bounded 4x4 XY bins, preserving total force and exact moment about global origin through free couples. Only requested preview cases get vectors; keep payload out of audit summaries. No extra solve.
-- Four FEM cards share arrow scale and spatial bounds. Orange applied and cyan reaction arrows; hover exposes vector and free couple, captions expose applied moments and force residual. Reference coordinates and visual scale are explicit. Pure couples are numerical, not falsely shown as a force arrow. Geometry centerlines remain conceptual. Added equilibrium/aggregation, JS and actual browser checks. Full new CI pending.
-- D029: boundary vectors + stress field + structural centerlines are not solved internal streamlines or local component stress attribution. No qualification change; T3 optional.
-
-## Revision 31 — internal substrate traction and tree refinements
-- Optional two horizontal HEX8 layer-center sections at nearest available thirds of loaded height; integrate signed center-recovered substrate traction sigma·(-ez) over occupied voxel areas. Explicit Voigt order and units. Bounded vector aggregation and shared scale; separate purple/pink toggle. Excludes embedded-film force and exact equilibrated section integration; beam section overlay unavailable. Applied arrows point toward their reference application point. No additional solve or score change.
-- Preserve expanded component groups, show bounds, make explicit film selection reveal PVDF, clear stale pinned tree on closing last session. Add synthetic section sign/area regression and browser toggle test. Exact-head tests pending.
-- D030: actual approximate internal substrate traction is a step beyond boundary vectors; do not call it exact force lines or component-level stress mapping. T3 optional.
-
-## Revision 32 — connect component identity to per-film solved response
-- Attach existing standardized FEM per-film reduced laminate metrics to each preview packet, with exact film+member ID matching. Component tree shows signed effective strain, estimated charge and laminate energy for four standard cases; no arbitrary stress-to-member attribution. No additional solve, no fitness change. Preserve stale settings warning; reference centerline toggle disabled on deformed geometry. Pinned Multiscale does not borrow live FEM evidence.
-- Local revision 31 tests: three exact-blob force/section tests, two exact-blob component tests on patched Alpha 2 geometry and four exact-blob preview tests on patched Alpha 2 mechanics passed. New revision 32 film matching and real-browser checks added; full latest HEAD pending. Prior revision 28 Windows CI: 144 tests, 44 subtests and 2 browser tests passed.
-- D031: signed charge is an assumed reduced-film output, not circuit voltage after wiring or hardware measurement. Local substrate attribution and calibrated readout remain open. T3 optional.
-
-## Revision 33 — budgeted parallel Evaluate All DAG
-- Independent surrogate audit, standardized validation and hybrid orientation use spawn process workers under a CPU/RAM estimate; FEM stays local and receives 1–8 case workers, with GPU case concurrency fixed to one. Explicit UI worker budget; unknown RAM conservative. Preserve existing qualification by attaching only FEM-dependent fields to independently produced T0 report. Status reports submitted/running/completed stages and allocation; no claim of OS utilization. Drain workers on exception. Tests for scheduling and evidence merge added; current CI pending. No new independent heavy jobs yet; process-local admission remains.
-- D032: prioritize reducing manual wall time without changing mesh pitch, load protocol, T0 selection or optional T3. Sparse factorization and other phases can remain serial; no guaranteed speedup until workstation benchmark.
-
-## Revision 34 — opt-in electronics-aware evolution
-- New Electronics co-design preset: 30% readout utility in fast screening and 20% explicit readout weighting in surrogate audit. Fifth Pareto objective only in this preset; existing preset arithmetic and gates preserved. Evaluate actual wired PVDF outputs at 25 Hz across normal, shear X/Y, torsion, off-center and 0.4 N normal. Score usable assumed SNR, worst clipping/headroom, assumed power and ADC/link capacity. No measured circuit claims; static/Hall channels counted as existing logical proxies. Add provenance and regression tests; full CI pending.
-- D033: use soft assumed readout utility rather than a new physical pass gate. Actual circuit topology, component datasheets, noise/stability and bounds require later qualification. T3 optional.
-
-## Revision 35 — physically parameterized T0 membrane coupling
-- New opt-in pretensioned membrane Q1 finite-element surface (T/2 integral |grad w|²) with finite square pad-average spring attachment and natural free transverse edges. Real arbitrary point load coordinates, one sparse factorization and independent center-load transfer basis; report membrane/spring energy, equilibrium and surface displacement. Legacy spring model remains default. API and Lab controls expose tension and 4/8 cells per pitch.
-- D034: prescribed membrane pretension is physically parameterized but not a full nonlinear membrane, bending plate or 3D substrate. Bonded bilateral supports; negative local reactions are not clipped. Point load/contact footprint and off-grid inverse mismatch are disclosed. T0 only; tests added, exact-head CI pending.
-
-## Revision 36 — material-tagged nonlinear TET4 and batched assembly
-- Per-element Neo-Hookean material mapping with validated IDs; vectorized bounded constitutive/tangent assembly mathematically identical to scalar formula. Optional bonded two-material verification box and candidate plate/substrate material assignment using original voxel plate predicates. Return actual surface topology, material face IDs and per-stage solved displacements without extra solves. Lab controls expose second modulus. Add exact scalar-vs-batched assembly and two-material equilibrium tests; CI pending.
-- D035: voxel material regions and perfect bond are diagnostic only. No resolved thin PVDF/adhesive, anisotropy, mixed incompressibility, delamination or conforming CAD yet. T3 optional.
-
-## Revision 37 — tab-specific graphical results, not duplicated geometry
-- Results shows operating coverage and compute stage timings; FEM and Results reference geometry collapsed by default; Signals maps signed pre-wiring film charge on exact generated film spans, with stale response guard. Multiscale reference geometry moved behind a collapsed auxiliary panel; actual nonlinear surface by load stage/material, load-unload curve, Q1 membrane surface/reaction plot and held-out fusion error plot render in their own tabs. Retain reports while purging hidden lab plots via verified parent visibility message. Browser assertions updated for explicit reference dock and real membrane field; current CI pending.
-- D036: no fabricated pressure or displacement map. Nonlinear geometry magnification only; indenter plane drawn only at true scale. Signals uses surrogate signed charge, not measured output. T3 optional.
-
-## Revision 38 — resource-aware concurrent manual admission and hidden plot disposal
-- Atomic CPU/RAM reservations, up to four independent manual requests, one explicit GPU slot; admission recalculates remaining estimated RAM from live capacity, reserves actual planned FEM/worker count, and uses exclusive single-job fallback when RAM cannot be established. Evolution remains exclusive until controller cleanup. Per-request progress callbacks capture job identity across future callback threads; status/history expose all active reservations. No hard RSS/VRAM cap or queue. Add concurrency, GPU-slot, unknown-RAM and real spawn-vs-serial numerical regression.
-- Refine coarse/fine FEM RAM estimates, mark returned solver failure separately from request completion, avoid recreating hidden main geometry plots, expose exact input contacts in membrane chart, and wait for real Plotly data in browser regression.
-- D037: GPU reservation is one process-local slot, not measured VRAM allocation; no independent evolutionary controllers yet. Latest CI pending; revisions 33 and 34 passed full Windows/Chromium CI.
-
-## Revision 39 — shared race-free matrix-free matvec pool and FEM phase telemetry
-- Fine CPU HEX8 can spend the remaining manual CPU budget on a shared pool of disjoint node-row gather kernels, separate from RHS threads. Stable incidence order preserves element assembly sums; no parallel scatter writes or nested Numba/OpenMP teams. One pool shared across all RHS cases, bounded to 32 workers and reserved in admission estimates. Pool drained on completion/failure. Coarse direct and GPU paths do not use it.
-- Expose mesh, assembly/factorization, actual completed standard cases, custom inspection, laminate and serialization phases. Exact operator and concurrent RHS regression added. No claim of speedup on NUMA workstation until measured; gather trades locality and task overhead for parallelism. T3 optional.
-
-## Revision 40 — FEM energy reuse and membrane validity display
-- Reuse the already computed internal force in linear FEM strain energy, avoiding one redundant global matvec per load. Show signed bilateral taxel reactions on a common absolute color scale and report exact maximum Q1 corner slope against an explicit assumed 0.1 engineering screen (diagnostic only). Reject noninteger subdivision counts in direct calls. Restore geometry visibility immediately on Basic/Advanced switches. Add membrane slope scaling and API regression. No gates changed; T3 remains optional.
-
-## Revision 41 — workstation Evaluate All benchmark
-- Add a local HTTP benchmark of the actual Evaluate All route, using fixed seed/hybrid identity, same geometry, pitch, full preview request and eight standard loads. Compare audit/FEM scores, per-load physical quantities, mesh/protocol identity and qualification flags before calculating speedup. Report actual case and matvec workers, solver and phase timings. Failed FEM is excluded from speedup claims. Example: `python benchmark_evaluate_all.py --cores 1,16,24,40 --pitch .3125 --repeats 1` with an idle local server. No measured workstation speedup yet.
-
-## Revision 42 — live VRAM admission
-- Explicit GPU requests probe available VRAM before locking admission; reserve <=45% free and <=1024 MiB, pass that budget through to CUDA CSR allocation (which independently checks actual live CUDA free memory). Reject known insufficient RAM rather than admitting an unsafe exclusive request. Expose VRAM reservation and tolerate non-DAG progress messages. No automatic GPU acceleration or hard OS limits; previous revision 41 CI passed.
-
-## Revision 43 — incidence-balanced adaptive matvec partitions
-- Balance work by node-element incidence rather than node count; precompute stable partitions and adapt chunk count to the number of active RHS solves so a remaining case can use more of the shared pool. Preserve element order and disjoint writes. Manual spawn workers ignore SIGINT (parent owns cancellation). Existing exact operator and new partition tests; no measured workstation speedup claim.
-
-## Revision 44 — nonlinear continuation and material-resolved stress
-- Adaptive bisection of failed displacement increments (bounded depth; no relaxation of equilibrium criteria). Cache contact surface weights within a cycle. Compute actual element Cauchy stress P F^T/J, von Mises, J and reference-volume strain energy; expose per-material maxima and energy, boundary face element IDs and actual stress/J plots with common scale across stages. Affine manufactured solution and material-energy tests. Remains diagnostic, no convergence or coupled electrical claims.
-
-## Revision 45 — nonlinear membrane coupled to compliant 3D substrate
-- Moderate-rotation fixed-in-plane Q1 membrane with quartic stretch energy, 3x3 Gauss integration, exact tangent and four-step Newton continuation. Finite pad-averaged bilateral receptor springs coupled through full reciprocal static compliance of a clamped-bottom linear elastic 3D TET4 substrate. Condense substrate DOFs exactly for the discrete model; recover substrate surface/strain and reaction balance. Separate scheduled nonlinear tile endpoint and controls; legacy tile remains lightweight. Inverse explicitly zero-load linearization; report nonlinear work identity and validity screens. Tests for tangent, linear limit, reciprocity, equilibrium and API. No claim of full membrane in-plane relaxation, wrinkling, nonlinear substrate or physical qualification.
-
-## Revision 46 — multiscale fixed-footprint tile design search
-- Compare selected receptor and up to two deterministic library alternatives, 3/5/8 taxel grids, membrane pretension and substrate depth under a fixed physical patch, with conservative envelope clearance. Common physical single/multi-contact scenarios and common noise by grid size. Linear Q1/local compression screen, separate nonlinear membrane/full 3D compliance refinement of up to three finalists. Pareto minimizes force RMSE, centroid MAE, assumed total power, max receptor compression; no mixed fidelity ranking, no promotion. CPU/RAM-budgeted up to four spawn workers; separate Lab tab and tradeoff chart. Report aggregate bandwidth, validity screens and assumptions. Tests for deterministic screening, clearance, refinement and API. Independent calibration, evolutionary continuous search and hardware evidence remain open.
-
-## Revision 47 — relaxed in-plane membrane and cached transfer
-- Add Föppl-von Kármán membrane with u,v,w DOFs, exact consistent material and geometric tangent, fixed in-plane perimeter and transverse free edges. Maintain fixed-in-plane reference option. Use relaxed model for multiscale refined stage. Reuse zero-load transfer matrices per immutable model across scenarios. Verify affine fixed-inplane energy limit, finite-difference tangent and equilibrium. Normal spring/substrate coupling only; no tangential attachment, wrinkling or bending; remains T0.
-
-## Revision 48 — nonlinear tile dimension regression fix
-- Windows CI for revision 45 found two incorrect node-count expressions (object multiplied by integer); replace both with squared integer grid dimension. Previous matrix-free revision 43 completed green CI. Exact-head tests pending.
-
-## Revision 49 — independent synthetic holdout cases for refined tiles
-- Keep common design scenarios for cross-fidelity comparison. After shortlist, report separate predeclared contact locations, loads and noise realizations on the same refined solver with cached transfer. Holdout metrics never change shortlist or refined Pareto membership. GUI shows separate held-out centroid and force errors. Not independent experimental validation. Previous revisions 42–44 passed full CI; revision 45 dimension regression fixed in 48, exact head pending.
-
-## Revision 50 — observed resource telemetry and geometric display
-- On-demand process-tree CPU time delta and RSS sum in compute status; distinguish measured logical CPU equivalents (lower estimate) from reservations. No background sampler, no new GPU polling. Handle nvidia-smi N/A memory fields. Plot actual relaxed membrane XY displacement and substrate top at nominal receptor base height instead of arbitrary substrate thickness offset. Tests for process matching and missing GPU telemetry.
-
-## Revision 51 — browser regression for coupled skin and multiscale optimization
-- Chromium end-to-end coverage: four Lab tabs, relaxed coupled tile endpoint, two actual surfaces, bounded fixed-footprint search, held-out metrics and two-fidelity plot. No mocks of numerical endpoints. Local smoke test verified exact Git blobs for membrane_tile.py (dd1d66f), nonlinear_skin_tile.py (0237e82), relaxed_membrane.py (61f7935) against earlier local homogeneous TET4 support: linear limit, coupled two-contact equilibrium, displacement compatibility and relaxed tangent finite differences passed. Force balance ~1.1e-16 N, work identity ~1e-11 N mm, tangent-vector finite difference max abs error ~1.1e-11. Full current Windows integration still requires exact-head CI.
+Szczeg??y bie??cego wykonania: [VERIFICATION.md](VERIFICATION.md). Granice modeli: [VALIDATION.md](VALIDATION.md).

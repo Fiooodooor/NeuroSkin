@@ -4,7 +4,7 @@ from advanced import new_genome, structural_struts, detail_mesh, EvolutionEngine
 from full_evaluation import audit_candidate,promote
 from geometry_fixes import pvdf_ribbon
 
-class TestPipelineV10(unittest.TestCase):
+class TestPipeline(unittest.TestCase):
  def test_pvdf_is_bent_strip_and_watertight_all_families(self):
   rng=random.Random(29)
   for family in ('crown','chiral','quadrant'):

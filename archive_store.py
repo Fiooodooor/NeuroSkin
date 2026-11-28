@@ -1,7 +1,7 @@
 """Read-only, bounded and path-safe access to persisted NeuroSkin runs.
 
 Archive files are data, never executable code. The archive schema intentionally
-uses the existing results.json format; old v1.0 runs remain readable.
+uses the existing results.json format; previously saved runs remain readable.
 """
 from __future__ import annotations
 

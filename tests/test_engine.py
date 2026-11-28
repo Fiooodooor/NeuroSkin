@@ -1,8 +1,8 @@
-import sys,time,unittest,random,tempfile
+import sys,unittest,random
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 import numpy as np
-from engine import FAMILIES,LIMITS,random_genome,mutate,metrics,stiffness_and_legs,solve_force,mesh_for,Evolution
+from engine import FAMILIES,LIMITS,random_genome,mutate,metrics,stiffness_and_legs,solve_force,mesh_for
 
 class EngineTests(unittest.TestCase):
  def test_family_fitness_deterministic(self):
@@ -33,19 +33,4 @@ class EngineTests(unittest.TestCase):
    self.assertGreater(len(m.vertices),50)
    self.assertGreater(len(m.faces),80)
    self.assertLess(m.extents[0],30)
- def test_evolution_duration_and_save(self):
-  with tempfile.TemporaryDirectory() as td:
-   e=Evolution(td);e.start('crown',3,42,8)
-   t=time.monotonic()
-   while e.snapshot()['status'] in ('running','saving') and time.monotonic()-t<12:time.sleep(.05)
-   s=e.snapshot();self.assertEqual(s['status'],'completed');self.assertGreater(s['generation'],1)
-   self.assertTrue((Path(td)/s['id']/'results.json').is_file())
-   self.assertTrue((Path(td)/s['id']/'champion.stl').is_file())
- def test_pause_resume(self):
-  with tempfile.TemporaryDirectory() as td:
-   e=Evolution(td);e.start('quadrant',3,7,8);time.sleep(.12)
-   e.pause();time.sleep(.2);a=e.snapshot()['elapsed'];time.sleep(.25)
-   self.assertAlmostEqual(e.snapshot()['elapsed'],a,places=3)
-   e.pause();e.stop();time.sleep(.15)
-   self.assertIn(e.snapshot()['status'],('running','stopped'))
 if __name__=='__main__':unittest.main()

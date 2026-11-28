@@ -142,3 +142,20 @@ def test_archive_refuses_external_file_and_stage_links(tmp_path):
     (other / 'stages').symlink_to(tmp_path, target_is_directory=True)
     with pytest.raises(ArchiveError):
         store.list_stages('staged')
+
+
+def test_release_runner_uses_pytest_and_fails_missing_required_node(tmp_path, monkeypatch):
+    import verify_release
+    commands = []
+    def successful_run(command, **kwargs):
+        commands.append(command)
+        return {'command': command, 'exit_code': 0}
+    monkeypatch.setattr(verify_release, 'run', successful_run)
+    monkeypatch.setattr(verify_release, 'find_node', lambda: None)
+    output = tmp_path / 'verification.json'
+    assert verify_release.main(['--out', str(output)]) == 1
+    report = json.loads(output.read_text(encoding='utf-8'))
+    assert commands[0][1:5] == ['-m', 'pytest', '-q', 'tests']
+    assert report['release'] == Path('VERSION').read_text(encoding='utf-8').strip()
+    assert not report['software_checks_pass']
+    assert not report['release_ready']

@@ -34,5 +34,6 @@ for i,fam in enumerate(['crown','chiral','quadrant']):
 fig.suptitle('NeuroSkin 1.0 · PVDF conformal sensor strip (render geometry)',fontsize=15,weight='bold')
 fig.text(.5,.015,'Gold: thin PVDF ribbon aligned with supporting strut  •  Green: support centerlines  •  Teal: contact pad\nIllustration is NOT a deformation field, FEA result, or manufacturability verification.',ha='center',fontsize=8,color='#52616b')
 fig.subplots_adjust(top=.84,bottom=.17,wspace=.01)
-fig.savefig(Path(__file__).with_name('pvdf_geometry_fix.png'),bbox_inches='tight',facecolor=fig.get_facecolor())
+Path('artifacts/previews').mkdir(parents=True,exist_ok=True)
+fig.savefig(Path('artifacts/previews/pvdf_geometry_fix.png'),bbox_inches='tight',facecolor=fig.get_facecolor())
 print('pvdf_geometry_fix.png created')

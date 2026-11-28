@@ -60,9 +60,14 @@ class SpatialTests(unittest.TestCase):
   import tempfile
   for enabled in (False,True):
    with tempfile.TemporaryDirectory() as tmp:
-    e=EvolutionEngine(tmp);e.start('crown',3,123,12,.5,'balanced',enabled,3)
-    e.thread.join(timeout=35)
-    s=e.snapshot();self.assertEqual(s['status'],'completed',s.get('error'))
+    e=EvolutionEngine(tmp)
+    try:
+     e.start('crown',3,123,12,.5,'balanced',enabled,3)
+     # A real full audit is not a 35-second hardware throughput contract.
+     e.thread.join(timeout=120)
+     s=e.snapshot();self.assertEqual(s['status'],'completed',str(s.get('error'))+' phase='+s.get('phase',''))
+    finally:
+     self.assertTrue(e.shutdown(10))
     self.assertEqual(s['physical_gate'],enabled)
     self.assertGreater(s['evaluated'],0)
     self.assertIsNotNone(s['best'])

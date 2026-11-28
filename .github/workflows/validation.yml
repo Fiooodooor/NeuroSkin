@@ -4,7 +4,7 @@ on:
   pull_request:
   workflow_dispatch:
 jobs:
-  fast-regression:
+  windows-release:
     runs-on: windows-2022
     timeout-minutes: 45
     steps:
@@ -12,30 +12,40 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.14'
-      - name: Install full single-manifest environment
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install the supported single-manifest environment
         run: python -m pip install -r requirements.txt
       - name: Dependency consistency
         run: python -m pip check
-      - name: Compile Python
-        run: python -m compileall -q .
-      - name: Validation, API, FEM and archive regressions
-        run: python -m pytest -q tests/test_validation.py tests/test_pipeline.py tests/test_archive_api.py tests/test_laminate_shell.py tests/test_laminate.py tests/test_physical_fem.py tests/test_multiscale_v30.py tests/test_physics_v30.py tests/test_symmetry_v30.py tests/test_nonlinear_v30.py tests/test_multiscale_api_v30.py tests/test_topology_v30.py tests/test_readout_v30.py tests/test_audit_parallel_v30.py tests/test_shutdown.py tests/test_validation_design_v30.py tests/test_population_pareto_v30.py tests/test_search.py tests/test_finalist_selection_v30.py tests/test_sensor_fusion_v30.py tests/test_fusion_api_v30.py tests/test_readout_gain_v30.py tests/test_workspace_context_v30.py tests/test_diagnostic_context_v30.py tests/test_fem_previews_v30.py tests/test_compute_admission_v30.py tests/test_compute_api_v30.py tests/test_component_inspection_v30.py tests/test_force_visualization_v30.py tests/test_manual_evaluation_v30.py tests/test_electronics_evolution_v30.py tests/test_membrane_tile_v30.py tests/test_multimaterial_v30.py tests/test_matrixfree_parallel_v30.py tests/test_benchmark_evaluate_all_v30.py tests/test_nonlinear_skin_tile_v30.py tests/test_tile_optimization_v30.py tests/test_resource_telemetry_v30.py
-      - name: Browser report and preset storage unit tests
-        run: |
-          node tests/test_workspace_reports_v30.cjs
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          node tests/test_workspace_profiles_v30.cjs
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          node tests/test_fem_previews_v30.cjs
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          node tests/test_component_inspection_v30.cjs
-      - name: Import safety check
-        run: python -c "from validation_contract import load_protocol; assert load_protocol().schema_version == 'neuroskin.validation_protocol.v0.1'"
       - name: Install browser-test tooling
         run: |
           python -m pip install "playwright>=1.50,<2"
           python -m playwright install chromium
-      - name: Single-page browser integration
-        env:
-          NEUROSKIN_BROWSER: '1'
-        run: python -m pytest -q tests/test_workspace_browser_v30.py
+      - name: Complete Python, Node, syntax and Chromium verification
+        run: python verify_release.py --browser --out artifacts/release-verification.json
+      - name: Upload verification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-v3-verification
+          path: artifacts/
+  linux-cpu-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - name: Resolve the same supported manifest
+        run: python -m pip install -r requirements.txt
+      - run: python -m pip check
+      - name: CPU, archive and resource contracts
+        run: python -m pytest -q tests/test_v3_unification.py tests/test_archive.py tests/test_compute_admission_v30.py tests/test_membrane_tile_v30.py tests/test_resource_telemetry_v30.py --junitxml=artifacts/linux-cpu.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: linux-v3-cpu-verification
+          path: artifacts/

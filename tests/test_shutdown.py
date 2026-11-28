@@ -19,7 +19,7 @@ def worker_signal_policy():
     return signal.getsignal(signal.SIGINT) == signal.SIG_IGN
 
 
-class TestShutdownV211(unittest.TestCase):
+class TestShutdown(unittest.TestCase):
     def test_spawned_workers_ignore_parent_console_sigint(self):
         with concurrent.futures.ProcessPoolExecutor(
                 max_workers=2, mp_context=multiprocessing.get_context('spawn'),

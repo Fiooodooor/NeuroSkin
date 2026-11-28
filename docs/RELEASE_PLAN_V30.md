@@ -6,6 +6,8 @@ Stan aktualizowany na podstawie kodu linii 3 i testów. Dokument zastępuje hist
 
 | Obszar | Implementacja | Weryfikacja |
 | --- | --- | --- |
+| Kontynuacja zapisanej sesji | Nowy run z wybranego snapshotu, numeracja G+1, edycja załadowanych kontrolek, świeże oceny, niezmienny rodzic i lineage. Checkpointy populacji/PRNG oraz atomowy snapshot postępu; fallback starszych archiwów do elit | Regresje źródeł, hasha/checksum, kontroli zasobów, rzeczywistego kontrolera, źródłowego runu i Chromium. Nie jest to dokładny replay QD/novelty/cache |
+| Wyjaśnienia części i sensorów | Opisy funkcji w drzewie, przewodnik w GUI, spójna legenda. Hub koncepcyjny odróżniony od płyty sprzęgającej; sensory od kompletnej elektroniki | Generowane modele pojedyncze/hybrydowe i test przeglądarkowy |
 | User bests | Trzecia kategoria Library: jeden końcowy audytowany champion na completed/stopped run przy niezaokrąglonym audit_score >90; trwały genotyp, audyt i provenance. Preview, eksport, Evaluate All i Multiscale | Regresje progu, braku wpisów iteracyjnych, najlepszego wcześniejszego championa, idempotencji, restartu, API i Chromium |
 | GUI Basic / Advanced | `static/workspace.js`: Basic zwija, Advanced rozwija sekcje ustawień; ta sama konfiguracja i silnik | Test przeglądarkowy przełączania i niezmienności ustawień |
 | Evolution presets | Cztery przykłady, dostosowanie do liczby CPU, własne zapisy, brak automatycznego startu | Testy Node oraz Chromium |

@@ -1,6 +1,18 @@
 # Weryfikacja bieżącej iteracji NeuroSkin 3
 
-Data: 2026-11-28. Zmiany porządkowe i poprzednia regresja są zapisane w `cb7bef5` na `develop/v3`. Implementacja obliczonego podglądu zespołów skóry i testy tej iteracji: `16591c2`.
+## Kontynuacja sesji i semantyka części
+
+Dodano jawny workflow Runs → wybrany snapshot → Load selected snapshot for evolution → edycja kontrolek → Continue with these controls. Nowy run zachowuje rodzica, wybraną generację, źródłowy digest i zmiany ustawień, ale nie przejmuje historycznych ocen. Numery nowych kandydatów i zapisanych etapów są zgodne: G+1 względem snapshotu, nie względem wieku championa.
+
+Nowe checkpointy przechowują następną populację, PRNG, komplet kontrolek, provenance i checksum. Atomowy snapshot postępu umożliwia odkrycie ostatniej ukończonej granicy po awarii procesu. Stare archiwa używają zapisanych elit i wskazują brakujące kontrolki; QD/novelty/audit cache nie są odtwarzane. Nie deklarujemy dokładnego replay procesu. User bests nadal zapisuje wyłącznie końcowego championa i zachowuje lineage dziecka.
+
+Skupione regresje: **25 passed** — starsze archiwa i checkpointy, zgodność scope, odrzucenie uszkodzonego checkpointu, realny kontroler z generacji 40 do 41 przy champione urodzonym w 12, ponowne oceny, zachowanie rodzica, odkrywalny snapshot postępu, API/digest/admission, User bests i semantyka komponentów. Kontrolowane audyty w teście lifecycle nie stanowią nowych dowodów fizycznych.
+
+Chromium: **1 passed** — wybór wcześniejszego etapu, załadowanie kontrolek, zmiana celu na electronics i exploration na 0.75, rzeczywiste uruchomienie kolejnej generacji, zachowanie źródła oraz ponowne otwarcie nowego checkpointu. Sprawdzono też wyjaśnienie huba w drzewie i przewodnik kanałów sensorowych. Lokalny zrzut: `artifacts/continuation-workspace.png`.
+
+Kontrola istniejących lokalnych archiwów, bez ich modyfikacji: z 17 zapisów 16 zawierało zgodne genotypy i dało się przygotować do kontynuacji; jeden pusty zapis bez geometrii został prawidłowo odrzucony. Dowód: `artifacts/continuation-existing-archives.json`.
+
+Data: 2026-11-28. Aktualna implementacja kontynuacji i semantyki komponentow: `8edab0d` na `develop/v3`. Poprzednie funkcje User bests i podgladu skory pozostaja objete pelna regresja.
 
 ## User bests — automatyczna biblioteka końcowych championów
 
@@ -33,13 +45,13 @@ Dodano obsługę 7×7 do modeli scalar, Q1 i nieliniowej membrany z podatnym pod
 - Testy rzeczywistej geometrii, n² pozycji, hasha, prześwitów, wyboru wierności, API oraz rezerwacji zasobów: **16 passed**. Nie obniżono progów fizycznych; niepowodzenie refinement pozostaje widoczne w wyniku, a podgląd jawnie korzysta wtedy ze screeningu.
 - Node: geometria 3×3 / 5×5 / 7×7, indeksy złączonych mesh, warstwy, wybór czujnika, odrzucenie niezgodnego hasha i zapis raportu bez dużych siatek przeszły.
 - Chromium: rzeczywiste obliczenie, przełączanie trzech rozmiarów bez kolejnych żądań optymalizacji, 49 czujników, geometria flexure, warstwy, wybór czujnika i zwalnianie wykresów po zmianie zakładki: **1 passed**.
-- **Końcowy pełny runner: 337 passed, 1 skipped, 106 subtests passed; wszystkie 17 kontroli przeszło.** Obejmuje sześć rzeczywistych scenariuszy Chromium, pięć zestawów Node, deformację oraz składnię skryptów zewnętrznych i inline. Pytest trwał 522,04 s. Wynik: `artifacts/user-bests-release-verification.json`; `software_checks_pass=true`, `browser_checks_enabled=true`, `release_ready=true`. Pominięto wyłącznie opcjonalną kosztowną siatkę 8×; istniejąca deprecjacja TestClient/HTTPX pozostała ostrzeżeniem.
-- AST wszystkich 147 aktywnych plików Python oraz `git diff --check`: bez błędów. Lokalne linki dokumentacji: bez brakujących celów.
-- Ponowny skan 184 niepustych aktywnych plików z pominięciem `.git`, `.tools`, `runs`, `artifacts` i cache: brak identycznych plików. Dowód lokalny: `artifacts/user-bests-repository-check.json`.
+- **Końcowy pełny runner: 345 passed, 1 skipped, 106 subtests passed; wszystkie 18 kontroli przeszło.** Obejmuje siedem rzeczywistych scenariuszy Chromium, pięć zestawów Node, deformację oraz składnię skryptów zewnętrznych i inline. Pytest trwał 553,24 s. Wynik: `artifacts/continuation-release-verification.json`; `software_checks_pass=true`, `browser_checks_enabled=true`, `release_ready=true`. Pominięto wyłącznie opcjonalną kosztowną siatkę 8×; istniejąca deprecjacja TestClient/HTTPX pozostała ostrzeżeniem.
+- AST wszystkich 149 aktywnych plików Python oraz `git diff --check`: bez błędów. Lokalne linki dokumentacji: bez brakujących celów.
+- Ponowny skan 189 niepustych aktywnych plików z pominięciem `.git`, `.tools`, `runs`, `artifacts` i cache: brak identycznych plików. Dowód lokalny: `artifacts/continuation-repository-check.json`.
 
 ## Dowody lokalne i CI
 
-Artefakty lokalne są celowo ignorowane w Git: `artifacts/user-bests-release-verification.json`, powiązany JUnit XML, logi testów skupionych i deterministycznego lifecycle. Zachowano również `artifacts/skin-release-verification.json`, `artifacts/skin-patch-7x7.png`, `artifacts/v3-final-verification.json`, `artifacts/repository-check.json` i `artifacts/workspace-v3.png`. CI publikuje artefakty Windows i Linux także przy porażce. Pełny job Windows korzysta z tego samego runnera; Linux sprawdza instalację i kontrakty CPU.
+Artefakty lokalne są celowo ignorowane w Git: `artifacts/continuation-release-verification.json`, powiązany JUnit XML, `artifacts/continuation-workspace.png`, kontrola istniejących archiwów i logi skupionych regresji. Zachowano również wcześniejsze raporty i zrzuty User bests, podglądu skóry oraz porządkowania. CI publikuje artefakty Windows i Linux także przy porażce. Pełny job Windows korzysta z tego samego runnera; Linux sprawdza instalację i kontrakty CPU.
 
 W tej sesji doinstalowano lokalne, ignorowane narzędzia testowe: Node z oficjalnego archiwum ze sprawdzoną sumą SHA-256 oraz Playwright/Chromium. Zależności numeryczne aplikacji nie były aktualizowane. Kopia sprzed zatwierdzonego porządkowania: `.tools/backups/v3-cleanup.zip`, 362 sprawdzone pliki; jej hash jest w manifeście.
 

@@ -89,6 +89,10 @@ Rekomendacja wybiera najlepszy obliczony wariant osobno dla każdej siatki: najp
 
 ## Wykonanie i trwałość
 
+`evolution_continuation.py` odczytuje wybrany snapshot przez bezpieczny `ArchiveStore`, sprawdza checksum checkpointu i przygotowuje genotypy bez historycznych ocen. API continuation wiąże przygotowane źródło z jego digestem; compute start guard zachowuje wyłączność aktywnej ewolucji. `EvolutionEngine.start(..., continuation=...)` odtwarza zgodne genotypy i opcjonalnie PRNG, nadaje nowy run ID oraz lineage i uruchamia zwykłe oceny. QD/novelty/audit cache zaczynają się od nowa. Numeracja kandydata, etapu i GUI jest zgodna i zaczyna się od generacji rodzica +1.
+
+Po przygotowaniu kolejnej populacji silnik atomowo zapisuje `stages/population_NNNNNN.json`, a następnie odkrywalny `results.json`. Zapisy running/paused/stopping nie dodają modeli do User bests. Szczegóły: [CONTINUATION.md](CONTINUATION.md). Semantyka kolorowanych części i rzeczywisty zakres modeli elektrycznych: [SENSING_MODEL.md](SENSING_MODEL.md).
+
 `user_bests.py::UserBests` przechowuje niezależny od archiwum katalog `runs/user_bests/`. `EvolutionEngine._write_result` wywołuje `capture` po atomowym zapisie wyniku; mechanizm dopuszcza wyłącznie terminalne `completed`/`stopped` oraz `audit_score >90`. Zapis finalizing i snapshoty generacji niczego nie dodają. Jeden niezmienny plik na run zabezpiecza ponawiane zapisy. Do biblioteki trafia istniejący końcowy champion, nie najwyższa ocena proxy populacji ani osobny finalist każdej generacji.
 
 `GET /api/user_bests` zwraca metadane wpisów, a `GET /api/user_bests/{run_id}` dokładnego kandydata z osobną tożsamością `user-best-{run_id}`. Selekcja `user_best` działa w istniejących ścieżkach inspekcji, eksportu, Evaluate All i Multiscale bez zależności od bieżącej instancji ewolucji. Historyczne audyty zachowują swoje oryginalne tożsamości. GUI odświeża trzecią kategorię przy zakończeniu runu, otwarciu Library lub użyciu Refresh.

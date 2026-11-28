@@ -34,6 +34,10 @@ Rekomendacja oznacza najlepszy z obliczonych wariantów danego rozmiaru. Wyniki 
 
 ## Eksperymenty i eksport
 
+**Kontynuacja wcześniejszej sesji:** w Runs otwórz zapisany eksperyment, wybierz generację lub wynik końcowy i kliknij **Load selected snapshot for evolution**. W Overview zmień załadowane ustawienia i użyj **Continue with these controls**. Powstaje osobny run z numeracją od wybranej generacji +1; źródłowy eksperyment pozostaje niezmienny. Nowe zapisy mają checkpoint populacji i PRNG, a starsze korzystają z zapisanych najlepszych geometrii i jawnych domyślnych wartości brakujących kontrolek. Dziedziczone geometrie otrzymują nowe oceny i audyty finalistów. [Szczegóły i ograniczenia kontynuacji](docs/CONTINUATION.md).
+
+W podglądzie 3D rozwiń **How this button senses touch** lub wybierz część w drzewie. Opisy rozróżniają rzeczywiste role mechaniczne, placeholdery sensorów i koncepcyjny hub. Kolory legendy odpowiadają geometrii. [Jak działają części i kanały pomiarowe](docs/SENSING_MODEL.md).
+
 **Library → User bests** jest trzecią kategorią biblioteki. Po ukończeniu lub ręcznym zatrzymaniu eksperymentu aplikacja automatycznie zachowuje jego końcowego audytowanego championa, jeżeli oryginalny, niezaokrąglony `audit_score` jest **ściśle większy niż 90/100**. Nie zapisuje kolejnych iteracji, ocen proxy ani ocen eksperckich bibliotek. Wybór championa zachowuje bieżącą politykę promocji; może to być geometria z wcześniejszej generacji.
 
 Każdy run ma jeden trwały wpis w `runs/user_bests/{run_id}.json`. Powtórne zapisanie zakończonego runu nie powiela ani nie nadpisuje wpisu. Biblioteka zachowuje dokładny genotyp, pełny oryginalny audyt, hash geometrii, seed, ustawienia i pochodzenie źródeł; jest dostępna po restarcie i nie wymaga zachowania katalogu źródłowego eksperymentu. Preview umożliwia dalszą inspekcję, Evaluate All, eksport geometrii i analizy Multiscale. Ponowna ewaluacja nie zmienia oryginalnej oceny we wpisie. Wpisy są wyświetlane od najnowszych; oceny z różnych protokołów nie tworzą wspólnego rankingu. Istniejące archiwa nie są automatycznie importowane wstecz.

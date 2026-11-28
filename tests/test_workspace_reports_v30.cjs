@@ -1,0 +1,11 @@
+const assert=require('node:assert/strict'),R=require('../static/workspace_reports.js');
+const h='a'.repeat(64),j='b'.repeat(64);
+const result=(id,comparison=h)=>({tier:'T0',diagnostic_context:{schema:1,path:'tile',candidate_id:id,genome_hash:h,comparison_key:comparison,solver_hash:h,settings:{size:3},runtime:{numpy:'2'},selection:{selection:'id',index:id,family:'quadrant',expected_candidate_id:id}},reconstruction_grid_rmse_N:.001,transfer_condition:2,force_balance_error_N:0});
+const memory=new Map(),storage={getItem:k=>memory.get(k),setItem:(k,v)=>memory.set(k,v),removeItem:k=>memory.delete(k)};
+const a=result('a'),b=result('b'),c=result('a',j);
+assert.equal(R.record({}),null);assert.equal(R.merge([a],[a,b,c]).length,3);
+assert.equal(R.matchesFrame(a,{selection:'id',index:'a',family:'quadrant',expected_candidate_id:'a'}),true);
+assert.equal(R.matchesFrame(a,{selection:'id',index:'b',family:'quadrant',expected_candidate_id:'b'}),false);
+assert.equal(R.metrics(a)[0][1],1);assert.equal(R.save(storage,[],[a,b]).length,2);
+assert.deepEqual(R.load(storage),[a,b]);assert.throws(()=>R.save(storage,[a,b],Array.from({length:13},(_,i)=>result('id'+i))),/limit/);assert.deepEqual(R.load(storage),[a,b]);
+R.clear(storage);assert.deepEqual(R.load(storage),[]);console.log('report snapshot tests passed');

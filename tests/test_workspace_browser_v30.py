@@ -70,6 +70,12 @@ def test_workspace_modes_context_and_multiscale(app_url):
         expect(frame.locator('.lab-status:visible')).to_contain_text('Completed',timeout=30000)
         result=json.loads(frame.locator('#tileResult').text_content())
         assert result['tier']=='T0' and result['force_balance_error_N']<1e-8
+        page.locator('#workspaceComparison > summary').click()
+        expect(page.locator('#workspaceReportStatus')).to_contain_text('1 latest successful',timeout=20000)
+        page.locator('#workspaceSaveReports').click()
+        expect(page.locator('#workspaceReportStatus')).to_contain_text('Saved locally')
+        assert len(page.evaluate("JSON.parse(localStorage.getItem('neuroskin-diagnostic-reports-v1'))"))==1
+        expect(page.locator('#workspaceReportTable')).to_contain_text(result['candidate_id'])
         page.locator('#workspace-tab-overview').click();page.locator('#workspace-tab-multiscale').click()
         assert json.loads(frame.locator('#tileResult').text_content())==result
         assert page.url.rstrip('/')==app_url

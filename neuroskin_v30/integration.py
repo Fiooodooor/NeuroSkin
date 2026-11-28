@@ -1,5 +1,8 @@
 """Bounded experimental APIs. Neither candidate ranking nor evidence tier is promoted."""
 from pathlib import Path
+from functools import lru_cache
+from hashlib import sha256
+from validation_contract import digest, runtime_versions
 from threading import BoundedSemaphore
 from typing import Literal
 import numpy as np
@@ -67,6 +70,36 @@ class TileInput(Selection):
     noise_N: float = Field(0., ge=0., le=.1)
     seed: int = Field(42, ge=0, le=2**32-1)
     contacts: list[Contact] = Field(min_length=1, max_length=8)
+
+
+@lru_cache(maxsize=1)
+def diagnostic_source_hash():
+    """Fingerprint the application source at process startup/first diagnostic."""
+    root=Path(__file__).resolve().parents[1]
+    files=list(root.glob('*.py'))+list((root/'neuroskin_v30').glob('*.py'))
+    files += [root/'VERSION',root/'validation_protocol_v30.json']
+    h=sha256()
+    for path in sorted(files):
+        h.update(path.relative_to(root).as_posix().encode()+b'\0')
+        h.update(path.read_bytes()+b'\0')
+    return h.hexdigest()
+
+
+def diagnostic_context(result, path, req, candidate=None, genome=None):
+    """Bind normalized request, source and environment to a diagnostic result.
+
+    Candidate identity is intentionally separate from common experiment settings.
+    Matching keys permit diagnostic comparisons, not physical qualification.
+    """
+    request=req.model_dump(mode='json')
+    identity={k:request[k] for k in Selection.model_fields if k in request}
+    settings={k:v for k,v in request.items() if k not in identity}
+    basis={'path':path,'settings':settings,'solver_hash':diagnostic_source_hash(),
+           'runtime':runtime_versions()}
+    result['diagnostic_context']={**basis,'schema':1,'comparison_key':digest(basis),
+        'selection':identity,'candidate_id':str(candidate['id']) if candidate is not None else None,
+        'genome_hash':digest({'family':candidate['family'],'genome':genome}) if candidate is not None else None}
+    return result
 
 
 def contact_report(mesh, material, indentation, penalty, fixed=None):
@@ -153,8 +186,9 @@ def build_router(select_candidate, preview_genome, current_run_id=None):
     def box(req:BoxInput):
         if not CONTACT_SLOT.acquire(blocking=False):raise HTTPException(409,'Nonlinear solver busy')
         try:
-            return contact_report(box_mesh(req.n,req.n,req.n,(req.side_mm,)*3),
-                                  NeoHookean(req.young_MPa,req.poisson),req.indentation_mm,req.penalty_N_per_mm3)
+            out=contact_report(box_mesh(req.n,req.n,req.n,(req.side_mm,)*3),
+                               NeoHookean(req.young_MPa,req.poisson),req.indentation_mm,req.penalty_N_per_mm3)
+            return diagnostic_context(out,'nonlinear/contact-box',req)
         except (ValueError,RuntimeError,MemoryError) as exc:raise HTTPException(422,str(exc)) from exc
         finally:CONTACT_SLOT.release()
 
@@ -173,7 +207,7 @@ def build_router(select_candidate, preview_genome, current_run_id=None):
                                req.indentation_mm,req.penalty_N_per_mm3,fixed)
             out.update(candidate_id=c['id'],family=c['family'],mesh_source='voxel_HEX8_subdivision',
                        pitch_mm=req.pitch_mm,inflated_features=m.inflated_features,geometry_warning=m.geometry_warning)
-            return out
+            return diagnostic_context(out,'nonlinear/candidate',req,c,g)
         except (ValueError,RuntimeError,MemoryError,np.linalg.LinAlgError) as exc:raise HTTPException(422,str(exc)) from exc
         finally:CONTACT_SLOT.release()
 
@@ -185,7 +219,7 @@ def build_router(select_candidate, preview_genome, current_run_id=None):
             from sensor_fusion import evaluate_fusion
             result=evaluate_fusion(c['family'],g,grid=req.grid,frequency_hz=req.frequency_hz,seed=req.seed)
             result.update(candidate_id=c['id'],family=c['family'])
-            return result
+            return diagnostic_context(result,'fusion',req,c,g)
         except (ValueError,RuntimeError,ArithmeticError,np.linalg.LinAlgError) as exc:raise HTTPException(422,str(exc)) from exc
         finally:FUSION_SLOT.release()
 
@@ -198,6 +232,6 @@ def build_router(select_candidate, preview_genome, current_run_id=None):
             kz=1./np.linalg.solve(k,np.array([0.,0.,1.,0.,0.,0.]))[2]
             out=tile_report(kz,req)
             out.update(candidate_id=c['id'],family=c['family'])
-            return out
+            return diagnostic_context(out,'tile',req,c,g)
         except (ValueError,RuntimeError,np.linalg.LinAlgError) as exc:raise HTTPException(422,str(exc)) from exc
     return router

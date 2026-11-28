@@ -71,6 +71,38 @@
   const views=[['overview','Overview',overview,false],['results','Results',results,false],['fem','FEM',femPanel,true],['signals','Signals',signals,true],['multiscale','Multiscale',lab,true],['library','Library',library,false],['runs','Runs',archive,false],['history','History',history,true]];
   let active='overview',bound=null,advanced=false,labBusy=false,frame=null;
   const openLabs=new Map(),labLimit=3;
+  const reports=window.NeuroReports;
+  let saved=[];try{saved=reports.load(localStorage);}catch{}
+  const comparison=make('details','workspace-comparison');comparison.id='workspaceComparison';comparison.append(make('summary','','Compare & save inspection reports'));
+  const reportActions=make('div','workspace-report-actions');
+  const reportType=make('select','workspace-run-select');reportType.id='workspaceReportType';reportType.setAttribute('aria-label','Diagnostic comparison type');
+  for(const [path,label] of [['tile','Skin tile'],['fusion','Sensor fusion'],['nonlinear/candidate','Candidate contact'],['nonlinear/contact-box','Verification box']])reportType.append(new Option(label,path));
+  const saveReports=button('workspaceSaveReports','Save current reports',()=>{try{saved=reports.save(localStorage,saved,currentReports());renderReports('Saved locally. No calculations resumed.');}catch(e){renderReports(e.message);}});
+  const exportReports=button('workspaceExportReports','Export JSON',()=>{const blob=new Blob([JSON.stringify({schema:1,reports:allReports()},null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=make('a');a.href=url;a.download='neuroskin-diagnostic-reports.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
+  const clearReports=button('workspaceClearReports','Clear saved reports',()=>{try{reports.clear(localStorage);saved=[];renderReports('Saved reports cleared. Open sessions unchanged.');}catch(e){renderReports(e.message);}});
+  const reportStatus=make('p','workspace-summary');reportStatus.id='workspaceReportStatus';reportStatus.setAttribute('role','status');
+  const reportTable=make('div','workspace-report-table');reportTable.id='workspaceReportTable';
+  reportActions.append(reportType,saveReports,exportReports,clearReports);comparison.append(reportActions,reportStatus,reportTable);lab.append(comparison);
+  reportType.onchange=()=>renderReports();
+  function currentReports(){return [...openLabs.values()].flatMap(item=>[...item.reports.values()]);}
+  function allReports(){const map=new Map();for(const r of [...saved,...currentReports()])map.set(reports.identity(r),r);return [...map.values()];}
+  function renderReports(message){
+    const current=currentReports(),all=allReports(),rows=all.filter(r=>r.diagnostic_context.path===reportType.value);
+    saveReports.disabled=!current.length;exportReports.disabled=!all.length;clearReports.disabled=!saved.length;
+    reportStatus.textContent=message||`${current.length} latest successful open-session reports · ${saved.length} saved locally. Compare only matching condition keys. Diagnostic results, not qualification.`;
+    reportTable.replaceChildren();if(!rows.length){reportTable.append(make('p','workspace-summary','Run an analysis in one or more sessions to compare results.'));return;}
+    const groups=new Map();for(const r of rows){const key=r.diagnostic_context.comparison_key;if(!groups.has(key))groups.set(key,[]);groups.get(key).push(r);}
+    if(groups.size>1)reportTable.append(make('p','workspace-stale','Different experiment settings or solver versions: separate groups, no cross-group ranking.'));
+    const currentIds=new Set(current.map(reports.identity));
+    for(const [key,group] of groups){const c=group[0].diagnostic_context,block=make('section','workspace-report-group');
+      block.append(make('strong','','Conditions '+key.slice(0,12)+' · '+group.length+' report(s)'));
+      const details=make('details','workspace-raw');details.append(make('summary','','Effective settings & provenance'),make('pre','',JSON.stringify({settings:c.settings,solver_hash:c.solver_hash,runtime:c.runtime},null,2)));block.append(details);
+      const wrap=make('div','workspace-report-scroll'),table=make('table'),head=make('tr');for(const name of ['Candidate / context',...reports.metrics(group[0]).map(m=>m[0])])head.append(make('th','',name));table.append(head);
+      for(const r of group){const d=r.diagnostic_context,tr=make('tr'),cell=make('td');cell.append(make('strong','',d.candidate_id||'Reference box'),make('small','',`${d.selection?.run_id||d.selection?.expected_live_run_id||'Library / reference'} · ${d.genome_hash?.slice(0,10)||'box'} · ${currentIds.has(reports.identity(r))?'open':'saved'}`));tr.append(cell);
+        for(const [,value] of reports.metrics(r))tr.append(make('td','',Number.isFinite(value)?Number(value).toPrecision(5):'—'));table.append(tr);}
+      wrap.append(table);block.append(wrap);reportTable.append(block);
+    }
+  }
   const panels=new Map(),tabs=new Map();
   for(const [id,title,node,expert] of views){
     const pane=make('section','workspace-pane');pane.id='workspace-panel-'+id;pane.setAttribute('role','tabpanel');pane.setAttribute('aria-labelledby','workspace-tab-'+id);pane.append(node);main.append(pane);panels.set(id,pane);
@@ -98,11 +130,11 @@
     if(openLabs.has(key)){activateSession(key);return;}
     if(openLabs.size>=labLimit){update();return;}
     const f=make('iframe','workspace-labframe');f.title='Multiscale engineering lab';f.hidden=true;f.src=labUrl(p,true);
-    openLabs.set(key,{context:p,frame:f,busy:false});frames.append(f);activateSession(key);
+    openLabs.set(key,{context:p,frame:f,busy:false,reports:new Map()});frames.append(f);activateSession(key);
   }
   function closeSession(){if(!bound||labBusy)return;const key=JSON.stringify(bound),item=openLabs.get(key);if(!item)return;
     item.frame.remove();openLabs.delete(key);bound=null;frame=null;labBusy=false;standalone.href='/v30';
-    if(openLabs.size)activateSession(openLabs.keys().next().value);else update();
+    if(openLabs.size)activateSession(openLabs.keys().next().value);else update();renderReports();
   }
   sessions.onchange=()=>activateSession(sessions.value);
   function updateSessions(p){const opts=[...openLabs].map(([key,item])=>new Option(`${item.context.expected_candidate_id} · ${item.context.run_id||'live / library'}${item.context.generation!=null?' / gen '+item.context.generation:''} · PVDF ${item.context.piezo_count_override??'saved'} / wiring ${item.context.piezo_wiring_override??'saved'}`,key));
@@ -143,7 +175,7 @@
   // Preview actions in the library should return directly to the 3D workspace.
   library.addEventListener('click',e=>{if(e.target.closest('[data-hybrid],[data-preview-seed]'))show('overview');});
   archive.addEventListener('click',e=>{if(e.target.closest('#openArchive,#openStage,#returnLive'))show('overview');});
-  window.addEventListener('message',e=>{if(e.origin!==location.origin)return;const item=[...openLabs.values()].find(x=>x.frame.contentWindow===e.source);if(!item)return;if(e.data?.type==='neuroskin:lab-height'&&Number.isFinite(e.data.height))item.frame.style.height=Math.max(500,Math.min(18000,e.data.height+12))+'px';else if(e.data?.type==='neuroskin:lab-busy'&&typeof e.data.busy==='boolean'){item.busy=e.data.busy;if(item.frame===frame){labBusy=item.busy;update();}}});
+  window.addEventListener('message',e=>{if(e.origin!==location.origin)return;const item=[...openLabs.values()].find(x=>x.frame.contentWindow===e.source);if(!item)return;if(e.data?.type==='neuroskin:lab-height'&&Number.isFinite(e.data.height))item.frame.style.height=Math.max(500,Math.min(18000,e.data.height+12))+'px';else if(e.data?.type==='neuroskin:lab-report'){const r=reports.record(e.data.result);if(r&&reports.matchesFrame(r,item.context)){item.reports.set(r.diagnostic_context.path,r);renderReports();}}else if(e.data?.type==='neuroskin:lab-busy'&&typeof e.data.busy==='boolean'){item.busy=e.data.busy;if(item.frame===frame){labBusy=item.busy;update();}}});
   window.NeuroWorkspace={show,update,resize,renderEvaluation};
-  mode();show('overview');
+  mode();show('overview');renderReports();
 })();

@@ -55,7 +55,7 @@ body.basic .audit-results{display:none}
 <div class="row" style="margin-top:12px"><button style="max-width:240px" id="reportAudit" disabled>Download full audit report</button><small>Concept STL is not guaranteed to be watertight; production readiness requires FEM + actual sensor calibration.</small></div>
 </div></section>
 
-<details id="femDetails" style="padding:10px;border-top:1px solid #2b4657;background:#0d1926"><summary style="cursor:pointer;color:#75d3bf;font-weight:700">Mechanical FEM: four standard load cases · deformed mesh, stress and strain</summary>
+<details id="femDetails" style="padding:10px;border-top:1px solid #2b4657;background:#0d1926"><summary style="cursor:pointer;color:#75d3bf;font-weight:700">Mechanical FEM: deformed mesh, stress and strain · four standard load cases</summary>
 <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end;margin:12px 0">
 <div><label>Load case</label><select id="femCase"><option value="press_center">Normal pressure (center)</option><option value="press_offset">Normal pressure (off-center)</option><option value="shear_x">Shear X + normal preload</option><option value="shear_y">Shear Y + normal preload</option><option value="torsion_z">Torsion Z + preload</option></select></div>
 <div><label>Force [N]</label><input id="femForce" type="number" value="0.1" step="0.025" min="0.001" max="0.5" style="width:100px"></div>

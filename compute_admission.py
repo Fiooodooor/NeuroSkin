@@ -22,24 +22,29 @@ class ComputeAdmission:
         self._active = None
         self._history = deque(maxlen=16)
         self._sequence = 0
+        self._rejected = 0
+
+    def _reject(self, message):
+        self._rejected += 1
+        raise ComputeBusy(message)
 
     @contextmanager
     def start_guard(self):
         """Keep the admission lock through synchronous controller startup."""
         with self._lock:
             if self._active is not None:
-                raise ComputeBusy('Heavy analysis active: '+self._active['name'])
+                self._reject('Heavy analysis active: '+self._active['name'])
             if self._alive():
-                raise ComputeBusy('Evolution still owns the compute slot (including pause/stop cleanup)')
+                self._reject('Evolution still owns the compute slot (including pause/stop cleanup)')
             yield
 
     @contextmanager
     def manual(self, name):
         with self._lock:
             if self._alive():
-                raise ComputeBusy('Evolution owns the compute slot; stop it and wait for cleanup before heavy analysis')
+                self._reject('Evolution owns the compute slot; stop it and wait for cleanup before heavy analysis')
             if self._active is not None:
-                raise ComputeBusy('Heavy analysis active: '+self._active['name'])
+                self._reject('Heavy analysis active: '+self._active['name'])
             self._sequence += 1
             job = {'id':self._sequence,'name':name,'started':monotonic()}
             self._active = job
@@ -61,7 +66,7 @@ class ComputeAdmission:
             return {'policy':'one_heavy_job_per_server_process','evolution_active':bool(self._alive()),
                     'manual_active':None if a is None else {'id':a['id'],'name':a['name'],
                                                            'elapsed_s':round(monotonic()-a['started'],3)},
-                    'recent_manual_requests':list(self._history),'queue_enabled':False,
+                    'recent_manual_requests':list(self._history),'rejected_requests':self._rejected,'queue_enabled':False,
                     'note':'Admission only; request completion is not solver qualification. Lightweight inspections remain available.'}
 
     def route(self, name):

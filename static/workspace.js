@@ -23,14 +23,15 @@
   for(const id of ['start','pause','stop','evaluateAll'])actions.append(el(id));
   commands.append(context,actions);
   const computeStatus=make('small','workspace-compute-status advanced-only','Compute status loading…');computeStatus.id='workspaceComputeStatus';commands.append(computeStatus);
-  let computePending=false;
+  let computePending=false,lastCompute=null;
   async function refreshCompute(){
     if(computePending||document.hidden)return;computePending=true;
     try{
       const r=await fetch('/api/compute/status',{cache:'no-store'});if(!r.ok)throw Error('HTTP '+r.status);
-      const c=await r.json(),a=c.manual_active;
+      const c=await r.json(),a=c.manual_active;lastCompute=c;
       computeStatus.textContent=(a?'Heavy analysis: '+a.name+' · '+a.elapsed_s.toFixed(1)+' s':c.evolution_active?'Evolution owns heavy-compute slot (including pause/cleanup)':'Heavy-compute slot available')+' · '+c.available_cpu+' CPUs · '+(c.available_ram_mb==null?'RAM unknown':(c.available_ram_mb/1024).toFixed(1)+' GiB RAM available');
-    }catch{computeStatus.textContent='Compute status unavailable';}
+      renderComputeHistory();
+    }catch{computeStatus.textContent='Compute status unavailable';lastCompute=null;renderComputeHistory();}
     finally{computePending=false;}
   }
   const toolbar=make('div','workspace-toolbar');header.before(toolbar);toolbar.append(header,commands,nav);
@@ -51,6 +52,25 @@
   };
   group('Search strategy & mutation',['searchStrategy','searchPrecision','explore']);
   group('Compute & population',['cores','population']);
+  const computeDetails=make('details','workspace-settings advanced-only');
+  computeDetails.append(make('summary','','Compute activity'));
+  const computeHistory=make('div','workspace-compute-history');computeHistory.id='workspaceComputeHistory';
+  computeDetails.append(computeHistory);left.insertBefore(computeDetails,summary);
+  function renderComputeHistory(){
+    if(!computeDetails.open)return;
+    const c=lastCompute;computeHistory.replaceChildren();
+    if(!c){computeHistory.append(make('small','','Compute status unavailable.'));return;}
+    computeHistory.append(make('small','','One heavy job per server process. Stop evolution before manual FEM or fusion. Lightweight inspectors remain available.'));
+    computeHistory.append(make('p','workspace-summary','Rejected conflicts: '+(c.rejected_requests??0)+' · Queue: disabled'));
+    const rows=c.recent_manual_requests||[];
+    if(!rows.length){computeHistory.append(make('small','','No completed manual requests.'));return;}
+    for(const job of [...rows].reverse()){
+      const row=make('div','workspace-compute-row');
+      row.append(make('strong','',job.name.replaceAll('_',' ')),make('small','',job.elapsed_s.toFixed(2)+' s · '+job.outcome.replaceAll('_',' ')));computeHistory.append(row);
+    }
+    computeHistory.append(make('small','','Request completion does not mean numerical qualification.'));
+  }
+  computeDetails.addEventListener('toggle',renderComputeHistory);
   group('Validation & FEM',['physical_gate','enable_fem','fem_backend','fem_pitch','gate_grid','audit_grid']);
   group('Replay seed',['seed']);
   const profiles=window.NeuroProfiles;let presets=[];try{presets=profiles.load(localStorage);}catch{}

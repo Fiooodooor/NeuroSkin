@@ -14,6 +14,7 @@ def test_manual_exclusion_and_release_on_failure():
                 with c.start_guard():pass
             raise ValueError('solver rejected')
     assert c.snapshot()['manual_active'] is None
+    assert c.snapshot()['rejected_requests']==2
     assert c.snapshot()['recent_manual_requests'][-1]['outcome']=='request_failed'
     with c.manual('fusion'):pass
     assert c.snapshot()['recent_manual_requests'][-1]['outcome']=='request_completed'

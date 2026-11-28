@@ -25,6 +25,8 @@ class Selection(BaseModel):
     generation: int | None = None
     piezo_count_override: int | None = None
     piezo_wiring_override: int | None = None
+    expected_live_run_id: str | None = None
+    expected_candidate_id: str | None = None
 
 
 class FusionInput(Selection):
@@ -123,11 +125,18 @@ def tile_report(kz, req):
                            'no physical membrane, curvature or readout calibration','contact multiplicity is not identified']}
 
 
-def build_router(select_candidate, preview_genome):
+def build_router(select_candidate, preview_genome, current_run_id=None):
     router=APIRouter()
     def resolve(req):
+        def check_run():
+            if req.expected_live_run_id is not None and (current_run_id is None or current_run_id()!=req.expected_live_run_id):
+                raise HTTPException(409,'Live experiment changed; rebind the lab to the current candidate')
+        check_run()
         c=select_candidate(req.selection,req.index,req.family,req.run_id,req.generation)
+        check_run()
         if c is None:raise HTTPException(404,'Candidate not found')
+        if req.expected_candidate_id is not None and str(c['id'])!=req.expected_candidate_id:
+            raise HTTPException(409,'Candidate changed; rebind the lab')
         return c,preview_genome(c,req.piezo_count_override,req.piezo_wiring_override)
 
     @router.get('/v30')

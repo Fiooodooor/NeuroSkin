@@ -256,7 +256,7 @@ def _preview_genome(candidate, piezo_count_override:int|None, piezo_wiring_overr
  return genome
 
 from neuroskin_v30.integration import build_router
-app.include_router(build_router(select_candidate,_preview_genome))
+app.include_router(build_router(select_candidate,_preview_genome,lambda:EVO.snapshot()['id']))
 
 @app.get('/api/mesh')
 def mesh(kind:str='best',index:str="0",family:str='crown',quality:int=10,run_id:str|None=None,generation:int|None=None,piezo_count_override:int|None=None,piezo_wiring_override:int|None=None):
@@ -453,6 +453,8 @@ def characterize(req:Characterize):
          'result':r,'sweep':sweep(c['family'],g,req.case)}
 
 class SpatialTest(BaseModel):
+ piezo_count_override:int|None=None
+ piezo_wiring_override:int|None=None
  selection:str='best'
  index:str='0'
  family:str='crown'
@@ -466,7 +468,7 @@ def spatial_pressure(req:SpatialTest):
  c=select_candidate(req.selection,req.index,req.family,req.run_id,req.generation)
  if c is None:raise HTTPException(404,'Candidate not found')
  try:
-  data=spatial_pressure_test(c['family'],c['genome'],force_n=req.force_n,grid_size=req.grid_size)
+  data=spatial_pressure_test(c['family'],_preview_genome(c,req.piezo_count_override,req.piezo_wiring_override),force_n=req.force_n,grid_size=req.grid_size)
  except (ValueError,np.linalg.LinAlgError) as exc:
   raise HTTPException(422,str(exc))
  return {'candidate_id':c['id'],'family':c['family'],'spatial':data}

@@ -95,3 +95,17 @@ def test_gpu_and_ram_conflicts_and_unknown_capacity():
         assert c.snapshot()['manual_active']['allocation']['exclusive_fallback']
         with pytest.raises(ComputeBusy):
             with c.manual('verification_box',{}):pass
+
+def test_gpu_vram_reservation_and_known_ram_rejection():
+    gpu={'available':True,'free_vram_mb':1000}
+    c=ComputeAdmission(lambda:False,lambda:{'cpu':8,'ram_mb':20000},gpu_probe=lambda:gpu)
+    with c.manual('linear_fem',{'compute_device':'gpu','pitch_mm':1.25}):
+        assert c.current_allocation()['vram_mb_estimate']==450
+        assert c.snapshot()['reserved']['vram_mb_estimate']==450
+    assert c.snapshot()['reserved']['vram_mb_estimate']==0
+    gpu['free_vram_mb']=100
+    with pytest.raises(ComputeBusy,match='GPU memory'):
+        with c.manual('linear_fem',{'compute_device':'gpu'}):pass
+    c=ComputeAdmission(lambda:False,lambda:{'cpu':8,'ram_mb':1000})
+    with pytest.raises(ComputeBusy,match='RAM'):
+        with c.manual('linear_fem',{'pitch_mm':.3125}):pass

@@ -225,3 +225,6 @@ Canonical development branch: `develop/v3`. Consolidate the full v2.2-derived in
 
 ## Revision 41 — workstation Evaluate All benchmark
 - Add a local HTTP benchmark of the actual Evaluate All route, using fixed seed/hybrid identity, same geometry, pitch, full preview request and eight standard loads. Compare audit/FEM scores, per-load physical quantities, mesh/protocol identity and qualification flags before calculating speedup. Report actual case and matvec workers, solver and phase timings. Failed FEM is excluded from speedup claims. Example: `python benchmark_evaluate_all.py --cores 1,16,24,40 --pitch .3125 --repeats 1` with an idle local server. No measured workstation speedup yet.
+
+## Revision 42 — live VRAM admission
+- Explicit GPU requests probe available VRAM before locking admission; reserve <=45% free and <=1024 MiB, pass that budget through to CUDA CSR allocation (which independently checks actual live CUDA free memory). Reject known insufficient RAM rather than admitting an unsafe exclusive request. Expose VRAM reservation and tolerate non-DAG progress messages. No automatic GPU acceleration or hard OS limits; previous revision 41 CI passed.

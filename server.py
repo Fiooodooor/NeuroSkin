@@ -30,7 +30,8 @@ def compute_capacity():
  from audit_scheduler import available_ram_mb
  return {'cpu':available_cores(),'ram_mb':available_ram_mb(),'default_cores':getattr(app.state,'default_cores',1)}
 
-COMPUTE=ComputeAdmission(evolution_alive,compute_capacity)
+from hardware_profile import discover_gpu
+COMPUTE=ComputeAdmission(evolution_alive,compute_capacity,gpu_probe=discover_gpu)
 @asynccontextmanager
 async def application_lifespan(app):
  try:
@@ -367,7 +368,8 @@ def simulate_fem(req:FEMRequest):
    s=BeamFEM(family,g,pitch_mm=req.pitch_mm)
    m=None
   else:
-   m=voxel_mesh(family,g,cfg);s=HexElasticSolver(m,cfg.young_MPa,cfg.poisson,compute_device=req.compute_device,family=family,genome=g)
+   m=voxel_mesh(family,g,cfg);s=HexElasticSolver(m,cfg.young_MPa,cfg.poisson,compute_device=req.compute_device,family=family,genome=g,
+       gpu_budget_mb=(COMPUTE.current_allocation() or {}).get('vram_mb_estimate',1024) or 1024)
   if req.case not in ('press_center','press_offset','shear_x','shear_y','torsion_z'):
    raise ValueError('Unsupported FEM case')
   off=(req.offset_x_mm,req.offset_y_mm) if req.case=='press_offset' else (0.,0.)
@@ -445,7 +447,7 @@ def evaluate_all(req:EvaluateAllRequest):
     return fem_sweep(candidate['family'],g,pitch_mm=req.fem_pitch_mm,backend=req.fem_backend,include_fields=True,
                   inspector_case=req.fem_inspection_case,inspector_force_N=req.fem_inspection_force_n,
                   inspector_offset=(req.fem_inspection_offset_x,req.fem_inspection_offset_y),compute_device=plan.device,
-                  include_previews=req.fem_include_previews,case_workers=plan.fem_case_workers,matvec_workers=plan.matvec_workers,phase_callback=phase_callback),None
+                  include_previews=req.fem_include_previews,case_workers=plan.fem_case_workers,matvec_workers=plan.matvec_workers,phase_callback=phase_callback,gpu_budget_mb=(allocation or {}).get('vram_mb_estimate',1024) or 1024),None
    except (ValueError,RuntimeError,MemoryError) as exc:
     return None,exc
   results=run_manual(candidate['family'],g,options,plan,solve_fem,COMPUTE.progress_callback())

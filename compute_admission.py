@@ -47,8 +47,8 @@ def allocate_manual(name,req,cpu,ram_mb,gpu_busy,has_active):
 
 
 class ComputeAdmission:
-    def __init__(self,evolution_alive,capacity=None,max_manual=4):
-        self._alive=evolution_alive;self._capacity=capacity;self._max_manual=max_manual
+    def __init__(self,evolution_alive,capacity=None,max_manual=4,gpu_probe=None):
+        self._alive=evolution_alive;self._capacity=capacity;self._max_manual=max_manual;self._gpu_probe=gpu_probe
         self._lock=Lock();self._active={};self._local=local()
         self._history=deque(maxlen=16);self._sequence=0;self._rejected=0
 
@@ -67,11 +67,16 @@ class ComputeAdmission:
         allocations=[j['allocation'] for j in self._active.values()]
         return {'cpu_workers':sum(a['cpu_workers'] for a in allocations),
                 'ram_mb_estimate':sum(a['ram_mb_estimate'] for a in allocations),
-                'gpu_slots':sum(a['gpu_slot'] for a in allocations)}
+                'gpu_slots':sum(a['gpu_slot'] for a in allocations),
+                'vram_mb_estimate':sum(a.get('vram_mb_estimate',0) for a in allocations)}
 
     @contextmanager
     def manual(self,name,request=None):
+        req=request or {}
+        wants_gpu=(name=='linear_fem' and req.get('compute_device')=='gpu') or (name=='evaluate_all' and req.get('fem_enabled',True) and req.get('fem_compute_device')=='gpu')
+        gpu=self._gpu_probe() if wants_gpu and self._gpu_probe is not None else None
         with self._lock:
+            ram=None
             if self._alive():self._reject('Evolution owns the compute slot; stop it and wait for cleanup before heavy analysis')
             if len(self._active)>=self._max_manual:self._reject('Manual analysis concurrency limit reached')
             if any(j['allocation']['exclusive_fallback'] for j in self._active.values()):
@@ -87,6 +92,18 @@ class ComputeAdmission:
                 if name=='evaluate_all' and request.get('compute_workers') is None:request={**request,'compute_workers':cap.get('default_cores',1)}
                 try:allocation=allocate_manual(name,request,cpu,ram,bool(used['gpu_slots']),bool(self._active))
                 except ComputeBusy as exc:self._reject(str(exc))
+            if allocation['gpu_slot']:
+                if gpu is not None:
+                    free=gpu.get('free_vram_mb')
+                    if not gpu.get('available') or free is None:
+                        self._reject('GPU unavailable or VRAM unknown: '+str(gpu.get('reason','no VRAM measurement')))
+                    vram=min(1024,int(.45*free))
+                    if vram<128:self._reject('Insufficient free GPU memory for CSR solve')
+                else:vram=1024
+                allocation['vram_mb_estimate']=vram
+            else:allocation['vram_mb_estimate']=0
+            if ram is not None and allocation['ram_mb_estimate']>ram:
+                self._reject('Insufficient RAM budget for requested analysis; use coarser mesh or free memory')
             self._sequence+=1
             job={'id':self._sequence,'name':name,'started':monotonic(),'allocation':allocation}
             self._active[job['id']]=job
@@ -123,7 +140,7 @@ class ComputeAdmission:
             return {'policy':'budgeted_manual_jobs_exclusive_evolution','evolution_active':bool(self._alive()),
                     'manual_active':jobs[0] if jobs else None,'manual_jobs':jobs,'reserved':self._reserved(),
                     'recent_manual_requests':list(self._history),'rejected_requests':self._rejected,'queue_enabled':False,
-                    'note':'Estimated reservations, one GPU slot; not hard limits. Request completion is not solver qualification.'}
+                    'note':'Estimated CPU/RAM/VRAM reservations, one GPU slot; not hard limits. Request completion is not solver qualification.'}
 
     def route(self,name):
         def decorate(fn):

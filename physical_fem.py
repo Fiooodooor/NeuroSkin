@@ -223,7 +223,7 @@ class HexElasticSolver:
     """Factorize global 3D stiffness once, reuse for independent load cases."""
     def __init__(self, mesh:SolidMesh, young_MPa:float=1., poisson:float=.35,
                  *, matrixfree_threshold: int=18_000, cg_maxiter: int=5000, cg_rtol:float=5e-5, cg_timeout_s:float=180., compute_device: str='cpu',
-                 family:str|None=None, genome:dict|None=None, include_laminate:bool=True, matvec_executor=None, matvec_chunks=1):
+                 family:str|None=None, genome:dict|None=None, include_laminate:bool=True, matvec_executor=None, matvec_chunks=1, gpu_budget_mb=1024):
         t=time.monotonic();self.mesh=mesh
         n=len(mesh.nodes); self.edof=(3*mesh.elements[:,:,None]+np.arange(3)[None,None,:]).reshape(-1,24)
         klocal=ke_hex(young_MPa,poisson,mesh.pitch_mm)
@@ -257,7 +257,7 @@ class HexElasticSolver:
                 try:
                     self.gpu=GPUSparseCG(self.K[self.free,:][:,self.free],
                         rtol=min(cg_rtol,5e-6),maxiter=cg_maxiter,timeout_s=cg_timeout_s,
-                        budget_mb=1024)
+                        budget_mb=gpu_budget_mb)
                 except GPUUnavailable as exc:
                     raise InvalidGeometry(str(exc)) from exc
             else:
@@ -375,7 +375,7 @@ class HexElasticSolver:
 
 
 def fem_sweep(family,g,pitch_mm=1.25,include_fields=False,backend='auto',
-              inspector_case='press_center',inspector_force_N=.1,inspector_offset=(0.,0.),compute_device='cpu',case_workers=1,include_previews=False,matvec_workers=0,phase_callback=None):
+              inspector_case='press_center',inspector_force_N=.1,inspector_offset=(0.,0.),compute_device='cpu',case_workers=1,include_previews=False,matvec_workers=0,phase_callback=None,gpu_budget_mb=1024):
     """Own and drain an optional shared matvec pool separately from RHS workers."""
     if type(matvec_workers) is not int or not 0<=matvec_workers<=32:raise ValueError('matvec_workers must be 0..32')
     if type(case_workers) is not int or not 1<=case_workers<=8:raise ValueError('case_workers must be 1..8')
@@ -383,11 +383,11 @@ def fem_sweep(family,g,pitch_mm=1.25,include_fields=False,backend='auto',
     if matvec_workers>=2 and compute_device=='cpu' and backend!='beam':
         chunks=min(8,max(2,math.ceil(matvec_workers/case_workers)))
         with ThreadPoolExecutor(max_workers=matvec_workers,thread_name_prefix='fem-matvec') as pool:
-            return _fem_sweep_impl(*args,matvec_executor=pool,matvec_chunks=chunks,matvec_workers=matvec_workers,phase_callback=phase_callback)
-    return _fem_sweep_impl(*args,phase_callback=phase_callback)
+            return _fem_sweep_impl(*args,matvec_executor=pool,matvec_chunks=chunks,matvec_workers=matvec_workers,phase_callback=phase_callback,gpu_budget_mb=gpu_budget_mb)
+    return _fem_sweep_impl(*args,phase_callback=phase_callback,gpu_budget_mb=gpu_budget_mb)
 
 
-def _fem_sweep_impl(family,g,pitch_mm,include_fields,backend,inspector_case,inspector_force_N,inspector_offset,compute_device,case_workers,include_previews,*,matvec_executor=None,matvec_chunks=1,matvec_workers=0,phase_callback=None):
+def _fem_sweep_impl(family,g,pitch_mm,include_fields,backend,inspector_case,inspector_force_N,inspector_offset,compute_device,case_workers,include_previews,*,matvec_executor=None,matvec_chunks=1,matvec_workers=0,phase_callback=None,gpu_budget_mb=1024):
     """Real FEM: small-pitch space-frame or coarser HEX8 solid with explicit backend labels."""
     if type(case_workers) is not int or not 1<=case_workers<=8:
         raise ValueError('case_workers must be an integer in 1..8')
@@ -414,7 +414,7 @@ def _fem_sweep_impl(family,g,pitch_mm,include_fields,backend,inspector_case,insp
     phase('assembly_factorization',elements=mesh.voxels,nodes=len(mesh.nodes))
     fem=HexElasticSolver(mesh,config.young_MPa,config.poisson,
             family=family,genome=g,
-            matrixfree_threshold=config.matrixfree_threshold,cg_maxiter=config.cg_maxiter,cg_rtol=config.cg_rtol,cg_timeout_s=config.cg_timeout_s,compute_device=compute_device,matvec_executor=matvec_executor,matvec_chunks=matvec_chunks)
+            matrixfree_threshold=config.matrixfree_threshold,cg_maxiter=config.cg_maxiter,cg_rtol=config.cg_rtol,cg_timeout_s=config.cg_timeout_s,compute_device=compute_device,matvec_executor=matvec_executor,matvec_chunks=matvec_chunks,gpu_budget_mb=gpu_budget_mb)
     cases={
        'press_center':dict(force=(0.,0.,-.1)),
        'press_x_minus':dict(force=(0.,0.,-.1),offset=(-1.4,0.)),
